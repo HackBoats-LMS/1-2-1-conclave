@@ -59,6 +59,7 @@ export default async function UserDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-slate-900 p-4 md:p-8 font-sans selection:bg-blue-500/20">
+      <AutoRefresh initialRoundId={gameState.currentRoundId} />
       <div className="max-w-6xl mx-auto">
         <header className="flex flex-col md:flex-row md:justify-between md:items-center mb-12 bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] gap-6">
           <div>

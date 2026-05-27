@@ -186,6 +186,9 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json<any>(sheet);
 
+    // 0. Wipe all old assignments so re-uploads always start clean
+    await prisma.tableAssignment.deleteMany({});
+
     // 1. Extract unique emails
     const allEmails: string[] = Array.from(new Set(data.map((r: any) => r.Email || r.email).filter(Boolean)));
 
