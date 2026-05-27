@@ -12,7 +12,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" }
     });
 
-    const data = referrals.map(r => ({
+    const data = referrals.map((r: any) => ({
       "Date & Time": r.createdAt.toLocaleString(),
       "Sender Email": r.fromUser.email,
       "Sender Name": r.fromUser.name || r.fromUser.businessName || "N/A",

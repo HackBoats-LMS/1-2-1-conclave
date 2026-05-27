@@ -187,7 +187,7 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     const data = xlsx.utils.sheet_to_json<any>(sheet);
 
     // 1. Extract unique emails
-    const allEmails: string[] = Array.from(new Set(data.map(r => r.Email || r.email).filter(Boolean)));
+    const allEmails: string[] = Array.from(new Set(data.map((r: any) => r.Email || r.email).filter(Boolean)));
 
     // 2. Bulk upsert users sequentially (Prisma doesn't have createManyUpsert yet)
     // but it's much faster than doing the other queries inside the loop too.

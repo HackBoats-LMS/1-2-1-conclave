@@ -77,7 +77,7 @@ export default async function UserDashboard() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {tableUsers.map((tu) => {
+          {tableUsers.map((tu: any) => {
             const user = tu.user;
             return (
               <div key={user.id} className="bg-white border border-slate-200/60 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
