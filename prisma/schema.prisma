@@ -1,0 +1,128 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // Custom Fields
+  businessName     String?
+  businessCategory String?
+  contactNumber    String?
+  description      String?
+  role             String   @default("USER")
+  isApproved       Boolean  @default(false)
+  onboardingCompleted Boolean @default(false)
+
+  // Relations
+  tableAssignments TableAssignment[]
+  sentReferrals    Referral[] @relation("SentReferrals")
+  receivedReferrals Referral[] @relation("ReceivedReferrals")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Custom App Models
+
+model Slot {
+  id         String   @id @default(cuid())
+  slotNumber Int      @unique
+  rounds     Round[]
+}
+
+model Round {
+  id          String   @id @default(cuid())
+  slotId      String
+  roundNumber Int
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  startTime   DateTime?
+  slot        Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  tables      Table[]
+  
+  @@unique([slotId, roundNumber])
+}
+
+model Table {
+  id          String   @id @default(cuid())
+  roundId     String
+  tableNumber Int
+  round       Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  assignments TableAssignment[]
+
+  @@unique([roundId, tableNumber])
+}
+
+model TableAssignment {
+  id      String @id @default(cuid())
+  userId  String
+  tableId String
+
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  table   Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tableId])
+}
+
+model Referral {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  fromUser   User     @relation("SentReferrals", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("ReceivedReferrals", fields: [toUserId], references: [id], onDelete: Cascade)
+}
+
+model GameState {
+  id             String  @id @default(cuid())
+  currentRoundId String?
+}
