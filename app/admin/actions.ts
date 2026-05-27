@@ -201,7 +201,7 @@ export async function uploadAssignmentsExcel(formData: FormData) {
 
     // 3. Fetch all users, slots, rounds, and tables into memory for instant lookup
     const dbUsers = await prisma.user.findMany({ where: { email: { in: allEmails } } });
-    const userMap = new Map(dbUsers.map(u => [u.email as string, u.id]));
+    const userMap = new Map(dbUsers.map((u: any) => [u.email as string, u.id]));
 
     const allSlots = await prisma.slot.findMany({
       include: { rounds: { include: { tables: true } } }
