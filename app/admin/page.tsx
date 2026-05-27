@@ -107,13 +107,13 @@ export default async function AdminDashboard() {
               </div>
 
               <div className="space-y-8">
-                {slots.map(slot => (
+                {slots.map((slot: any) => (
                   <div key={slot.id} className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
                     <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 font-bold text-slate-700 tracking-wide">
                       SLOT {slot.slotNumber}
                     </div>
                     <div className="divide-y divide-slate-100">
-                      {slot.rounds.map(round => {
+                      {slot.rounds.map((round: any) => {
                         const isActive = gameState?.currentRoundId === round.id;
                         return (
                           <div key={round.id} className={`flex items-center justify-between p-6 transition-all ${isActive ? 'bg-blue-50/50' : 'hover:bg-slate-50/50'}`}>
