@@ -50,7 +50,6 @@ export default async function Home() {
           <nav className="hidden md:flex items-center gap-8 font-bold text-sm tracking-wide">
             <a href="#features" className="hover:text-slate-600 transition-colors uppercase">Features</a>
             <a href="#how-it-works" className="hover:text-slate-600 transition-colors uppercase">How It Works</a>
-            <a href="#testimonials" className="hover:text-slate-600 transition-colors uppercase">Success Stories</a>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -301,81 +300,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Dribbble Style Testimonials (High Contrast forest green block) */}
-      <section id="testimonials" className="bg-[#0D2421] text-[#FAF8F4] py-24 px-6 relative overflow-hidden">
-        {/* Decorative Neon Ring in test area */}
-        <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full border border-[#BEF03C]/10 pointer-events-none"></div>
-        <div className="absolute top-12 left-12 w-6 h-6 rounded-full bg-[#BEF03C]/10 pointer-events-none"></div>
 
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-20 space-y-4">
-            <span className="text-xs font-black tracking-widest text-[#BEF03C] uppercase">
-              NETWORK PERFORMANCE
-            </span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight uppercase leading-tight">
-              Verified Referral Success
-            </h2>
-            <p className="text-sm font-semibold text-[#FAF8F4]/75">
-              Read how event managers and business owners swapped paper business cards for live digital referrals.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
-            {/* Quote 1 */}
-            <div className="bg-[#143430] border border-[#BEF03C]/20 p-8 rounded-[2rem] flex flex-col justify-between relative hover:border-[#BEF03C]/50 transition-all">
-              <span className="text-5xl font-black text-[#BEF03C]/10 absolute top-4 left-6 select-none font-serif">“</span>
-              <p className="text-sm leading-relaxed text-[#FAF8F4]/90 relative z-10 pt-4 mb-8 font-medium">
-                "Secured 4 high-tier matching referrals on my first night. The countdown keeps discussions sharp, and the digital referrals are stored directly on the dashboard."
-              </p>
-              <div className="flex items-center gap-3 border-t border-[#BEF03C]/10 pt-4">
-                <div className="w-10 h-10 bg-[#BEF03C] border border-[#0D2421] text-[#0D2421] rounded-xl flex items-center justify-center font-black text-sm">
-                  SJ
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#FAF8F4]">Sarah Jenkins</h4>
-                  <p className="text-xs text-[#BEF03C] font-black uppercase">IT Systems Director</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Quote 2 */}
-            <div className="bg-[#143430] border border-[#BEF03C]/20 p-8 rounded-[2rem] flex flex-col justify-between relative hover:border-[#BEF03C]/50 transition-all">
-              <span className="text-5xl font-black text-[#BEF03C]/10 absolute top-4 left-6 select-none font-serif">“</span>
-              <p className="text-sm leading-relaxed text-[#FAF8F4]/90 relative z-10 pt-4 mb-8 font-medium">
-                "No more pockets filled with lost business cards. Simply click 'Send Referral' next to your partner's name. It takes five seconds, and the log is fully exportable."
-              </p>
-              <div className="flex items-center gap-3 border-t border-[#BEF03C]/10 pt-4">
-                <div className="w-10 h-10 bg-[#BEF03C] border border-[#0D2421] text-[#0D2421] rounded-xl flex items-center justify-center font-black text-sm">
-                  MT
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#FAF8F4]">Marcus Thorne</h4>
-                  <p className="text-xs text-[#BEF03C] font-black uppercase">Mkt Agency Founder</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Quote 3 */}
-            <div className="bg-[#143430] border border-[#BEF03C]/20 p-8 rounded-[2rem] flex flex-col justify-between relative hover:border-[#BEF03C]/50 transition-all">
-              <span className="text-5xl font-black text-[#BEF03C]/10 absolute top-4 left-6 select-none font-serif">“</span>
-              <p className="text-sm leading-relaxed text-[#FAF8F4]/90 relative z-10 pt-4 mb-8 font-medium">
-                "Running massive networking rotations used to be a logistical nightmare. Now, we initialize the rounds, upload the Excel template, and let the software handle it."
-              </p>
-              <div className="flex items-center gap-3 border-t border-[#BEF03C]/10 pt-4">
-                <div className="w-10 h-10 bg-[#BEF03C] border border-[#0D2421] text-[#0D2421] rounded-xl flex items-center justify-center font-black text-sm">
-                  KH
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#FAF8F4]">Karen H.</h4>
-                  <p className="text-xs text-[#BEF03C] font-black uppercase">Session Organizer</p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
 
       {/* Retro Call-to-Action Grid Banner */}
       <section className="bg-[#FAF8F4] py-24 px-6 border-b border-[#0D2421] text-center relative overflow-hidden">
