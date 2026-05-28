@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 1-2-1 Conclave - Business Networking Platform
 
-## Getting Started
+A modern, high-performance web application designed to facilitate real-time, round-based business networking events. Built with Next.js 15, React 19, Tailwind CSS v4, and PostgreSQL.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Secure Authentication:** Integrated NextAuth.js with Google OAuth.
+- **Admin Console:** 
+  - Manage users, roles, and table assignments directly from the dashboard.
+  - Bulk import assignments and grant access via Excel uploads (`.xlsx`, `.csv`).
+  - Control live networking rounds (Start, Pause, Stop) in real-time.
+  - Reset live data and initialize the database with empty slots/rounds instantly.
+- **Live User Dashboard:** 
+  - Real-time updates for active rounds (auto-refreshes).
+  - View current table assignments and fellow participants' profiles.
+  - Send private networking referrals/notes to other participants at your assigned table.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Frontend Framework:** Next.js (App Router), React 19
+- **Styling:** Tailwind CSS v4
+- **Backend API:** Next.js Secure Server Actions
+- **Database:** PostgreSQL via Prisma ORM
+- **Authentication:** NextAuth (Auth.js) v5 Beta
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local Development
 
-## Learn More
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Set up Environment Variables:**
+   Create a `.env` file in the root directory:
+   ```env
+   DATABASE_URL="postgres://..."
+   AUTH_SECRET="your-secret-string"
+   GOOGLE_CLIENT_ID="your-client-id"
+   GOOGLE_CLIENT_SECRET="your-client-secret"
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Run database migrations & generate Prisma client:**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+   Open your browser and navigate to `http://localhost:3000`.
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This application is fully optimized and ready to be deployed to Vercel. 
+Connect your GitHub repository to your Vercel account, add your environment variables in the Vercel dashboard, and click deploy! 
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The `postinstall` script in `package.json` will automatically handle Prisma client generation during the build phase.
