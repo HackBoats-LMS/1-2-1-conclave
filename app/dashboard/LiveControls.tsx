@@ -34,9 +34,9 @@ export function LiveControls({ updatedAtTime }: { updatedAtTime: number }) {
   }, [updatedAtTime]);
 
   return (
-    <div className={`px-8 py-4 rounded-2xl font-bold text-xl border shadow-inner text-center transition-all ${isEnded ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-red-50 text-red-600 border-red-100'}`}>
+    <div className={`px-6 py-3.5 rounded-2xl font-black text-xl border-2 text-center transition-all ${isEnded ? 'bg-slate-100 text-slate-400 border-slate-300' : 'bg-[#0D2421] text-[#BEF03C] border-[#0D2421] shadow-[3px_3px_0px_#0D2421]'}`}>
       {timeLeft} 
-      <span className={`text-sm font-medium block md:inline md:ml-2 ${isEnded ? 'text-slate-400' : 'text-red-400'}`}>
+      <span className={`text-xs font-black uppercase tracking-wider block md:inline md:ml-3 ${isEnded ? 'text-slate-400' : 'text-[#BEF03C]'}`}>
         {isEnded ? "Round Ended" : "Remaining"}
       </span>
     </div>

@@ -1,39 +1,107 @@
 import { completeOnboarding } from "./actions";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function Onboarding() {
+export default async function Onboarding() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const isProfileComplete = (session.user as any).onboardingCompleted;
+  if (isProfileComplete) {
+    const isAdmin = (session.user as any).role === "ADMIN";
+    if (isAdmin) {
+      redirect("/admin");
+    } else {
+      redirect("/dashboard");
+    }
+  }
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-md">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Complete Your Profile</h2>
+    <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] font-sans selection:bg-[#BEF03C]/40 py-12 px-6 relative flex items-center justify-center overflow-x-hidden">
+      {/* Blueprint Dot Grid Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
+
+      <div className="bg-white border-2 border-[#0D2421] p-8 md:p-12 rounded-[2rem] shadow-[8px_8px_0px_#0D2421] max-w-lg w-full relative z-10 space-y-8">
+        
+        <div className="text-center space-y-2">
+          <div className="inline-block px-3 py-1.5 bg-[#0D2421] text-[#BEF03C] border border-[#0D2421] rounded-full text-[10px] font-black tracking-widest uppercase shadow-[1.5px_1.5px_0px_#0D2421]">
+            STEP 02 / ACCOUNT CONFIGURATION
+          </div>
+          <h2 className="text-3xl font-black uppercase tracking-tight text-center">
+            Complete Your Profile
+          </h2>
+          <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wider">
+            Provide business detail credentials to join the table rounds
+          </p>
+        </div>
         
         <form action={completeOnboarding} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Business Name</label>
-            <input required name="businessName" type="text" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" placeholder="Acme Corp" />
+          
+          <div className="space-y-1">
+            <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+              Business Name
+            </label>
+            <input 
+              required 
+              name="businessName" 
+              type="text" 
+              className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30" 
+              placeholder="Acme Corp" 
+            />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Category</label>
-            <select name="businessCategory" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500">
-              <option>IT Services</option>
-              <option>Marketing</option>
-              <option>Finance</option>
-              <option>Other</option>
-            </select>
+          <div className="space-y-1">
+            <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+              Business Category
+            </label>
+            <div className="relative">
+              <select 
+                name="businessCategory" 
+                className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold appearance-none cursor-pointer"
+              >
+                <option>IT Services</option>
+                <option>Marketing</option>
+                <option>Finance</option>
+                <option>Other</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#0D2421]">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Contact Number</label>
-            <input required name="contactNumber" type="tel" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" placeholder="+1 (555) 000-0000" />
+          <div className="space-y-1">
+            <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+              Contact Number
+            </label>
+            <input 
+              required 
+              name="contactNumber" 
+              type="tel" 
+              className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30" 
+              placeholder="+1 (555) 000-0000" 
+            />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Business Description</label>
-            <textarea required name="description" rows={4} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" placeholder="Briefly describe what your business does..." />
+          <div className="space-y-1">
+            <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+              Business Description
+            </label>
+            <textarea 
+              required 
+              name="description" 
+              rows={4} 
+              className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30 resize-none" 
+              placeholder="Briefly describe what your business does..." 
+            />
           </div>
 
-          <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none">
-            Save & Continue
+          <button 
+            type="submit" 
+            className="w-full flex items-center justify-center gap-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] py-4 px-6 rounded-2xl font-black uppercase text-sm shadow-[4px_4px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#0D2421] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer"
+          >
+            Save Profile & Continue
           </button>
         </form>
       </div>

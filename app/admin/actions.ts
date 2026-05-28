@@ -244,24 +244,35 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json<any>(sheet);
 
-    // 0. Wipe all old assignments so re-uploads always start clean
+    // 0. Wipe old mappings to start completely fresh based on the uploaded spreadsheet
     await prisma.tableAssignment.deleteMany({});
+    await prisma.table.deleteMany({});
+    await prisma.round.deleteMany({});
+    await prisma.slot.deleteMany({});
 
-    // 1. Extract unique emails, trimming and lowercasing to avoid duplicates like "User@gmail.com" and "user@gmail.com"
-    const allEmails: string[] = Array.from(
-      new Set(
-        data
-          .map((r: any) => {
-            const rawEmail = r.Email || r.email;
-            return typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : rawEmail;
-          })
-          .filter(Boolean)
-      )
-    );
+    // Reset current active round in GameState
+    const state = await prisma.gameState.findFirst();
+    if (state) {
+      await prisma.gameState.update({
+        where: { id: state.id },
+        data: { currentRoundId: null }
+      });
+    }
+
+    // 1. Clean, parse, and validate data rows
+    const parsedRows = data.map((row: any) => {
+      const rawEmail = row.Email || row.email;
+      const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+      const slotNum = parseInt(row.Slot || row.slot);
+      const roundNum = parseInt(row.Round || row.round);
+      const tableNum = parseInt(row.Table || row.table);
+      return { email, slotNum, roundNum, tableNum };
+    }).filter(r => r.email && !isNaN(r.slotNum) && !isNaN(r.roundNum) && !isNaN(r.tableNum));
+
+    // 2. Extract and upsert unique users sequentially
+    const allEmails: string[] = Array.from(new Set(parsedRows.map(r => r.email)));
     emailsCount = allEmails.length;
 
-    // 2. Bulk upsert users sequentially (Prisma doesn't have createManyUpsert yet)
-    // but it's much faster than doing the other queries inside the loop too.
     for (const email of allEmails) {
       await prisma.user.upsert({
         where: { email },
@@ -270,43 +281,70 @@ export async function uploadAssignmentsExcel(formData: FormData) {
       });
     }
 
-    // 3. Fetch all users, slots, rounds, and tables into memory for instant lookup
+    // Map users to their IDs
     const dbUsers = await prisma.user.findMany({ where: { email: { in: allEmails } } });
     const userMap = new Map(dbUsers.map((u: any) => [u.email as string, u.id]));
 
-    const allSlots = await prisma.slot.findMany({
-      include: { rounds: { include: { tables: true } } }
-    });
+    // 3. Dynamically generate Slots
+    const uniqueSlots = Array.from(new Set(parsedRows.map(r => r.slotNum))).sort((a, b) => a - b);
+    const slotMap = new Map(); // slotNum -> slotId
+    for (const slotNum of uniqueSlots) {
+      const dbSlot = await prisma.slot.create({
+        data: { slotNumber: slotNum }
+      });
+      slotMap.set(slotNum, dbSlot.id);
+    }
 
-    const tableMap = new Map();
-    for (const slot of allSlots) {
-      for (const round of slot.rounds) {
-        for (const table of round.tables) {
-          tableMap.set(`${slot.slotNumber}-${round.roundNumber}-${table.tableNumber}`, table.id);
-        }
+    // 4. Dynamically generate Rounds
+    const uniqueRoundKeys = Array.from(new Set(parsedRows.map(r => `${r.slotNum}-${r.roundNum}`)));
+    const roundMap = new Map(); // "slotNum-roundNum" -> roundId
+    for (const key of uniqueRoundKeys) {
+      const [slotNumStr, roundNumStr] = key.split("-");
+      const slotNum = parseInt(slotNumStr);
+      const roundNum = parseInt(roundNumStr);
+      const slotId = slotMap.get(slotNum);
+      if (slotId) {
+        const dbRound = await prisma.round.create({
+          data: {
+            slotId,
+            roundNumber: roundNum,
+            status: "PENDING"
+          }
+        });
+        roundMap.set(key, dbRound.id);
       }
     }
 
-    // 4. Construct assignments array
+    // 5. Dynamically generate Tables
+    const uniqueTableKeys = Array.from(new Set(parsedRows.map(r => `${r.slotNum}-${r.roundNum}-${r.tableNum}`)));
+    const tableMap = new Map(); // "slotNum-roundNum-tableNum" -> tableId
+    for (const key of uniqueTableKeys) {
+      const [slotNumStr, roundNumStr, tableNumStr] = key.split("-");
+      const slotNum = parseInt(slotNumStr);
+      const roundNum = parseInt(roundNumStr);
+      const tableNum = parseInt(tableNumStr);
+      const roundId = roundMap.get(`${slotNum}-${roundNum}`);
+      if (roundId) {
+        const dbTable = await prisma.table.create({
+          data: {
+            roundId,
+            tableNumber: tableNum
+          }
+        });
+        tableMap.set(key, dbTable.id);
+      }
+    }
+
+    // 6. Map and bulk insert TableAssignments
     const assignmentsToCreate = [];
-    for (const row of data) {
-      const rawEmail = row.Email || row.email;
-      const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : rawEmail;
-      const slotNum = parseInt(row.Slot || row.slot);
-      const roundNum = parseInt(row.Round || row.round);
-      const tableNum = parseInt(row.Table || row.table);
-
-      if (!email || isNaN(slotNum) || isNaN(roundNum) || isNaN(tableNum)) continue;
-
-      const userId = userMap.get(email);
-      const tableId = tableMap.get(`${slotNum}-${roundNum}-${tableNum}`);
-
+    for (const row of parsedRows) {
+      const userId = userMap.get(row.email);
+      const tableId = tableMap.get(`${row.slotNum}-${row.roundNum}-${row.tableNum}`);
       if (userId && tableId) {
         assignmentsToCreate.push({ userId, tableId });
       }
     }
 
-    // 5. Bulk insert assignments
     if (assignmentsToCreate.length > 0) {
       await prisma.tableAssignment.createMany({
         data: assignmentsToCreate,
@@ -315,6 +353,7 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     }
 
     revalidatePath("/admin");
+    revalidatePath("/dashboard");
   } catch (e) {
     console.error("Failed to process assignments excel", e);
     return;
