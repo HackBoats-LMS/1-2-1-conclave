@@ -16,7 +16,7 @@ export async function completeOnboarding(formData: FormData) {
   if (!user) throw new Error("User not found");
 
   // Save profile details
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id: user.id },
     data: {
       businessName,
@@ -27,5 +27,9 @@ export async function completeOnboarding(formData: FormData) {
     }
   });
 
-  redirect("/dashboard");
+  if (updatedUser.role === "ADMIN") {
+    redirect("/admin");
+  } else {
+    redirect("/dashboard");
+  }
 }
