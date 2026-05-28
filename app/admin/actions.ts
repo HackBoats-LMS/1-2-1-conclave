@@ -1,26 +1,44 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import * as xlsx from 'xlsx';
 
-export async function addApprovedUser(formData: FormData) {
+import { auth } from "@/lib/auth";
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+}
+
+
+export async function addManualUser(formData: FormData) {
+  await requireAdmin();
   const email = formData.get("email") as string;
-  if (!email) return { error: "Email is required" };
+  const role = formData.get("role") as string || "USER";
+  if (!email) {
+    console.error("Email is required");
+    return;
+  }
 
   try {
     await prisma.user.upsert({
       where: { email },
-      update: { isApproved: true },
-      create: { email, isApproved: true, role: "USER" }
+      update: { isApproved: true, role },
+      create: { email, isApproved: true, role }
     });
     revalidatePath("/admin");
-    return { success: true };
   } catch (error) {
-    return { error: "Failed to add user" };
+    console.error(error);
+    return;
   }
+  redirect("/admin?success=added_user");
 }
 
 export async function removeUser(formData: FormData) {
+  await requireAdmin();
   const email = formData.get("email") as string;
   try {
     await prisma.user.update({
@@ -28,13 +46,42 @@ export async function removeUser(formData: FormData) {
       data: { isApproved: false }
     });
     revalidatePath("/admin");
-    return { success: true };
   } catch (error) {
-    return { error: "Failed to remove user" };
+    console.error(error);
   }
 }
 
+export async function deleteUserAccount(formData: FormData) {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+  try {
+    await prisma.user.delete({
+      where: { id: userId }
+    });
+    revalidatePath("/admin");
+  } catch (error) {
+    console.error(error);
+    return;
+  }
+  redirect("/admin?success=deleted_user");
+}
+
+export async function removeAllUsers() {
+  await requireAdmin();
+  try {
+    await prisma.user.deleteMany({
+      where: { role: { not: "ADMIN" } }
+    });
+    revalidatePath("/admin");
+  } catch (e) {
+    console.error(e);
+    return;
+  }
+  redirect("/admin?success=cleared_members");
+}
+
 export async function initializeData() {
+  await requireAdmin();
   const existing = await prisma.slot.count();
   if (existing > 0) throw new Error("Already initialized");
 
@@ -52,9 +99,11 @@ export async function initializeData() {
     }
   }
   revalidatePath("/admin");
+  redirect("/admin?success=initialized");
 }
 
 export async function startRound(formData: FormData) {
+  await requireAdmin();
   const roundId = formData.get("roundId") as string;
   try {
     await prisma.round.update({
@@ -80,6 +129,7 @@ export async function startRound(formData: FormData) {
 }
 
 export async function stopRound(formData: FormData) {
+  await requireAdmin();
   try {
     const roundId = formData.get("roundId") as string;
     await prisma.round.update({
@@ -98,6 +148,7 @@ export async function stopRound(formData: FormData) {
 }
 
 export async function pauseRound(formData: FormData) {
+  await requireAdmin();
   try {
     const roundId = formData.get("roundId") as string;
     const state = await prisma.gameState.findFirst();
@@ -112,6 +163,7 @@ export async function pauseRound(formData: FormData) {
 }
 
 export async function resetAllRounds() {
+  await requireAdmin();
   try {
     await prisma.round.updateMany({
       data: { status: "PENDING" }
@@ -128,15 +180,19 @@ export async function resetAllRounds() {
 }
 
 export async function clearReferrals() {
+  await requireAdmin();
   try {
     await prisma.referral.deleteMany({});
     revalidatePath("/admin");
   } catch (e) {
     console.error(e);
+    return;
   }
+  redirect("/admin?success=cleared_referrals");
 }
 
 export async function revokeAllAccess() {
+  await requireAdmin();
   try {
     await prisma.user.updateMany({
       data: { isApproved: false }
@@ -149,9 +205,10 @@ export async function revokeAllAccess() {
 }
 
 export async function uploadWhitelistExcel(formData: FormData) {
+  await requireAdmin();
   try {
     const file = formData.get("file") as File;
-    if (!file || !file.size) return { error: "No file provided" };
+    if (!file || !file.size) return;
     
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -169,13 +226,14 @@ export async function uploadWhitelistExcel(formData: FormData) {
       });
     }
     revalidatePath("/admin");
-    return { success: true };
   } catch (e) {
-    return { error: "Failed to parse excel file" };
+    console.error(e);
   }
 }
 
 export async function uploadAssignmentsExcel(formData: FormData) {
+  await requireAdmin();
+  let emailsCount = 0;
   try {
     const file = formData.get("file") as File;
     if (!file || !file.size) throw new Error("No file provided");
@@ -189,8 +247,18 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     // 0. Wipe all old assignments so re-uploads always start clean
     await prisma.tableAssignment.deleteMany({});
 
-    // 1. Extract unique emails
-    const allEmails: string[] = Array.from(new Set(data.map((r: any) => r.Email || r.email).filter(Boolean)));
+    // 1. Extract unique emails, trimming and lowercasing to avoid duplicates like "User@gmail.com" and "user@gmail.com"
+    const allEmails: string[] = Array.from(
+      new Set(
+        data
+          .map((r: any) => {
+            const rawEmail = r.Email || r.email;
+            return typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : rawEmail;
+          })
+          .filter(Boolean)
+      )
+    );
+    emailsCount = allEmails.length;
 
     // 2. Bulk upsert users sequentially (Prisma doesn't have createManyUpsert yet)
     // but it's much faster than doing the other queries inside the loop too.
@@ -222,7 +290,8 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     // 4. Construct assignments array
     const assignmentsToCreate = [];
     for (const row of data) {
-      const email = row.Email || row.email;
+      const rawEmail = row.Email || row.email;
+      const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : rawEmail;
       const slotNum = parseInt(row.Slot || row.slot);
       const roundNum = parseInt(row.Round || row.round);
       const tableNum = parseInt(row.Table || row.table);
@@ -248,6 +317,9 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     revalidatePath("/admin");
   } catch (e) {
     console.error("Failed to process assignments excel", e);
+    return;
   }
+  
+  redirect(`/admin?success=uploaded_assignments&added=${emailsCount}`);
 }
 

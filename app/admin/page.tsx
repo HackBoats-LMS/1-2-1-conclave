@@ -1,9 +1,30 @@
 import { prisma } from "@/lib/prisma";
-import { initializeData, startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, revokeAllAccess, uploadAssignmentsExcel } from "./actions";
+import { initializeData, startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, revokeAllAccess, uploadAssignmentsExcel, addManualUser, removeAllUsers, deleteUserAccount } from "./actions";
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const resolvedParams = await searchParams;
+  const addedCount = resolvedParams?.added;
+  const successAction = resolvedParams?.success;
+
+  let successMessage = "";
+  if (successAction === "uploaded_assignments" && addedCount) {
+    successMessage = `Successfully processed and granted access to ${addedCount} unique user accounts!`;
+  } else if (successAction === "cleared_referrals") {
+    successMessage = "Live referrals data has been successfully cleared!";
+  } else if (successAction === "cleared_members") {
+    successMessage = "All non-admin members have been successfully removed!";
+  } else if (successAction === "initialized") {
+    successMessage = "Database has been successfully initialized with empty tables and rounds!";
+  } else if (successAction === "deleted_user") {
+    successMessage = "User account has been permanently deleted!";
+  } else if (successAction === "added_user") {
+    successMessage = "User has been manually added and granted access!";
+  } else if (addedCount) {
+    successMessage = `Successfully processed and granted access to ${addedCount} unique user accounts from the uploaded file!`;
+  }
+
   const slots = await prisma.slot.findMany({
     include: { rounds: { orderBy: { roundNumber: 'asc' } } },
     orderBy: { slotNumber: 'asc' }
@@ -11,6 +32,9 @@ export default async function AdminDashboard() {
   
   const gameState = await prisma.gameState.findFirst();
   const totalReferrals = await prisma.referral.count();
+  const users = await prisma.user.findMany({
+    orderBy: { email: 'asc' }
+  });
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-slate-900 p-4 md:p-8 font-sans selection:bg-blue-500/20">
@@ -22,6 +46,13 @@ export default async function AdminDashboard() {
           <p className="text-slate-500 mt-2 font-medium tracking-wide">Manage conclave sessions, rounds, and participants.</p>
         </header>
         
+        {successMessage && (
+          <div className="mb-8 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-3 shadow-sm">
+            <svg className="w-6 h-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className="font-medium">{successMessage}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Column */}
@@ -186,6 +217,94 @@ export default async function AdminDashboard() {
             </div>
           </div>
           
+        </div>
+
+        {/* User Management Section */}
+        <div className="mt-8">
+          <div className="bg-white border border-slate-200/60 p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <h2 className="text-2xl font-semibold text-slate-800">Access & Member Management</h2>
+              <form action={removeAllUsers}>
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-all shadow-sm border border-red-200 whitespace-nowrap"
+                >
+                  Clear All Members
+                </button>
+              </form>
+            </div>
+            
+            <form action={addManualUser} className="mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4">Grant Access Manually</h3>
+              <div className="flex flex-col sm:flex-row gap-4 items-end">
+                <div className="flex-1 w-full">
+                  <label htmlFor="email" className="block text-xs font-semibold text-slate-500 mb-1.5">User Email</label>
+                  <input suppressHydrationWarning type="email" id="email" name="email" required placeholder="name@company.com" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                </div>
+                <div className="w-full sm:w-48">
+                  <label htmlFor="role" className="block text-xs font-semibold text-slate-500 mb-1.5">Access Level</label>
+                  <select id="role" name="role" className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white">
+                    <option value="USER">Member Login</option>
+                    <option value="ADMIN">Admin Access</option>
+                  </select>
+                </div>
+                <button type="submit" className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all text-sm whitespace-nowrap shadow-sm">
+                  Grant Access
+                </button>
+              </div>
+            </form>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-sm text-slate-500">
+                    <th className="pb-3 px-4 font-semibold">Name / Email</th>
+                    <th className="pb-3 px-4 font-semibold">Business</th>
+                    <th className="pb-3 px-4 font-semibold text-center">Status</th>
+                    <th className="pb-3 px-4 font-semibold text-center">Role</th>
+                    <th className="pb-3 px-4 font-semibold text-right"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {users.map((user: any) => (
+                    <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="font-semibold text-slate-800">{user.name || 'N/A'}</div>
+                        <div className="text-slate-500 text-xs">{user.email}</div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="font-medium text-slate-700">{user.businessName || '-'}</div>
+                        <div className="text-slate-400 text-xs">{user.businessCategory || '-'}</div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${user.isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {user.isApproved ? 'Approved' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <form action={deleteUserAccount}>
+                          <input type="hidden" name="userId" value={user.id} />
+                          <button type="submit" className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete User">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-500">No users found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>

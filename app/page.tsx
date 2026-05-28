@@ -1,4 +1,9 @@
-export default function Home() {
+import { auth } from "@/lib/auth";
+
+export default async function Home() {
+  const session = await auth();
+  const isAdmin = session?.user && (session.user as any).role === "ADMIN";
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8 font-sans">
       <div className="bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center">
@@ -6,9 +11,11 @@ export default function Home() {
         <p className="text-gray-500 mb-8">Business Networking Platform</p>
 
         <div className="space-y-4">
-          <a href="/admin" className="block w-full py-3 px-4 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition font-medium">
-            Admin Panel
-          </a>
+          {isAdmin && (
+            <a href="/admin" className="block w-full py-3 px-4 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition font-medium">
+              Admin Panel
+            </a>
+          )}
           <a href="/dashboard" className="block w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
             User Dashboard
           </a>
