@@ -39,6 +39,19 @@ export default async function Onboarding() {
           
           <div className="space-y-1">
             <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+              Full Name
+            </label>
+            <input 
+              required 
+              name="name" 
+              type="text" 
+              className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30" 
+              placeholder="John Doe" 
+            />
+          </div>
+          
+          <div className="space-y-1">
+            <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
               Business Name
             </label>
             <input 

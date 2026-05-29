@@ -195,6 +195,7 @@ export async function revokeAllAccess() {
   await requireAdmin();
   try {
     await prisma.user.updateMany({
+      where: { role: { not: "ADMIN" } },
       data: { isApproved: false }
     });
     await prisma.tableAssignment.deleteMany({});
