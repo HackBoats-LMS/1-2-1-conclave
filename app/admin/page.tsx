@@ -234,7 +234,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 </div>
                                 <div className="space-y-0.5">
                                   <h4 className="font-black text-xs uppercase">Round {round.roundNumber}</h4>
-                                  <span className="text-[9px] font-black text-[#0D2421]/40 uppercase tracking-widest">ROTATION PIN</span>
+                                  <span className="text-[9px] font-black text-[#0D2421]/40 uppercase tracking-widest">
+                                    {round.durationMinutes || 15} Mins • Rotation Pin
+                                  </span>
                                 </div>
                               </div>
 
@@ -263,8 +265,24 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                   </form>
                                 </>
                               ) : (
-                                <form action={startRound} className="w-full">
+                                <form action={startRound} className="w-full space-y-3">
                                   <input type="hidden" name="roundId" value={round.id} />
+                                  {round.status !== 'COMPLETED' && (
+                                    <div className="space-y-1 text-left">
+                                      <label htmlFor={`duration-${round.id}`} className="block text-[9px] font-black uppercase tracking-wider text-[#0D2421]/60">
+                                        Duration (Min. 15m)
+                                      </label>
+                                      <input 
+                                        type="number" 
+                                        id={`duration-${round.id}`} 
+                                        name="durationMinutes" 
+                                        min={15} 
+                                        required
+                                        defaultValue={round.durationMinutes || 15}
+                                        className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all placeholder:text-[#0D2421]/30" 
+                                      />
+                                    </div>
+                                  )}
                                   <SubmitButton 
                                     loadingText="Launching..."
                                     className={`w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] transition-all ${

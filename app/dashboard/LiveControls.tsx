@@ -2,19 +2,25 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export function LiveControls({ updatedAtTime }: { updatedAtTime: number }) {
+export function LiveControls({ 
+  updatedAtTime, 
+  durationMinutes = 15 
+}: { 
+  updatedAtTime: number; 
+  durationMinutes?: number; 
+}) {
   const router = useRouter();
-  const [timeLeft, setTimeLeft] = useState("15:00");
+  const [timeLeft, setTimeLeft] = useState(`${durationMinutes.toString().padStart(2, '0')}:00`);
   const [isEnded, setIsEnded] = useState(false);
 
   // Removed all polling from live round to guarantee zero lag or infinite render loops.
 
-  // Real-time 15-minute countdown synchronized to when the Admin clicked Launch
+  // Real-time custom countdown synchronized to when the Admin clicked Launch
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date().getTime();
       const elapsed = now - updatedAtTime;
-      const totalDuration = 15 * 60 * 1000; // 15 mins in ms
+      const totalDuration = durationMinutes * 60 * 1000; // custom mins in ms
       
       const remaining = totalDuration - elapsed;
 
@@ -31,7 +37,7 @@ export function LiveControls({ updatedAtTime }: { updatedAtTime: number }) {
     updateTimer(); 
     const timerInterval = setInterval(updateTimer, 1000);
     return () => clearInterval(timerInterval);
-  }, [updatedAtTime]);
+  }, [updatedAtTime, durationMinutes]);
 
   return (
     <div className={`px-6 py-3.5 rounded-2xl font-black text-xl border-2 text-center transition-all ${isEnded ? 'bg-slate-100 text-slate-400 border-slate-300' : 'bg-[#0D2421] text-[#BEF03C] border-[#0D2421] shadow-[3px_3px_0px_#0D2421]'}`}>
