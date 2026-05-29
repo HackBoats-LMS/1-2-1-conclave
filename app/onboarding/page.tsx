@@ -1,6 +1,7 @@
 import { completeOnboarding } from "./actions";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { SubmitButton } from "@/app/components/SubmitButton";
 
 export default async function Onboarding() {
   const session = await auth();
@@ -97,12 +98,12 @@ export default async function Onboarding() {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <SubmitButton 
+            loadingText="Saving..." 
             className="w-full flex items-center justify-center gap-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] py-4 px-6 rounded-2xl font-black uppercase text-sm shadow-[4px_4px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#0D2421] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer"
           >
             Save Profile & Continue
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

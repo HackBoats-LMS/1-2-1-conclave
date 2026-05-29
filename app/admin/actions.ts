@@ -217,13 +217,19 @@ export async function uploadWhitelistExcel(formData: FormData) {
     const data = xlsx.utils.sheet_to_json<any>(sheet);
 
     for (const row of data) {
-      const email = row.Email || row.email;
-      if (!email) continue;
-      await prisma.user.upsert({
-        where: { email },
-        update: { isApproved: true },
-        create: { email, isApproved: true, role: "USER" }
-      });
+      const emailKey = Object.keys(row).find(key => 
+        key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
+      );
+      const rawEmail = emailKey ? row[emailKey] : null;
+      if (typeof rawEmail === "string") {
+        const email = rawEmail.trim().toLowerCase();
+        if (!email) continue;
+        await prisma.user.upsert({
+          where: { email },
+          update: { isApproved: true },
+          create: { email, isApproved: true, role: "USER" }
+        });
+      }
     }
     revalidatePath("/admin");
   } catch (e) {
@@ -259,20 +265,34 @@ export async function uploadAssignmentsExcel(formData: FormData) {
       });
     }
 
-    // 1. Clean, parse, and validate data rows
-    const parsedRows = data.map((row: any) => {
-      const rawEmail = row.Email || row.email;
-      const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
-      const slotNum = parseInt(row.Slot || row.slot);
-      const roundNum = parseInt(row.Round || row.round);
-      const tableNum = parseInt(row.Table || row.table);
-      return { email, slotNum, roundNum, tableNum };
-    }).filter(r => r.email && !isNaN(r.slotNum) && !isNaN(r.roundNum) && !isNaN(r.tableNum));
+    // Helper function to extract digits from string or number values
+    const parseNum = (val: any): number => {
+      if (val === null || val === undefined) return NaN;
+      if (typeof val === "number") return val;
+      const match = String(val).match(/\d+/);
+      return match ? parseInt(match[0], 10) : NaN;
+    };
 
-    // 2. Extract and upsert unique users sequentially
-    const allEmails: string[] = Array.from(new Set(parsedRows.map(r => r.email)));
+    // 1. Extract ALL unique emails from any email-like columns to guarantee whitelisting
+    const allEmailsSet = new Set<string>();
+    
+    data.forEach((row: any) => {
+      const emailKey = Object.keys(row).find(key => 
+        key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
+      );
+      const rawEmail = emailKey ? row[emailKey] : null;
+      if (typeof rawEmail === "string") {
+        const cleaned = rawEmail.trim().toLowerCase();
+        if (cleaned) {
+          allEmailsSet.add(cleaned);
+        }
+      }
+    });
+
+    const allEmails = Array.from(allEmailsSet);
     emailsCount = allEmails.length;
 
+    // 2. Upsert all unique users sequentially to grant approved access
     for (const email of allEmails) {
       await prisma.user.upsert({
         where: { email },
@@ -280,6 +300,25 @@ export async function uploadAssignmentsExcel(formData: FormData) {
         create: { email, isApproved: true, role: "USER" }
       });
     }
+
+    // 3. Clean, parse, and validate data rows for table assignments
+    const parsedRows = data.map((row: any) => {
+      const emailKey = Object.keys(row).find(key => 
+        key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
+      );
+      const rawEmail = emailKey ? row[emailKey] : null;
+      const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+
+      const slotKey = Object.keys(row).find(key => key.toLowerCase().includes("slot"));
+      const roundKey = Object.keys(row).find(key => key.toLowerCase().includes("round"));
+      const tableKey = Object.keys(row).find(key => key.toLowerCase().includes("table"));
+
+      const slotNum = slotKey ? parseNum(row[slotKey]) : NaN;
+      const roundNum = roundKey ? parseNum(row[roundKey]) : NaN;
+      const tableNum = tableKey ? parseNum(row[tableKey]) : NaN;
+
+      return { email, slotNum, roundNum, tableNum };
+    }).filter(r => r.email && !isNaN(r.slotNum) && !isNaN(r.roundNum) && !isNaN(r.tableNum));
 
     // Map users to their IDs
     const dbUsers = await prisma.user.findMany({ where: { email: { in: allEmails } } });

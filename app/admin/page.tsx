@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { initializeData, startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, revokeAllAccess, uploadAssignmentsExcel, addManualUser, removeAllUsers, deleteUserAccount } from "./actions";
 import { SuccessAlert } from "./SuccessAlert";
+import { SubmitButton } from "../components/SubmitButton";
+import { UploadForm } from "./UploadForm";
 
 export const dynamic = 'force-dynamic';
 
@@ -109,12 +111,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                   Export Data
                 </a>
                 <form action={clearReferrals} className="flex-1">
-                  <button 
-                    type="submit" 
+                  <SubmitButton 
+                    loadingText="Wiping..."
                     className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
                   >
                     Wipe Data
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </div>
@@ -173,56 +175,29 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                   {slots.length > 0 && (
                     <>
                       <form action={revokeAllAccess}>
-                        <button type="submit" className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+                        <SubmitButton loadingText="Revoking..." className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                           Revoke Access
-                        </button>
+                        </SubmitButton>
                       </form>
                       <form action={resetAllRounds}>
-                        <button type="submit" className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+                        <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                           Reset Progress
-                        </button>
+                        </SubmitButton>
                       </form>
                     </>
                   )}
                   {slots.length === 0 && (
                     <form action={initializeData}>
-                      <button className="px-6 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+                      <SubmitButton loadingText="Initializing..." className="px-6 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                         Initialize Slots
-                      </button>
+                      </SubmitButton>
                     </form>
                   )}
                 </div>
               </div>
 
               {/* Upload Matrix Section */}
-              {slots.length > 0 && (
-                <div className="bg-[#FAF8F4] border-2 border-[#0D2421] p-6 rounded-2xl shadow-[3px_3px_0px_#0D2421] space-y-4">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#0D2421]"></span>
-                    <span className="text-[10px] font-black tracking-widest text-[#0D2421] uppercase">IMPORT TABLE MATRICES (.XLSX, .CSV)</span>
-                  </div>
-                  <form action={uploadAssignmentsExcel} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                    <div className="flex-1 relative border-2 border-dashed border-[#0D2421]/30 rounded-xl bg-white p-3 hover:bg-[#BEF03C]/5 transition-colors flex items-center justify-center">
-                      <input 
-                        type="file" 
-                        name="file"
-                        accept=".xlsx,.xls,.csv"
-                        required
-                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
-                      />
-                      <div className="flex items-center gap-3">
-                        <svg className="w-5 h-5 text-[#0D2421]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-xs font-black uppercase text-[#0D2421]/70">Choose Spreadsheet File</span>
-                      </div>
-                    </div>
-                    <button type="submit" className="px-6 py-4 bg-[#0D2421] text-[#FAF8F4] hover:bg-[#163733] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
-                      Upload Matrix
-                    </button>
-                  </form>
-                </div>
-              )}
+              {slots.length > 0 && <UploadForm />}
 
               {/* Slots and Rounds Grid Layout */}
               <div className="space-y-8">
@@ -276,23 +251,22 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 <>
                                   <form action={pauseRound} className="flex-1">
                                     <input type="hidden" name="roundId" value={round.id} />
-                                    <button type="submit" className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] bg-white hover:bg-slate-50 shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer">
+                                    <SubmitButton loadingText="Pausing..." className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] bg-white hover:bg-slate-50 shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer">
                                       Pause
-                                    </button>
+                                    </SubmitButton>
                                   </form>
                                   <form action={stopRound} className="flex-1">
                                     <input type="hidden" name="roundId" value={round.id} />
-                                    <button type="submit" className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] bg-[#0D2421] text-[#BEF03C] shadow-[2px_2px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+                                    <SubmitButton loadingText="Stopping..." className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] bg-[#0D2421] text-[#BEF03C] shadow-[2px_2px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                                       Stop
-                                    </button>
+                                    </SubmitButton>
                                   </form>
                                 </>
                               ) : (
                                 <form action={startRound} className="w-full">
                                   <input type="hidden" name="roundId" value={round.id} />
-                                  <button 
-                                    type="submit" 
-                                    disabled={round.status === 'COMPLETED'}
+                                  <SubmitButton 
+                                    loadingText="Launching..."
                                     className={`w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] transition-all ${
                                       round.status === 'COMPLETED'
                                           ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
@@ -300,7 +274,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                     }`}
                                   >
                                     {round.status === 'COMPLETED' ? 'Session Finished' : 'Launch Round'}
-                                  </button>
+                                  </SubmitButton>
                                 </form>
                               )}
                             </div>
@@ -339,12 +313,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Manage registered accounts and database credentials</p>
             </div>
             <form action={removeAllUsers}>
-              <button 
-                type="submit" 
-                className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
+              <SubmitButton 
+                loadingText="Clearing..."
+                className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] transition-all cursor-pointer"
               >
                 Clear Database Members
-              </button>
+              </SubmitButton>
             </form>
           </div>
           
@@ -384,9 +358,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                   </div>
                 </div>
               </div>
-              <button type="submit" className="w-full md:w-auto px-6 py-3.5 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+              <SubmitButton loadingText="Granting..." className="w-full md:w-auto px-6 py-3.5 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                 Grant Whitelist
-              </button>
+              </SubmitButton>
             </div>
           </form>
 
@@ -430,11 +404,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     <td className="py-4 px-6 text-right">
                       <form action={deleteUserAccount}>
                         <input type="hidden" name="userId" value={user.id} />
-                        <button type="submit" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer" title="Delete User">
+                        <SubmitButton title="Delete User" loadingText="..." className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer">
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                        </button>
+                        </SubmitButton>
                       </form>
                     </td>
                   </tr>
