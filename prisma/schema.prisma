@@ -101,9 +101,10 @@ model Table {
 }
 
 model TableAssignment {
-  id      String @id @default(cuid())
-  userId  String
-  tableId String
+  id        String  @id @default(cuid())
+  userId    String
+  tableId   String
+  isCaptain Boolean @default(false)
 
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   table   Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)

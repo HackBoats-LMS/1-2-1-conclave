@@ -79,10 +79,11 @@ export default async function UserDashboard() {
     );
   }
 
-  // Find other users at this table
+  // Find other users at this table (captains first)
   const tableUsers = await prisma.tableAssignment.findMany({
     where: { tableId: myAssignment.tableId, userId: { not: session.user.id } },
-    include: { user: true }
+    include: { user: true },
+    orderBy: { isCaptain: 'desc' }
   });
 
   return (
@@ -107,7 +108,12 @@ export default async function UserDashboard() {
               </h1>
             </div>
             <p className="text-xs font-black uppercase text-[#0D2421]/60 tracking-wider">
-              Table Assignment: {myAssignment.table.tableNumber} &bull; {tableUsers.length + 1} Table Members
+              Table Assignment: {myAssignment.table.tableNumber} • {tableUsers.length + 1} Table Members
+              {myAssignment.isCaptain && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-amber-400 text-[#0D2421] px-2 py-0.5 rounded-full border border-[#0D2421] text-[10px] font-black uppercase">
+                  👑 Captain
+                </span>
+              )}
             </p>
           </div>
           
@@ -128,8 +134,11 @@ export default async function UserDashboard() {
                 <div className="p-8 space-y-6 flex-1 flex flex-col justify-between">
                   <div className="space-y-4">
                     <div className="flex items-center space-x-4">
-                      <div className="w-14 h-14 bg-[#BEF03C] border-2 border-[#0D2421] text-[#0D2421] rounded-2xl flex items-center justify-center font-black text-2xl shadow-[2px_2px_0px_#0D2421] flex-shrink-0">
+                      <div className={`w-14 h-14 ${tu.isCaptain ? 'bg-amber-400' : 'bg-[#BEF03C]'} border-2 border-[#0D2421] text-[#0D2421] rounded-2xl flex items-center justify-center font-black text-2xl shadow-[2px_2px_0px_#0D2421] flex-shrink-0 relative`}>
                         {user.name?.charAt(0) || user.businessName?.charAt(0) || user.email?.charAt(0) || '?'}
+                        {tu.isCaptain && (
+                          <span className="absolute -top-2 -right-2 text-sm">👑</span>
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="font-black text-lg uppercase truncate">{user.name || user.businessName || "Unnamed User"}</h3>

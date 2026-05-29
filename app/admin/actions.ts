@@ -312,12 +312,14 @@ export async function uploadAssignmentsExcel(formData: FormData) {
       const slotKey = Object.keys(row).find(key => key.toLowerCase().includes("slot"));
       const roundKey = Object.keys(row).find(key => key.toLowerCase().includes("round"));
       const tableKey = Object.keys(row).find(key => key.toLowerCase().includes("table"));
+      const captainKey = Object.keys(row).find(key => key.toLowerCase().includes("captain"));
 
       const slotNum = slotKey ? parseNum(row[slotKey]) : NaN;
       const roundNum = roundKey ? parseNum(row[roundKey]) : NaN;
       const tableNum = tableKey ? parseNum(row[tableKey]) : NaN;
+      const isCaptain = captainKey ? String(row[captainKey]).trim().toLowerCase() === "yes" : false;
 
-      return { email, slotNum, roundNum, tableNum };
+      return { email, slotNum, roundNum, tableNum, isCaptain };
     }).filter(r => r.email && !isNaN(r.slotNum) && !isNaN(r.roundNum) && !isNaN(r.tableNum));
 
     // Map users to their IDs
@@ -374,13 +376,13 @@ export async function uploadAssignmentsExcel(formData: FormData) {
       }
     }
 
-    // 6. Map and bulk insert TableAssignments
+    // 6. Map and bulk insert TableAssignments (with captain flag)
     const assignmentsToCreate = [];
     for (const row of parsedRows) {
       const userId = userMap.get(row.email);
       const tableId = tableMap.get(`${row.slotNum}-${row.roundNum}-${row.tableNum}`);
       if (userId && tableId) {
-        assignmentsToCreate.push({ userId, tableId });
+        assignmentsToCreate.push({ userId, tableId, isCaptain: row.isCaptain });
       }
     }
 
