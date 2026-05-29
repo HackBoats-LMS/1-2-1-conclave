@@ -1,3 +1,4 @@
+import { SubmitButton } from "@/app/components/SubmitButton";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendReferral } from "./actions";
@@ -153,12 +154,12 @@ export default async function UserDashboard() {
                       placeholder="Add a connection note..." 
                       className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30 shadow-inner" 
                     />
-                    <button 
-                      type="submit" 
+                    <SubmitButton 
+                      loadingText="Sending..."
                       className="w-full py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_#0D2421] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer"
                     >
                       Send Referral
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </div>
