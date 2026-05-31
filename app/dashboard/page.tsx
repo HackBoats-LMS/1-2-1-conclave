@@ -256,7 +256,6 @@ export default async function UserDashboard() {
                     👑 Captain
                   </span>
                 </>
->>>>>>> main
               )}
             </div>
           </div>
