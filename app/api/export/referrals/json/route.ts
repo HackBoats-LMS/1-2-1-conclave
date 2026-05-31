@@ -21,10 +21,14 @@ export async function GET() {
 
     const data = referrals.map(r => ({
       "Date": r.createdAt.toISOString().split('T')[0],
-      "From Name": r.fromUser.name || r.fromUser.businessName || "N/A",
-      "From Email": r.fromUser.email || "N/A",
-      "To Name": r.toUser.name || r.toUser.businessName || "N/A",
-      "To Email": r.toUser.email || "N/A",
+      "From": r.fromUser.name || r.fromUser.email || "N/A",
+      "From Business": r.fromUser.businessName || "N/A",
+      "From Category": r.fromUser.businessCategory || "N/A",
+      "From Contact": r.fromUser.contactNumber || "N/A",
+      "To": r.toUser.name || r.toUser.email || "N/A",
+      "To Business": r.toUser.businessName || "N/A",
+      "To Category": r.toUser.businessCategory || "N/A",
+      "To Contact": r.toUser.contactNumber || "N/A",
       "Note": r.note || "",
     }));
 

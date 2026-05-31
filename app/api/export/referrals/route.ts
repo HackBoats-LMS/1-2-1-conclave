@@ -22,22 +22,30 @@ export async function GET() {
 
     const data = referrals.map(r => ({
       "Date": r.createdAt.toISOString().split('T')[0],
-      "From Name": r.fromUser.name || r.fromUser.businessName || "N/A",
-      "From Email": r.fromUser.email || "N/A",
-      "To Name": r.toUser.name || r.toUser.businessName || "N/A",
-      "To Email": r.toUser.email || "N/A",
+      "From": r.fromUser.name || r.fromUser.email || "N/A",
+      "From Business": r.fromUser.businessName || "N/A",
+      "From Category": r.fromUser.businessCategory || "N/A",
+      "From Contact": r.fromUser.contactNumber || "N/A",
+      "To": r.toUser.name || r.toUser.email || "N/A",
+      "To Business": r.toUser.businessName || "N/A",
+      "To Category": r.toUser.businessCategory || "N/A",
+      "To Contact": r.toUser.contactNumber || "N/A",
       "Note": r.note || "",
     }));
 
     const worksheet = xlsx.utils.json_to_sheet(data);
     
     worksheet['!cols'] = [
-      { wch: 15 }, // Date
+      { wch: 12 }, // Date
       { wch: 20 }, // From Name
-      { wch: 30 }, // From Email
+      { wch: 20 }, // From Business
+      { wch: 15 }, // From Category
+      { wch: 15 }, // From Contact
       { wch: 20 }, // To Name
-      { wch: 30 }, // To Email
-      { wch: 40 }, // Note
+      { wch: 20 }, // To Business
+      { wch: 15 }, // To Category
+      { wch: 15 }, // To Contact
+      { wch: 30 }, // Note
     ];
 
     const workbook = xlsx.utils.book_new();

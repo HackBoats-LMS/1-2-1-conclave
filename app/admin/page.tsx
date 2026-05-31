@@ -5,6 +5,9 @@ import { SubmitButton } from "../components/SubmitButton";
 import { MemberUploadForm } from "./MemberUploadForm";
 import { CaptainUploadForm } from "./CaptainUploadForm";
 import { AssignmentPreview } from "./AssignmentPreview";
+import { ReferralsExportButtons } from "./ReferralsExportButtons";
+import { RefreshButton } from "./RefreshButton";
+import { ClientTimer } from "./ClientTimer";
 
 export const dynamic = 'force-dynamic';
 
@@ -208,6 +211,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         coveragePercent: totalPairs > 0 ? Math.round(metPairs / totalPairs * 10000) / 100 : 100,
         unmetPairs,
         leftOutMembers,
+        totalReferrals,
       },
     };
   }
@@ -347,10 +351,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             <div className="bg-white border-2 border-[#0D2421] p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-4 relative overflow-hidden">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-black tracking-widest text-[#0D2421]/40 uppercase">01 / CONNECTION TELEMETRY</span>
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#BEF03C] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#BEF03C] border border-[#0D2421]"></span>
-                </span>
+                <div className="flex items-center gap-3">
+                  <RefreshButton />
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#BEF03C] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#BEF03C] border border-[#0D2421]"></span>
+                  </span>
+                </div>
               </div>
               <div className="space-y-1">
                 <h3 className="font-black text-lg uppercase">Live Referrals</h3>
@@ -360,15 +367,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 {totalReferrals}
               </div>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <a 
-                  href="/api/export"
-                  className="flex-1 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-1.5"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Export Referrals
-                </a>
+                <div className="flex-1 w-full flex items-center justify-center">
+                  <ReferralsExportButtons />
+                </div>
                 <form action={clearReferrals} className="flex-1">
                   <SubmitButton 
                     loadingText="Wiping..."
@@ -495,6 +496,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 {round.status}
                               </span>
                             </div>
+
+                            {isActive && round.startTime && (
+                              <ClientTimer 
+                                startedAt={round.startTime} 
+                                durationMinutes={round.durationMinutes || 15} 
+                                status={round.status} 
+                              />
+                            )}
 
                             <div className="pt-2 border-t border-[#0D2421]/10 flex gap-2">
                               {isActive ? (

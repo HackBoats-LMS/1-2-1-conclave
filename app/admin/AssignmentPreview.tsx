@@ -38,6 +38,7 @@ interface CoverageAnalytics {
   coveragePercent: number;
   unmetPairs: { member1Email: string; member2Email: string }[];
   leftOutMembers: string[];
+  totalReferrals: number;
 }
 
 interface AssignmentPreviewProps {
@@ -70,9 +71,53 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
           head: [headers],
           body: body,
           startY: 20,
-          styles: { fontSize: 8 },
+          styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
           theme: "grid",
         });
+      }
+
+      // Load logo for footer
+      const img = new Image();
+      img.src = '/hb-logo.png';
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+      
+      let dataUrl = "";
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width || 200;
+        canvas.height = img.height || 50;
+        const ctx = canvas.getContext("2d");
+        if (ctx && img.width) {
+          ctx.drawImage(img, 0, 0);
+          dataUrl = canvas.toDataURL("image/png");
+        }
+      } catch (err) {
+        console.error("Canvas conversion failed", err);
+      }
+
+      // Add Powered by HackBoats footer
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        
+        doc.text("Powered by", pageWidth - 35, pageHeight - 10, { align: "right" });
+        try {
+          if (dataUrl) {
+            doc.addImage(dataUrl, "PNG", pageWidth - 33, pageHeight - 14, 20, 5, 'hb-logo');
+          } else {
+            doc.addImage(img, "PNG", pageWidth - 33, pageHeight - 14, 20, 5, 'hb-logo');
+          }
+        } catch (err) {
+          console.error("Image add failed", err);
+          doc.text("HackBoats", pageWidth - 14, pageHeight - 10, { align: "right" });
+        }
       }
       
       doc.save("conclave_assignments.pdf");
@@ -96,16 +141,29 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
       if (data.length === 0) {
         doc.text("No referrals found.", 14, 25);
       } else {
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Total Referrals: ${data.length}`, 14, 22);
+
         const headers = Object.keys(data[0]);
         const body = data.map((row: any) => Object.values(row));
         
         autoTable(doc, {
           head: [headers],
           body: body,
-          startY: 20,
+          startY: 28,
           styles: { fontSize: 8 },
           theme: "grid",
         });
+      }
+
+      // Add Powered by HackBoats footer
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text("Powered by HackBoats", doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 10, { align: "right" });
       }
       
       doc.save("conclave_referrals.pdf");
@@ -174,7 +232,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <div className="bg-white p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
             <div className="text-2xl font-black text-[#0D2421]">{analytics.totalMembers}</div>
             <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Members</div>
@@ -190,6 +248,10 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
           <div className="bg-white p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
             <div className="text-2xl font-black text-[#0D2421]">{analytics.totalSlots}</div>
             <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Slots</div>
+          </div>
+          <div className="bg-[#BEF03C] p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
+            <div className="text-2xl font-black text-[#0D2421]">{analytics.totalReferrals || 0}</div>
+            <div className="text-[9px] font-black text-[#0D2421]/70 uppercase tracking-wider">Referrals</div>
           </div>
         </div>
 
@@ -260,7 +322,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
           <div className="flex flex-col sm:flex-row gap-3">
             <a
               href="/api/export/assignments"
-              className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -270,7 +332,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
             <button
               onClick={exportAssignmentsPDF}
               disabled={isExporting}
-              className="flex-1 py-3 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-3 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -281,7 +343,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
           <div className="flex flex-col sm:flex-row gap-3">
             <a
               href="/api/export/referrals"
-              className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -291,7 +353,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
             <button
               onClick={exportReferralsPDF}
               disabled={isExporting}
-              className="flex-1 py-3 bg-[#0D2421] text-[#BEF03C] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-3 bg-[#0D2421] text-[#BEF03C] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
