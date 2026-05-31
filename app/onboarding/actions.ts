@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 export async function completeOnboarding(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.email) throw new Error("Unauthorized");
+  if (!session?.user?.id) throw new Error("Unauthorized");
 
   const name = formData.get("name") as string;
   const businessName = formData.get("businessName") as string;
@@ -13,7 +13,7 @@ export async function completeOnboarding(formData: FormData) {
   const contactNumber = formData.get("contactNumber") as string;
   const description = formData.get("description") as string;
 
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) throw new Error("User not found");
 
   // Save profile details
