@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 interface AssignmentUser {
   id: string;
   email: string;
@@ -48,6 +49,73 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
   const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set([1]));
   const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set());
   const [showUnmetDetails, setShowUnmetDetails] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportAssignmentsPDF = async () => {
+    try {
+      setIsExporting(true);
+      const res = await fetch("/api/export/assignments/json");
+      const data = await res.json();
+      
+      const doc = new jsPDF("landscape");
+      doc.text("Conclave Assignments Matrix", 14, 15);
+      
+      if (data.length === 0) {
+        doc.text("No assignments found.", 14, 25);
+      } else {
+        const headers = Object.keys(data[0]);
+        const body = data.map((row: any) => Object.values(row));
+        
+        autoTable(doc, {
+          head: [headers],
+          body: body,
+          startY: 20,
+          styles: { fontSize: 8 },
+          theme: "grid",
+        });
+      }
+      
+      doc.save("conclave_assignments.pdf");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to export PDF");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportReferralsPDF = async () => {
+    try {
+      setIsExporting(true);
+      const res = await fetch("/api/export/referrals/json");
+      const data = await res.json();
+      
+      const doc = new jsPDF("landscape");
+      doc.text("Conclave Referrals Log", 14, 15);
+      
+      if (data.length === 0) {
+        doc.text("No referrals found.", 14, 25);
+      } else {
+        const headers = Object.keys(data[0]);
+        const body = data.map((row: any) => Object.values(row));
+        
+        autoTable(doc, {
+          head: [headers],
+          body: body,
+          startY: 20,
+          styles: { fontSize: 8 },
+          theme: "grid",
+        });
+      }
+      
+      doc.save("conclave_referrals.pdf");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to export PDF");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const toggleSlot = (slotNum: number) => {
     const next = new Set(expandedSlots);
@@ -187,17 +255,50 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
           </div>
         )}
 
-        {/* Download Button */}
-        <div className="flex gap-3 pt-2">
-          <a
-            href="/api/export/assignments"
-            className="flex-1 py-3 bg-[#0D2421] text-[#BEF03C] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download Assignment Matrix (Excel)
-          </a>
+        {/* Download Buttons */}
+        <div className="flex flex-col gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <a
+              href="/api/export/assignments"
+              className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Assignments (Excel)
+            </a>
+            <button
+              onClick={exportAssignmentsPDF}
+              disabled={isExporting}
+              className="flex-1 py-3 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Assignments (PDF)
+            </button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <a
+              href="/api/export/referrals"
+              className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Referrals (Excel)
+            </a>
+            <button
+              onClick={exportReferralsPDF}
+              disabled={isExporting}
+              className="flex-1 py-3 bg-[#0D2421] text-[#BEF03C] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Referrals (PDF)
+            </button>
+          </div>
         </div>
       </div>
 

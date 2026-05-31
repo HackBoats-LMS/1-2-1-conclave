@@ -232,13 +232,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               Upload members & captains, auto-generate assignments, and control live rounds.
             </p>
           </div>
-          <div className="flex gap-3">
-            <a 
-              href="/dashboard"
-              className="px-5 py-2.5 bg-[#BEF03C] hover:bg-[#A6DF2B] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer text-center"
-            >
-              Enter Dashboard
-            </a>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-black text-[#0D2421]/50 uppercase tracking-widest mt-1">Powered by</span>
+            <img 
+              src="/hb-logo.png" 
+              alt="HackBoats Logo" 
+              className="h-8 md:h-10 object-contain hover:scale-105 transition-transform duration-300"
+              draggable={false}
+            />
           </div>
         </header>
         
