@@ -90,10 +90,17 @@ export async function removeAllUsers() {
 export async function startRound(formData: FormData) {
   await requireAdmin();
   const roundId = formData.get("roundId") as string;
+  const durationMinutesStr = formData.get("durationMinutes") as string;
+  const durationMinutes = Math.max(15, parseInt(durationMinutesStr) || 15);
+
   try {
     await prisma.round.update({
       where: { id: roundId },
-      data: { status: "IN_PROGRESS", startTime: new Date() }
+      data: { 
+        status: "IN_PROGRESS", 
+        startTime: new Date(),
+        durationMinutes
+      }
     });
     
     const state = await prisma.gameState.findFirst();
@@ -108,6 +115,7 @@ export async function startRound(formData: FormData) {
       });
     }
     revalidatePath("/admin");
+    revalidatePath("/dashboard");
   } catch (e) {
     console.error("Failed to start round", e);
   }

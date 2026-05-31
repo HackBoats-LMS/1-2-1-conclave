@@ -80,13 +80,14 @@ model Slot {
 }
 
 model Round {
-  id          String   @id @default(cuid())
-  slotId      String
-  roundNumber Int
-  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
-  startTime   DateTime?
-  slot        Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
-  tables      Table[]
+  id              String   @id @default(cuid())
+  slotId          String
+  roundNumber     Int
+  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  startTime       DateTime?
+  durationMinutes Int      @default(15)
+  slot            Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  tables          Table[]
   
   @@unique([slotId, roundNumber])
 }

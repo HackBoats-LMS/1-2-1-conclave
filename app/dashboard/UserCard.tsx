@@ -1,0 +1,185 @@
+"use client";
+
+import React, { useState, useTransition } from "react";
+import { sendReferral } from "./actions";
+
+interface UserCardProps {
+  tu: any; // tableAssignment record with user details
+}
+
+export function UserCard({ tu }: UserCardProps) {
+  const user = tu.user;
+  const [isPending, startTransition] = useTransition();
+  const [note, setNote] = useState("");
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [showCheck, setShowCheck] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isPending || showAnimation) return;
+
+    const formData = new FormData(e.currentTarget);
+    setShowAnimation(true);
+
+    startTransition(async () => {
+      try {
+        await sendReferral(formData);
+        
+        // Wait a bit for the plane to finish flying, then show the checkmark
+        setTimeout(() => {
+          setShowCheck(true);
+        }, 800);
+
+        // Reset everything after 2.4s
+        setTimeout(() => {
+          setShowAnimation(false);
+          setShowCheck(false);
+          setNote("");
+        }, 2400);
+
+      } catch (err) {
+        console.error(err);
+        setShowAnimation(false);
+      }
+    });
+  };
+
+  return (
+    <div className="bg-white border-2 border-[#0D2421] rounded-[2rem] shadow-[6px_6px_0px_#0D2421] overflow-hidden hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_#0D2421] transition-all flex flex-col justify-between relative min-h-[420px]">
+      
+      {/* Dynamic Animated Vector Overlay */}
+      {showAnimation && (
+        <div className="absolute inset-0 bg-[#FAF8F4]/90 backdrop-blur-[2px] z-30 flex flex-col items-center justify-center space-y-4 rounded-[1.8rem] transition-all duration-300">
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes flyPlane {
+              0% {
+                transform: translate(-120px, 120px) rotate(-15deg) scale(0.4);
+                opacity: 0;
+              }
+              20% {
+                opacity: 1;
+              }
+              60% {
+                transform: translate(0px, 0px) rotate(-5deg) scale(1.2);
+                opacity: 1;
+              }
+              80% {
+                transform: translate(140px, -140px) rotate(-35deg) scale(0.5);
+                opacity: 0;
+              }
+              100% {
+                transform: translate(140px, -140px) rotate(-35deg) scale(0.5);
+                opacity: 0;
+              }
+            }
+            @keyframes drawCheck {
+              to {
+                stroke-dashoffset: 0;
+              }
+            }
+            @keyframes scaleIn {
+              0% {
+                transform: scale(0.85);
+                opacity: 0;
+              }
+              100% {
+                transform: scale(1);
+                opacity: 1;
+              }
+            }
+            .animate-plane {
+              animation: flyPlane 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            }
+            .animate-checkmark {
+              animation: scaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            }
+            .draw-path {
+              stroke-dasharray: 50;
+              stroke-dashoffset: 50;
+              animation: drawCheck 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+            }
+          `}} />
+
+          <div className="relative w-32 h-32 flex items-center justify-center">
+            {/* Animated paper airplane */}
+            {!showCheck && (
+              <svg className="w-20 h-20 text-[#0D2421] animate-plane" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            )}
+
+            {/* Animated success checkmark */}
+            {showCheck && (
+              <div className="flex flex-col items-center space-y-3 animate-checkmark">
+                <div className="w-16 h-16 rounded-full bg-[#BEF03C] border-2 border-[#0D2421] flex items-center justify-center shadow-[3px_3px_0px_#0D2421]">
+                  <svg className="w-8 h-8 text-[#0D2421]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path className="draw-path" strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="font-black text-xs uppercase tracking-wider text-[#0D2421]">
+                  Referral Sent!
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Card Content */}
+      <div className="p-8 space-y-6 flex-1 flex flex-col justify-between">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <div className={`w-14 h-14 ${tu.isCaptain ? 'bg-amber-400' : 'bg-[#BEF03C]'} border-2 border-[#0D2421] text-[#0D2421] rounded-2xl flex items-center justify-center font-black text-2xl shadow-[2px_2px_0px_#0D2421] flex-shrink-0 relative`}>
+              {user.name?.charAt(0) || user.businessName?.charAt(0) || user.email?.charAt(0) || '?'}
+              {tu.isCaptain && (
+                <span className="absolute -top-2 -right-2 text-sm">👑</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-black text-lg uppercase truncate">{user.name || user.businessName || user.email}</h3>
+              <p className="text-xs font-bold text-[#BEF03C] bg-[#0D2421] border border-[#0D2421] px-2 py-0.5 rounded inline-block uppercase truncate tracking-wide max-w-full">
+                {user.businessCategory || "Participant"}
+              </p>
+            </div>
+          </div>
+          
+          <div className="bg-[#FAF8F4] p-4 rounded-xl border border-[#0D2421]/15 h-28 overflow-y-auto">
+            <p className="text-[#0D2421]/80 text-xs font-semibold leading-relaxed">
+              {user.description || "No description provided by this user."}
+            </p>
+          </div>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-3 pt-4 border-t border-[#0D2421]/10 mt-4">
+          <input type="hidden" name="toUserId" value={user.id} />
+          <input 
+            type="text" 
+            name="note" 
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add a connection note..." 
+            className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30 shadow-inner" 
+          />
+          
+          <button
+            type="submit"
+            disabled={isPending || showAnimation}
+            className="w-full py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_#0D2421] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            {isPending ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Sending...</span>
+              </>
+            ) : (
+              "Send Referral"
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

@@ -1,6 +1,13 @@
 import { signIn } from "@/lib/auth";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const resolvedParams = await searchParams;
+  const error = resolvedParams?.error;
+
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] font-sans selection:bg-[#BEF03C]/40 flex items-center justify-center p-6 relative overflow-hidden">
       {/* Top Right HB Logo */}
@@ -27,6 +34,24 @@ export default function LoginPage() {
             Sign in to access your meeting table
           </p>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border-2 border-red-600 p-5 rounded-2xl shadow-[4px_4px_0px_#C21A1A] text-left space-y-2 relative overflow-hidden transition-all duration-300">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="text-xs font-black text-red-600 uppercase tracking-wider">
+                ACCESS RESTRICTED
+              </span>
+            </div>
+            <p className="text-xs font-bold text-[#0D2421] leading-relaxed">
+              {error === "AccessDenied"
+                ? "You need to have access for evening to the onboarding page. Please make sure your Google account email is whitelisted by the Conclave Admin."
+                : "An authentication error occurred. Please try signing in again or contact the administrator."}
+            </p>
+          </div>
+        )}
 
         {/* Auth Action Form */}
         <form

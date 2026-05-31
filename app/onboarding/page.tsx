@@ -7,6 +7,11 @@ export default async function Onboarding() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  // Verify approval / whitelist status
+  if (!(session.user as any).isApproved) {
+    redirect("/login?error=AccessDenied");
+  }
+
   const isProfileComplete = (session.user as any).onboardingCompleted;
   if (isProfileComplete) {
     const role = (session.user as any).role;
