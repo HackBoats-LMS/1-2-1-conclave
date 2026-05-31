@@ -6,7 +6,7 @@ export interface User {
   businessCategory?: string;
   contactNumber?: string;
   description?: string;
-  role: 'ADMIN' | 'USER';
+  role: 'ADMIN' | 'CAPTAIN' | 'USER';
   isApproved: boolean;
   onboardingCompleted: boolean;
 }

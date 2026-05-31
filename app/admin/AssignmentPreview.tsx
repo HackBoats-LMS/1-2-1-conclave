@@ -1,0 +1,307 @@
+"use client";
+
+import React, { useState } from "react";
+
+interface AssignmentUser {
+  id: string;
+  email: string;
+  name: string | null;
+  businessName: string | null;
+  businessCategory: string | null;
+  isCaptain: boolean;
+}
+
+interface PreviewTable {
+  tableNumber: number;
+  users: AssignmentUser[];
+}
+
+interface PreviewRound {
+  roundNumber: number;
+  status: string;
+  tables: PreviewTable[];
+}
+
+interface PreviewSlot {
+  slotNumber: number;
+  rounds: PreviewRound[];
+}
+
+interface CoverageAnalytics {
+  totalMembers: number;
+  totalCaptains: number;
+  totalRounds: number;
+  totalSlots: number;
+  totalPairs: number;
+  metPairs: number;
+  coveragePercent: number;
+  unmetPairs: { member1Email: string; member2Email: string }[];
+  leftOutMembers: string[];
+}
+
+interface AssignmentPreviewProps {
+  slots: PreviewSlot[];
+  analytics: CoverageAnalytics;
+}
+
+export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) {
+  const [expandedSlots, setExpandedSlots] = useState<Set<number>>(new Set([1]));
+  const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set());
+  const [showUnmetDetails, setShowUnmetDetails] = useState(false);
+
+  const toggleSlot = (slotNum: number) => {
+    const next = new Set(expandedSlots);
+    if (next.has(slotNum)) next.delete(slotNum);
+    else next.add(slotNum);
+    setExpandedSlots(next);
+  };
+
+  const toggleRound = (key: string) => {
+    const next = new Set(expandedRounds);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setExpandedRounds(next);
+  };
+
+  const isPerfectCoverage = analytics.coveragePercent >= 100;
+
+  return (
+    <div className="space-y-8">
+
+      {/* ── Coverage Analytics Card ── */}
+      <div className={`border-2 p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-6 ${
+        isPerfectCoverage 
+          ? 'bg-emerald-50 border-emerald-600' 
+          : 'bg-amber-50 border-amber-600'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-[2px_2px_0px_#0D2421] ${
+              isPerfectCoverage 
+                ? 'bg-emerald-500 border-emerald-700 text-white' 
+                : 'bg-amber-500 border-amber-700 text-white'
+            }`}>
+              {isPerfectCoverage ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <h3 className="font-black text-lg uppercase tracking-tight">Coverage Analytics</h3>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${
+                isPerfectCoverage ? 'text-emerald-700' : 'text-amber-700'
+              }`}>
+                {isPerfectCoverage 
+                  ? `✅ ALL ${analytics.totalMembers} MEMBERS MEET EVERY OTHER MEMBER`
+                  : `⚠️ ${analytics.unmetPairs.length} PAIR(S) COULD NOT BE SCHEDULED`
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
+            <div className="text-2xl font-black text-[#0D2421]">{analytics.totalMembers}</div>
+            <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Members</div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border-2 border-amber-500 text-center shadow-[2px_2px_0px_#0D2421]">
+            <div className="text-2xl font-black text-amber-600">{analytics.totalCaptains}</div>
+            <div className="text-[9px] font-black text-amber-600/60 uppercase tracking-wider">Captains</div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
+            <div className="text-2xl font-black text-[#0D2421]">{analytics.totalRounds}</div>
+            <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Rounds</div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
+            <div className="text-2xl font-black text-[#0D2421]">{analytics.totalSlots}</div>
+            <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Slots</div>
+          </div>
+        </div>
+
+        {/* Coverage Progress */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase text-[#0D2421]/70">Meeting Coverage</span>
+            <span className="text-xs font-black uppercase">{analytics.metPairs} / {analytics.totalPairs} pairs</span>
+          </div>
+          <div className="w-full h-4 bg-white border-2 border-[#0D2421] rounded-full overflow-hidden shadow-inner">
+            <div 
+              className={`h-full rounded-full transition-all ${isPerfectCoverage ? 'bg-emerald-500' : 'bg-amber-500'}`}
+              style={{ width: `${Math.min(analytics.coveragePercent, 100)}%` }}
+            ></div>
+          </div>
+          <div className="text-right">
+            <span className={`text-sm font-black ${isPerfectCoverage ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {analytics.coveragePercent.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Left Out Members */}
+        {analytics.leftOutMembers.length > 0 && (
+          <div className="bg-red-50 border-2 border-red-500 p-4 rounded-xl space-y-2">
+            <span className="text-[10px] font-black text-red-700 uppercase tracking-widest block">
+              ⛔ MEMBERS LEFT OUT ({analytics.leftOutMembers.length})
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {analytics.leftOutMembers.map(email => (
+                <span key={email} className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-1 rounded-lg border border-red-300">
+                  {email}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Unmet Pairs Details */}
+        {analytics.unmetPairs.length > 0 && (
+          <div>
+            <button 
+              onClick={() => setShowUnmetDetails(!showUnmetDetails)}
+              className="text-xs font-black uppercase text-amber-800 underline cursor-pointer hover:text-amber-900"
+            >
+              {showUnmetDetails ? 'Hide' : 'Show'} Unmet Pair Details ({analytics.unmetPairs.length})
+            </button>
+            {showUnmetDetails && (
+              <div className="mt-3 max-h-48 overflow-y-auto bg-white border border-amber-300 rounded-xl p-3 space-y-1">
+                {analytics.unmetPairs.slice(0, 100).map((pair, i) => (
+                  <div key={i} className="text-[10px] font-bold text-amber-800 flex items-center gap-2">
+                    <span className="text-amber-500">✗</span>
+                    <span>{pair.member1Email}</span>
+                    <span className="text-amber-400">↔</span>
+                    <span>{pair.member2Email}</span>
+                  </div>
+                ))}
+                {analytics.unmetPairs.length > 100 && (
+                  <p className="text-[10px] font-bold text-amber-500 pt-2">...and {analytics.unmetPairs.length - 100} more pairs</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Download Button */}
+        <div className="flex gap-3 pt-2">
+          <a
+            href="/api/export/assignments"
+            className="flex-1 py-3 bg-[#0D2421] text-[#BEF03C] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Assignment Matrix (Excel)
+          </a>
+        </div>
+      </div>
+
+      {/* ── Assignment Preview Accordion ── */}
+      <div className="bg-white border-2 border-[#0D2421] rounded-[2rem] shadow-[6px_6px_0px_#0D2421] overflow-hidden">
+        <div className="bg-[#0D2421] px-6 py-4 flex justify-between items-center">
+          <span className="font-black text-sm text-[#BEF03C] tracking-widest uppercase">
+            FULL ASSIGNMENT MATRIX
+          </span>
+          <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">
+            {slots.length} SLOTS • {slots.reduce((sum, s) => sum + s.rounds.length, 0)} ROUNDS
+          </span>
+        </div>
+
+        <div className="divide-y-2 divide-[#0D2421]/10">
+          {slots.map(slot => (
+            <div key={slot.slotNumber}>
+              {/* Slot Header */}
+              <button
+                onClick={() => toggleSlot(slot.slotNumber)}
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#BEF03C]/5 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#0D2421] text-[#BEF03C] flex items-center justify-center font-black text-xs border border-[#0D2421] shadow-[1.5px_1.5px_0px_#BEF03C]">
+                    S{slot.slotNumber}
+                  </div>
+                  <span className="font-black text-sm uppercase">Slot {slot.slotNumber}</span>
+                  <span className="text-[10px] font-bold text-[#0D2421]/40 uppercase">{slot.rounds.length} rounds</span>
+                </div>
+                <svg className={`w-5 h-5 text-[#0D2421]/40 transition-transform ${expandedSlots.has(slot.slotNumber) ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Slot Content */}
+              {expandedSlots.has(slot.slotNumber) && (
+                <div className="px-6 pb-6 space-y-4">
+                  {slot.rounds.map(round => {
+                    const roundKey = `${slot.slotNumber}-${round.roundNumber}`;
+                    return (
+                      <div key={round.roundNumber} className="border-2 border-[#0D2421]/20 rounded-2xl overflow-hidden">
+                        {/* Round Header */}
+                        <button
+                          onClick={() => toggleRound(roundKey)}
+                          className="w-full px-5 py-3 flex items-center justify-between bg-[#FAF8F4] hover:bg-[#BEF03C]/10 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-lg bg-white border-2 border-[#0D2421]/20 flex items-center justify-center font-black text-xs">
+                              R{round.roundNumber}
+                            </div>
+                            <span className="font-black text-xs uppercase">Round {round.roundNumber}</span>
+                            <span className="text-[10px] font-bold text-[#0D2421]/40 uppercase">{round.tables.length} tables</span>
+                          </div>
+                          <svg className={`w-4 h-4 text-[#0D2421]/30 transition-transform ${expandedRounds.has(roundKey) ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {/* Round Tables */}
+                        {expandedRounds.has(roundKey) && (
+                          <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {round.tables.map(table => (
+                              <div key={table.tableNumber} className="bg-white border-2 border-[#0D2421]/15 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-black text-xs uppercase text-[#0D2421]">
+                                    Table {table.tableNumber}
+                                  </span>
+                                  <span className="text-[9px] font-black text-[#0D2421]/40 uppercase">
+                                    {table.users.length} members
+                                  </span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {table.users.map(user => (
+                                    <div 
+                                      key={user.id} 
+                                      className={`flex items-center gap-2 text-[10px] font-bold px-2 py-1.5 rounded-lg ${
+                                        user.isCaptain 
+                                          ? 'bg-amber-100 border border-amber-400 text-amber-800' 
+                                          : 'bg-[#FAF8F4] border border-[#0D2421]/10 text-[#0D2421]/80'
+                                      }`}
+                                    >
+                                      {user.isCaptain && <span className="text-xs">👑</span>}
+                                      <span className="truncate">{user.name || user.email}</span>
+                                      {user.businessCategory && (
+                                        <span className="text-[8px] font-black uppercase text-[#0D2421]/30 ml-auto flex-shrink-0">
+                                          {user.businessCategory}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

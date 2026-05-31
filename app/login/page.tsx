@@ -10,6 +10,12 @@ export default async function LoginPage({
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] font-sans selection:bg-[#BEF03C]/40 flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Top Right HB Logo */}
+      <div className="absolute top-6 right-6 z-20 flex items-center gap-3 select-none">
+        <span className="text-[11px] font-black uppercase tracking-widest text-[#0D2421]/80 mt-1">Powered by</span>
+        <img src="/hb-logo.png" alt="HackBoats" className="h-8 md:h-10 object-contain hover:scale-105 transition-transform duration-300 drop-shadow-sm" draggable={false} />
+      </div>
+
       {/* Blueprint Dot Grid Background */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
@@ -81,6 +87,25 @@ export default async function LoginPage({
           </button>
         </form>
 
+        {/* Security Warning Notice */}
+        <div className="bg-[#FAF8F4] border border-[#0D2421]/15 p-4 rounded-xl text-left space-y-1">
+          <span className="text-[10px] font-black text-red-600 uppercase tracking-widest block">
+            ⚠️ ACCESS RESTRICTION
+          </span>
+          <p className="text-[11px] font-semibold text-[#0D2421]/75 leading-relaxed">
+            Your Google email must be whitelisted in the database by the Conclave Admin before access can be granted.
+          </p>
+        </div>
+
+        {/* Captain Login Link */}
+        <div className="pt-2">
+          <a 
+            href="/captain-login" 
+            className="inline-flex items-center gap-2 text-[11px] font-bold text-[#0D2421]/50 uppercase tracking-wider hover:text-amber-600 transition-colors underline decoration-[#0D2421]/20 underline-offset-4 hover:decoration-amber-500"
+          >
+            👑 Table Captain? Sign in here →
+          </a>
+        </div>
       </div>
     </div>
   );

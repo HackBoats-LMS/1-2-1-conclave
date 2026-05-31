@@ -14,8 +14,8 @@ export default async function Onboarding() {
 
   const isProfileComplete = (session.user as any).onboardingCompleted;
   if (isProfileComplete) {
-    const isAdmin = (session.user as any).role === "ADMIN";
-    if (isAdmin) {
+    const role = (session.user as any).role;
+    if (role === "ADMIN") {
       redirect("/admin");
     } else {
       redirect("/dashboard");
