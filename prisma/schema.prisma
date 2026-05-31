@@ -25,7 +25,8 @@ model User {
   businessCategory String?
   contactNumber    String?
   description      String?
-  role             String   @default("USER")
+  group            String?  // Organization/College tracking
+  role             String   @default("USER") // ADMIN | CAPTAIN | USER
   isApproved       Boolean  @default(false)
   onboardingCompleted Boolean @default(false)
 

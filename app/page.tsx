@@ -22,6 +22,8 @@ export default async function Home() {
     }
   }
 
+  const isCaptain = session?.user && (session.user as any).role === "CAPTAIN";
+
   // Live database stats
   const totalReferrals = await prisma.referral.count();
   const totalRounds = await prisma.round.count();
@@ -54,9 +56,18 @@ export default async function Home() {
 
           <div className="flex items-center gap-4">
             {isLoggedIn && (
-              <span className="hidden sm:inline text-xs font-black px-3 py-1.5 bg-[#0D2421]/5 text-[#0D2421] rounded-lg border border-[#0D2421] uppercase">
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 bg-[#0D2421]/5 text-[#0D2421] rounded-lg border border-[#0D2421] uppercase">
+                {isCaptain && <span>👑</span>}
                 {session.user?.name?.split(" ")[0]}
               </span>
+            )}
+            {!isLoggedIn && (
+              <a
+                href="/captain-login"
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-white border-2 border-amber-700 rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+              >
+                👑 Captain Login
+              </a>
             )}
             <a
               href={ctaLink}

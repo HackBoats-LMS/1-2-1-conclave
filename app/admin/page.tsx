@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { initializeData, startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, revokeAllAccess, uploadAssignmentsExcel, addManualUser, removeAllUsers, deleteUserAccount } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, revokeAllAccess, addManualUser, removeAllUsers, deleteUserAccount, generateAutoAssignments, clearAssignments } from "./actions";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
-import { UploadForm } from "./UploadForm";
+import { MemberUploadForm } from "./MemberUploadForm";
+import { CaptainUploadForm } from "./CaptainUploadForm";
+import { AssignmentPreview } from "./AssignmentPreview";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,38 +14,203 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const successAction = resolvedParams?.success;
 
   let successMessage = "";
-  if (successAction === "uploaded_assignments" && addedCount) {
-    successMessage = `Successfully processed and granted access to ${addedCount} unique user accounts!`;
+  if (successAction === "uploaded_whitelist" && addedCount) {
+    successMessage = `Successfully whitelisted ${addedCount} member email(s)!`;
+  } else if (successAction === "uploaded_captains" && addedCount) {
+    successMessage = `Successfully registered ${addedCount} captain(s)!`;
+  } else if (successAction === "generated") {
+    successMessage = "Round assignments have been auto-generated! Review the matrix below.";
+  } else if (successAction === "cleared_assignments") {
+    successMessage = "All assignment data (slots, rounds, tables) has been cleared!";
   } else if (successAction === "cleared_referrals") {
     successMessage = "Live referrals data has been successfully cleared!";
   } else if (successAction === "cleared_members") {
-    successMessage = "All non-admin members have been successfully removed!";
-  } else if (successAction === "initialized") {
-    successMessage = "Database has been successfully initialized with empty tables and rounds!";
+    successMessage = "All non-admin members and captains have been removed!";
   } else if (successAction === "deleted_user") {
     successMessage = "User account has been permanently deleted!";
   } else if (successAction === "added_user") {
     successMessage = "User has been manually added and granted access!";
-  } else if (addedCount) {
-    successMessage = `Successfully processed and granted access to ${addedCount} unique user accounts from the uploaded file!`;
   }
 
-  const slots = await prisma.slot.findMany({
-    include: { rounds: { orderBy: { roundNumber: 'asc' } } },
-    orderBy: { slotNumber: 'asc' }
-  });
-  
-  const gameState = await prisma.gameState.findFirst();
-  const totalReferrals = await prisma.referral.count();
-  const users = await prisma.user.findMany({
-    orderBy: { email: 'asc' }
-  });
+  // ── Data Fetching (batched queries) ──
+  const [slots, gameState, totalReferrals, users] = await Promise.all([
+    prisma.slot.findMany({
+      include: { rounds: { orderBy: { roundNumber: 'asc' } } },
+      orderBy: { slotNumber: 'asc' }
+    }),
+    prisma.gameState.findFirst(),
+    prisma.referral.count(),
+    prisma.user.findMany({ orderBy: { email: 'asc' } }),
+  ]);
 
-  // Calculate high-fidelity stats for dashboard counters
+  // ── Calculate Stats ──
   const totalUsers = users.length;
   const approvedUsers = users.filter((u: any) => u.isApproved).length;
   const pendingOnboarding = users.filter((u: any) => u.isApproved && !u.onboardingCompleted).length;
   const completedOnboarding = approvedUsers - pendingOnboarding;
+  const captainCount = users.filter((u: any) => u.role === "CAPTAIN").length;
+  const memberCount = users.filter((u: any) => u.role === "USER" && u.isApproved).length;
+  const hasAssignments = slots.length > 0;
+
+  // ── Build Assignment Preview Data (only if assignments exist) ──
+  let previewData = null;
+  if (hasAssignments) {
+    const allAssignments = await prisma.tableAssignment.findMany({
+      include: {
+        user: true,
+        table: {
+          include: {
+            round: {
+              include: { slot: true }
+            }
+          }
+        }
+      }
+    });
+
+    // Build preview structure
+    const slotMap = new Map<number, {
+      slotNumber: number;
+      rounds: Map<number, {
+        roundNumber: number;
+        status: string;
+        tables: Map<number, {
+          tableNumber: number;
+          users: { id: string; email: string; name: string | null; businessName: string | null; businessCategory: string | null; isCaptain: boolean }[];
+        }>;
+      }>;
+    }>();
+
+    for (const assignment of allAssignments as any[]) {
+      const slotNum = assignment.table.round.slot.slotNumber;
+      const roundNum = assignment.table.round.roundNumber;
+      const roundStatus = assignment.table.round.status;
+      const tableNum = assignment.table.tableNumber;
+
+      if (!slotMap.has(slotNum)) {
+        slotMap.set(slotNum, { slotNumber: slotNum, rounds: new Map() });
+      }
+      const slotEntry = slotMap.get(slotNum)!;
+
+      if (!slotEntry.rounds.has(roundNum)) {
+        slotEntry.rounds.set(roundNum, { roundNumber: roundNum, status: roundStatus, tables: new Map() });
+      }
+      const roundEntry = slotEntry.rounds.get(roundNum)!;
+
+      if (!roundEntry.tables.has(tableNum)) {
+        roundEntry.tables.set(tableNum, { tableNumber: tableNum, users: [] });
+      }
+      const tableEntry = roundEntry.tables.get(tableNum)!;
+
+      tableEntry.users.push({
+        id: assignment.user.id,
+        email: assignment.user.email || '',
+        name: assignment.user.name,
+        businessName: assignment.user.businessName,
+        businessCategory: assignment.user.businessCategory,
+        isCaptain: assignment.isCaptain,
+      });
+    }
+
+    // Convert Maps to sorted arrays
+    const previewSlots = Array.from(slotMap.values())
+      .sort((a, b) => a.slotNumber - b.slotNumber)
+      .map(s => ({
+        slotNumber: s.slotNumber,
+        rounds: Array.from(s.rounds.values())
+          .sort((a, b) => a.roundNumber - b.roundNumber)
+          .map(r => ({
+            roundNumber: r.roundNumber,
+            status: r.status,
+            tables: Array.from(r.tables.values())
+              .sort((a, b) => a.tableNumber - b.tableNumber)
+              .map(t => ({
+                tableNumber: t.tableNumber,
+                users: t.users.sort((a, b) => (a.isCaptain === b.isCaptain ? 0 : a.isCaptain ? -1 : 1)),
+              })),
+          })),
+      }));
+
+    // ── Coverage Analytics (computed in-memory from DB data) ──
+    const memberUsers = users.filter((u: any) => u.role === "USER" && u.isApproved);
+    const memberIdSet = new Set(memberUsers.map((u: any) => u.id));
+    const memberEmailMap = new Map(memberUsers.map((u: any) => [u.id, u.email as string]));
+
+    // Build meeting matrix from assignments
+    const met = new Map<string, Set<string>>();
+    for (const id of memberIdSet) met.set(id, new Set());
+
+    // Track which members appear in at least one assignment
+    const assignedMembers = new Set<string>();
+
+    for (const assignment of allAssignments as any[]) {
+      if (!assignment.isCaptain && memberIdSet.has(assignment.userId)) {
+        assignedMembers.add(assignment.userId);
+      }
+    }
+
+    // Group assignments by round+table to find who met whom
+    const tableGroups = new Map<string, string[]>();
+    for (const assignment of allAssignments as any[]) {
+      if (assignment.isCaptain || !memberIdSet.has(assignment.userId)) continue;
+      const key = `${assignment.table.roundId}|${assignment.tableId}`;
+      if (!tableGroups.has(key)) tableGroups.set(key, []);
+      tableGroups.get(key)!.push(assignment.userId);
+    }
+
+    for (const group of tableGroups.values()) {
+      for (let i = 0; i < group.length; i++) {
+        for (let j = i + 1; j < group.length; j++) {
+          met.get(group[i])?.add(group[j]);
+          met.get(group[j])?.add(group[i]);
+        }
+      }
+    }
+
+    const totalPairs = memberUsers.length * (memberUsers.length - 1) / 2;
+    const metPairsSet = new Set<string>();
+    for (const [id, partners] of met) {
+      for (const partner of partners) {
+        const key = id < partner ? `${id}|${partner}` : `${partner}|${id}`;
+        metPairsSet.add(key);
+      }
+    }
+    const metPairs = metPairsSet.size;
+
+    // Find unmet pairs (limit to 200 for display)
+    const unmetPairs: { member1Email: string; member2Email: string }[] = [];
+    const memberArr = Array.from(memberIdSet);
+    for (let i = 0; i < memberArr.length && unmetPairs.length < 200; i++) {
+      for (let j = i + 1; j < memberArr.length && unmetPairs.length < 200; j++) {
+        if (!met.get(memberArr[i])?.has(memberArr[j])) {
+          unmetPairs.push({
+            member1Email: memberEmailMap.get(memberArr[i]) || memberArr[i],
+            member2Email: memberEmailMap.get(memberArr[j]) || memberArr[j],
+          });
+        }
+      }
+    }
+
+    // Find left out members
+    const leftOutMembers = memberArr
+      .filter(id => !assignedMembers.has(id))
+      .map(id => memberEmailMap.get(id) || id);
+
+    previewData = {
+      slots: previewSlots,
+      analytics: {
+        totalMembers: memberUsers.length,
+        totalCaptains: captainCount,
+        totalRounds: slots.reduce((sum, s: any) => sum + s.rounds.length, 0),
+        totalSlots: slots.length,
+        totalPairs,
+        metPairs,
+        coveragePercent: totalPairs > 0 ? Math.round(metPairs / totalPairs * 10000) / 100 : 100,
+        unmetPairs,
+        leftOutMembers,
+      },
+    };
+  }
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-6 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col">
@@ -62,7 +229,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               Admin Control Console
             </h1>
             <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wider">
-              Configure conclave sessions, import matrices, and whitelist attendee credentials.
+              Upload members & captains, auto-generate assignments, and control live rounds.
             </p>
           </div>
           <div className="flex gap-3">
@@ -78,13 +245,104 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         {/* Success Alert Banner */}
         {successMessage && <SuccessAlert initialMessage={successMessage} />}
 
-        {/* Modular Grid Layout */}
+        {/* ── UPLOAD & GENERATE SECTION ── */}
+        <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b-2 border-[#0D2421]">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-black uppercase text-[#0D2421]">Import & Generate</h2>
+              <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Upload email lists, then auto-generate round assignments</p>
+            </div>
+            {/* Pre-flight info */}
+            <div className="flex items-center gap-3 text-right">
+              <div className="space-y-0.5">
+                <div className="text-[10px] font-black uppercase text-[#0D2421]/40 tracking-widest">Ready to Generate</div>
+                <div className="text-xs font-black text-[#0D2421]">
+                  {captainCount} captain{captainCount !== 1 ? 's' : ''} × {memberCount} member{memberCount !== 1 ? 's' : ''}
+                  {captainCount > 0 && memberCount > 0 && (
+                    <span className="text-[#0D2421]/40"> → {captainCount} tables</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Upload Zones */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <MemberUploadForm />
+            <CaptainUploadForm />
+          </div>
+
+          {/* Generate Button */}
+          <div className="border-t-2 border-dashed border-[#0D2421]/20 pt-6 space-y-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <form action={generateAutoAssignments} className="flex-1 w-full space-y-4">
+                <div className="flex flex-col space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <label htmlFor="maxRounds" className="text-sm font-bold text-[#0D2421] uppercase tracking-wide">
+                    Max Rounds to Generate
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="number" 
+                      id="maxRounds" 
+                      name="maxRounds" 
+                      defaultValue={12} 
+                      min={1} 
+                      max={20}
+                      className="p-3 border-2 border-[#0D2421]/10 rounded-xl font-bold focus:border-[#BEF03C] focus:ring-2 focus:ring-[#BEF03C]/20 outline-none w-24 text-center"
+                    />
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed flex-1">
+                      The engine will stop early if it hits 100% room coverage before reaching this limit.
+                    </p>
+                  </div>
+                </div>
+
+                <SubmitButton 
+                  loadingText="Generating Assignments..."
+                  className={`w-full py-4 border-2 border-[#0D2421] rounded-2xl font-black uppercase text-sm transition-all cursor-pointer ${
+                    captainCount > 0 && memberCount > 0
+                      ? 'bg-[#0D2421] text-[#BEF03C] hover:bg-[#163733] shadow-[4px_4px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px]'
+                      : 'bg-slate-100 text-slate-400 border-slate-300 cursor-not-allowed shadow-none'
+                  }`}
+                >
+                  🎲 Auto-Generate Round Assignments
+                </SubmitButton>
+              </form>
+
+              {hasAssignments && (
+                <form action={clearAssignments}>
+                  <SubmitButton 
+                    loadingText="Clearing..."
+                    className="px-6 py-4 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-2xl font-black text-sm uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    Clear Assignments
+                  </SubmitButton>
+                </form>
+              )}
+            </div>
+
+            {captainCount === 0 && (
+              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider text-center">
+                ⚠️ Upload captain emails first before generating assignments
+              </p>
+            )}
+            {captainCount > 0 && memberCount === 0 && (
+              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider text-center">
+                ⚠️ Upload member emails first before generating assignments
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── ASSIGNMENT PREVIEW (shown after generation) ── */}
+        {previewData && <AssignmentPreview slots={previewData.slots} analytics={previewData.analytics} />}
+
+        {/* ── STATS + ROUND CONTROLS ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
-          {/* LEFT COLUMN: Modular Stats Indicators */}
+          {/* LEFT COLUMN: Stats */}
           <div className="lg:col-span-4 space-y-10">
             
-            {/* Stat Module 1: Live Connections */}
+            {/* Stat: Live Connections */}
             <div className="bg-white border-2 border-[#0D2421] p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-4 relative overflow-hidden">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-black tracking-widest text-[#0D2421]/40 uppercase">01 / CONNECTION TELEMETRY</span>
@@ -108,7 +366,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Export Data
+                  Export Referrals
                 </a>
                 <form action={clearReferrals} className="flex-1">
                   <SubmitButton 
@@ -121,26 +379,30 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               </div>
             </div>
 
-            {/* Stat Module 2: Whitelist Health */}
+            {/* Stat: Platform Access */}
             <div className="bg-white border-2 border-[#0D2421] p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-4">
               <span className="text-[10px] font-black tracking-widest text-[#0D2421]/40 uppercase block">02 / CREDENTIAL HEALTH</span>
               <div className="space-y-1">
                 <h3 className="font-black text-lg uppercase">Platform Access</h3>
-                <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Approved logins vs registered database users</p>
+                <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Members, captains, and admin accounts</p>
               </div>
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="bg-[#FAF8F4] p-4 rounded-2xl border-2 border-[#0D2421] text-center">
-                  <div className="text-2xl font-black">{approvedUsers}</div>
-                  <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Approved</div>
+              <div className="grid grid-cols-3 gap-3 pt-2">
+                <div className="bg-[#FAF8F4] p-3 rounded-2xl border-2 border-[#0D2421] text-center">
+                  <div className="text-2xl font-black">{memberCount}</div>
+                  <div className="text-[8px] font-black text-[#0D2421]/50 uppercase tracking-wider">Members</div>
                 </div>
-                <div className="bg-[#FAF8F4] p-4 rounded-2xl border-2 border-[#0D2421] text-center">
+                <div className="bg-amber-50 p-3 rounded-2xl border-2 border-amber-500 text-center">
+                  <div className="text-2xl font-black text-amber-600">{captainCount}</div>
+                  <div className="text-[8px] font-black text-amber-600/60 uppercase tracking-wider">Captains</div>
+                </div>
+                <div className="bg-[#FAF8F4] p-3 rounded-2xl border-2 border-[#0D2421] text-center">
                   <div className="text-2xl font-black">{totalUsers}</div>
-                  <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Registered</div>
+                  <div className="text-[8px] font-black text-[#0D2421]/50 uppercase tracking-wider">Total</div>
                 </div>
               </div>
             </div>
 
-            {/* Stat Module 3: Profile Progress */}
+            {/* Stat: Onboarding */}
             <div className="bg-white border-2 border-[#0D2421] p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-4">
               <span className="text-[10px] font-black tracking-widest text-[#0D2421]/40 uppercase block">03 / ONBOARDING INTEGRITY</span>
               <div className="space-y-1">
@@ -158,18 +420,16 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 </div>
               </div>
             </div>
-
           </div>
 
-          {/* RIGHT COLUMN: Session Orchestration and Rotation List */}
+          {/* RIGHT COLUMN: Round Controls */}
           <div className="lg:col-span-8 space-y-10">
             <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
               
-              {/* Orchestrator Title Block */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b-2 border-[#0D2421]">
                 <div className="space-y-1">
                   <h2 className="text-2xl font-black uppercase text-[#0D2421]">Session Rotations</h2>
-                  <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Launch matching algorithms and control active countdowns</p>
+                  <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Launch rounds and control active countdowns</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {slots.length > 0 && (
@@ -186,25 +446,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                       </form>
                     </>
                   )}
-                  {slots.length === 0 && (
-                    <form action={initializeData}>
-                      <SubmitButton loadingText="Initializing..." className="px-6 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
-                        Initialize Slots
-                      </SubmitButton>
-                    </form>
-                  )}
                 </div>
               </div>
 
-              {/* Upload Matrix Section */}
-              {slots.length > 0 && <UploadForm />}
-
-              {/* Slots and Rounds Grid Layout */}
+              {/* Slots and Rounds Grid */}
               <div className="space-y-8">
                 {slots.map((slot: any) => (
                   <div key={slot.id} className="border-2 border-[#0D2421] rounded-[2rem] overflow-hidden bg-[#FAF8F4] shadow-[4px_4px_0px_#0D2421]">
                     
-                    {/* Slot Header */}
                     <div className="bg-[#0D2421] px-6 py-4 border-b-2 border-[#0D2421] flex justify-between items-center">
                       <span className="font-black text-sm text-[#BEF03C] tracking-widest uppercase">
                         SLOT COORDINATE: {slot.slotNumber}
@@ -214,7 +463,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                       </span>
                     </div>
 
-                    {/* Rounds 2x2 Grid Layout */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white">
                       {slot.rounds.map((round: any) => {
                         const isActive = gameState?.currentRoundId === round.id;
@@ -245,7 +493,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                               </span>
                             </div>
 
-                            {/* Round Action Buttons */}
                             <div className="pt-2 border-t border-[#0D2421]/10 flex gap-2">
                               {isActive ? (
                                 <>
@@ -278,7 +525,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 </form>
                               )}
                             </div>
-
                           </div>
                         )
                       })}
@@ -294,8 +540,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                       </svg>
                     </div>
                     <div className="space-y-1">
-                      <p className="font-black text-sm uppercase text-[#0D2421]/70">No slots initialized</p>
-                      <p className="text-xs font-semibold text-[#0D2421]/50 uppercase tracking-wider">Initialize database coordinates above to get started.</p>
+                      <p className="font-black text-sm uppercase text-[#0D2421]/70">No assignments generated yet</p>
+                      <p className="text-xs font-semibold text-[#0D2421]/50 uppercase tracking-wider">Upload member & captain emails above, then click Generate.</p>
                     </div>
                   </div>
                 )}
@@ -305,7 +551,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           
         </div>
 
-        {/* User Management Section */}
+        {/* ── USER MANAGEMENT TABLE ── */}
         <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b-2 border-[#0D2421]">
             <div className="space-y-1">
@@ -322,7 +568,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             </form>
           </div>
           
-          {/* Grant Access Manually */}
+          {/* Manual User Add */}
           <form action={addManualUser} className="bg-[#FAF8F4] p-6 rounded-2xl border-2 border-[#0D2421] shadow-[3px_3px_0px_#0D2421] space-y-4">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#0D2421]"></span>
@@ -348,8 +594,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     name="role" 
                     className="w-full bg-white border-2 border-[#0D2421] rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all appearance-none cursor-pointer"
                   >
-                    <option value="USER">Standard User Access</option>
-                    <option value="ADMIN">Platform Admin Access</option>
+                    <option value="USER">Standard Member</option>
+                    <option value="CAPTAIN">Table Captain</option>
+                    <option value="ADMIN">Platform Admin</option>
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#0D2421]">
                     <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -395,9 +642,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                       </span>
                     </td>
                     <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-xl border border-[#0D2421] font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
-                        user.role === 'ADMIN' ? 'bg-[#0D2421] text-white' : 'bg-slate-100 text-slate-700'
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl border font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
+                        user.role === 'ADMIN' 
+                          ? 'bg-[#0D2421] text-white border-[#0D2421]' 
+                          : user.role === 'CAPTAIN'
+                            ? 'bg-amber-500 text-white border-amber-700'
+                            : 'bg-slate-100 text-slate-700 border-[#0D2421]'
                       }`}>
+                        {user.role === 'CAPTAIN' && '👑 '}
                         {user.role}
                       </span>
                     </td>
