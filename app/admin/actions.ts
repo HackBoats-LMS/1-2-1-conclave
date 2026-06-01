@@ -693,7 +693,7 @@ export async function generateAutoAssignments(formData?: FormData) {
 
     // Pre-generate all IDs and build data arrays
     const slotData: { id: string; slotNumber: number }[] = [];
-    const roundData: { id: string; slotId: string; roundNumber: number; status: string }[] = [];
+    const roundData: { id: string; slotId: string; roundNumber: number; status: string; durationMinutes: number }[] = [];
     const tableData: { id: string; roundId: string; tableNumber: number }[] = [];
     const assignmentData: { userId: string; tableId: string; isCaptain: boolean }[] = [];
 
