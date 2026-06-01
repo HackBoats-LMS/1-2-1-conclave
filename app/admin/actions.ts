@@ -117,9 +117,13 @@ export async function removeAllUsers(formData: FormData) {
 export async function startRound(formData: FormData) {
   await requireAdmin();
   const roundId = formData.get("roundId") as string;
-  const durationMinutes = 15;
 
   try {
+    const round = await prisma.round.findUnique({
+      where: { id: roundId }
+    });
+    const durationMinutes = round?.durationMinutes || 15;
+
     await prisma.round.update({
       where: { id: roundId },
       data: { 
@@ -434,6 +438,10 @@ export async function generateAutoAssignments(formData?: FormData) {
   const maxRoundsStr = formData?.get("maxRounds")?.toString();
   const MAX_ROUNDS = maxRoundsStr ? parseInt(maxRoundsStr, 10) : 12;
 
+  // Extract Default Round Duration from the UI (defaults to 15 if not provided)
+  const defaultDurationStr = formData?.get("defaultDuration")?.toString();
+  const DEFAULT_DURATION = defaultDurationStr ? parseInt(defaultDurationStr, 10) : 15;
+
   try {
     // ── 1. Fetch captains and regular members ──
     const captains = await prisma.user.findMany({
@@ -697,7 +705,13 @@ export async function generateAutoAssignments(formData?: FormData) {
       const roundsInSlot = slotGrouping[s];
       for (let r = 0; r < roundsInSlot; r++) {
         const roundId = genId();
-        roundData.push({ id: roundId, slotId, roundNumber: globalRoundIdx + 1, status: "PENDING" });
+        roundData.push({ 
+          id: roundId, 
+          slotId, 
+          roundNumber: globalRoundIdx + 1, 
+          status: "PENDING",
+          durationMinutes: DEFAULT_DURATION
+        });
 
         const roundTables = roundAssignments[globalRoundIdx];
         for (let t = 0; t < C; t++) {
@@ -731,4 +745,24 @@ export async function generateAutoAssignments(formData?: FormData) {
   }
 
   redirect(`/admin?success=generated`);
+}
+
+export async function updateAllRoundsDuration(formData: FormData) {
+  await requireAdmin();
+  const durationStr = formData.get("duration") as string;
+  if (!durationStr) return;
+  const duration = parseInt(durationStr, 10);
+  if (isNaN(duration) || duration <= 0) return;
+
+  try {
+    await prisma.round.updateMany({
+      data: { durationMinutes: duration }
+    });
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+  } catch (error) {
+    console.error("Failed to update round durations:", error);
+    redirect(`/admin?error=${encodeURIComponent("Failed to update round durations")}`);
+  }
+  redirect("/admin?success=updated_durations");
 }

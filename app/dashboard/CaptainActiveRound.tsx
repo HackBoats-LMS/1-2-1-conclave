@@ -668,7 +668,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                 
                 {currentPhase === 1 && (
                   <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                    {"Welcome to Table " + tableNumber + "! I am your captain. We have 15 minutes to network. Each of you gets " + (pitchDurationSec === 60 ? "1 minute" : "30 seconds") + " to speak, 30 seconds for referral, then we switch tables. Let's begin!"}
+                    {"Welcome to Table " + tableNumber + "! I am your captain. We have " + round.durationMinutes + " minutes to network. Each of you gets " + (pitchDurationSec === 60 ? "1 minute" : "30 seconds") + " to speak, 30 seconds for referral, then we switch tables. Let's begin!"}
                   </p>
                 )}
 
