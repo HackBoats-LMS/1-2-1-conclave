@@ -212,23 +212,7 @@ export async function clearReferrals(formData: FormData) {
   redirect("/admin?success=cleared_referrals");
 }
 
-export async function revokeAllAccess(formData: FormData) {
-  await requireAdmin();
-  const password = formData.get("password") as string;
-  try {
-    verifyDeletePassword(password);
-    await prisma.user.updateMany({
-      where: { role: { notIn: ["ADMIN"] } },
-      data: { isApproved: false }
-    });
-    await prisma.tableAssignment.deleteMany({});
-    revalidatePath("/admin");
-  } catch (e: any) {
-    console.error(e);
-    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to revoke access")}`);
-  }
-  redirect("/admin?success=revoked_access");
-}
+
 
 // ──────────────────────────────────────────────
 // EXCEL UPLOAD: MEMBER WHITELIST (emails only)

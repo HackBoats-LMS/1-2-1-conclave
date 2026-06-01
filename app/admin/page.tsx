@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, revokeAllAccess, addManualUser, removeAllUsers, deleteUserAccount, generateAutoAssignments, clearAssignments } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, generateAutoAssignments, clearAssignments } from "./actions";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
 import { DeleteUserButton } from "./DeleteUserButton";
@@ -28,8 +28,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     successMessage = "Round assignments have been auto-generated! Review the matrix below.";
   } else if (successAction === "cleared_assignments") {
     successMessage = "All assignment data (slots, rounds, tables) has been cleared!";
-  } else if (successAction === "revoked_access") {
-    successMessage = "All attendee access has been revoked and table assignments cleared!";
   } else if (successAction === "cleared_referrals") {
     successMessage = "Live referrals data has been successfully cleared!";
   } else if (successAction === "cleared_members") {
@@ -450,21 +448,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {slots.length > 0 && (
-                    <>
-                      <SecureAdminButton 
-                        action={revokeAllAccess}
-                        label="Revoke Access"
-                        loadingText="Revoking..."
-                        promptText="Enter Admin Pin to revoke all attendee access:"
-                        className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
-                        formClassName="flex items-center gap-2"
-                      />
-                      <form action={resetAllRounds}>
-                        <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
-                          Reset Progress
-                        </SubmitButton>
-                      </form>
-                    </>
+                    <form action={resetAllRounds}>
+                      <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+                        Reset Progress
+                      </SubmitButton>
+                    </form>
                   )}
                 </div>
               </div>

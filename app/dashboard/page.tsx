@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { LiveControls, AutoRefresh } from "./LiveControls";
 import { UserCard } from "./UserCard";
 import { CaptainActiveRound } from "./CaptainActiveRound";
+import { DownloadMyReferralsButton } from "./DownloadMyReferralsButton";
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,110 @@ export default async function UserDashboard() {
   }
 
   const gameState = await prisma.gameState.findFirst();
+
+  // Check if all rounds are completed (Ending Page condition)
+  const totalRounds = await prisma.round.count();
+  const completedRounds = await prisma.round.count({ where: { status: "COMPLETED" } });
+  const allRoundsCompleted = totalRounds > 0 && completedRounds === totalRounds;
+
+  if (allRoundsCompleted) {
+    // ── ENDING PAGE STATE ──
+    const receivedReferrals = await prisma.referral.findMany({
+      where: { toUserId: session.user.id },
+      include: {
+        fromUser: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const userName = session.user.name || session.user.email.split("@")[0];
+
+    return (
+      <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col items-center justify-center">
+        {/* Blueprint Dot Grid */}
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
+
+        <AutoRefresh initialRoundId={gameState?.currentRoundId || null} />
+
+        <div className="max-w-3xl w-full relative z-10 space-y-8">
+          
+          {/* Ending Banner */}
+          <div className="bg-gradient-to-r from-[#0D2421] to-[#1A3F3A] border-3 border-[#0D2421] p-8 rounded-[2rem] text-white text-center shadow-[8px_8px_0px_#BEF03C] space-y-4">
+            <span className="text-[10px] font-black tracking-widest bg-[#BEF03C] text-[#0D2421] px-4 py-1.5 rounded-full border-2 border-[#0D2421] uppercase inline-block animate-bounce">
+              🏁 CONCLAVE COMPLETED
+            </span>
+            <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight">Session Concluded!</h1>
+            <p className="text-sm font-medium text-white/70 max-w-lg mx-auto leading-relaxed">
+              Great job networking! All slots and rounds are now fully completed. You can export your received referrals below for future connections.
+            </p>
+          </div>
+
+          {/* Action Row */}
+          <div className="bg-white border-3 border-[#0D2421] p-8 rounded-[2rem] shadow-[8px_8px_0px_#0D2421] flex flex-col items-center justify-between gap-6 sm:flex-row text-center sm:text-left">
+            <div className="space-y-1">
+              <span className="text-[9px] font-black tracking-widest text-[#0D2421]/50 uppercase block">01 / CONNECTION DATA</span>
+              <h3 className="font-black text-xl uppercase text-[#0D2421]">Received Referrals</h3>
+              <p className="text-xs font-bold text-[#0D2421]/60 uppercase tracking-wide">
+                You collected {receivedReferrals.length} referral{receivedReferrals.length !== 1 ? 's' : ''} during the session.
+              </p>
+            </div>
+            
+            <DownloadMyReferralsButton 
+              userName={userName}
+              referrals={receivedReferrals}
+            />
+          </div>
+
+          {/* Preview of referrals */}
+          {receivedReferrals.length > 0 && (
+            <div className="bg-white border-3 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[8px_8px_0px_#0D2421] space-y-6">
+              <div className="border-b-2 border-dashed border-[#0D2421]/15 pb-4">
+                <span className="text-[9px] font-black tracking-widest text-[#0D2421]/50 uppercase block">02 / REFERRALS LIST PREVIEW</span>
+                <h3 className="font-black text-lg uppercase text-[#0D2421]">Who Connected With You</h3>
+              </div>
+
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
+                {receivedReferrals.map((ref) => (
+                  <div key={ref.id} className="bg-[#FAF8F4] border-2 border-[#0D2421] p-5 rounded-2xl shadow-[3px_3px_0px_#0D2421] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-[#BEF03C] border-2 border-[#0D2421] rounded-xl flex items-center justify-center font-black text-xs text-[#0D2421] flex-shrink-0">
+                          {ref.fromUser.name?.charAt(0) || ref.fromUser.email?.charAt(0) || '?'}
+                        </div>
+                        <div>
+                          <p className="font-black text-sm uppercase leading-tight">
+                            {ref.fromUser.name || ref.fromUser.email?.split("@")[0]}
+                          </p>
+                          <p className="text-[9px] font-bold text-[#0D2421]/45 uppercase tracking-wide leading-none pt-0.5">
+                            {ref.fromUser.businessCategory || "Participant"} • {ref.fromUser.businessName || "No Company"}
+                          </p>
+                        </div>
+                      </div>
+                      {ref.note ? (
+                        <p className="text-xs font-bold text-[#0D2421]/75 bg-white border border-[#0D2421]/10 px-3 py-2 rounded-xl italic leading-relaxed">
+                          &ldquo;{ref.note}&rdquo;
+                        </p>
+                      ) : (
+                        <p className="text-xs font-bold text-[#0D2421]/30 italic px-1">
+                          No notes left.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 text-left md:text-right font-bold text-[10px] text-[#0D2421]/60 space-y-0.5 uppercase tracking-wide border-t md:border-t-0 border-[#0D2421]/10 pt-2 md:pt-0">
+                      <p><span className="text-[#0D2421]/35">Email:</span> {ref.fromUser.email}</p>
+                      {ref.fromUser.contactNumber && (
+                        <p><span className="text-[#0D2421]/35">Phone:</span> {ref.fromUser.contactNumber}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!gameState?.currentRoundId) {
     // ── WAITING ROOM STATE ──
