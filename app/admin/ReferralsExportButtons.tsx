@@ -53,7 +53,10 @@ export function ReferralsExportButtons() {
 
       // Dynamically load jsPDF to prevent Next.js SSR / stale cache mismatches
       const { default: jsPDF } = await import("jspdf");
-      const doc = new jsPDF("portrait");
+      const doc = new jsPDF({
+        orientation: "portrait",
+        compress: true
+      });
 
       // Watermark & background grids helper function
       const drawBackground = (pdfDoc: any) => {
@@ -62,8 +65,8 @@ export function ReferralsExportButtons() {
         pdfDoc.setFontSize(15);
         pdfDoc.setTextColor(220, 216, 207); // Perfect middle ground visibility on white page background
         
-        for (let py = 10; py < 290; py += 22) {
-          for (let px = 5; px < 200; px += 38) {
+        for (let py = 25; py < 290; py += 55) {
+          for (let px = 15; px < 200; px += 60) {
             pdfDoc.text("HACKBOATS", px, py, { angle: 30 });
           }
         }

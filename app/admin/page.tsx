@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, generateAutoAssignments, clearAssignments } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, generateAutoAssignments, clearAssignments, updateAllRoundsDuration } from "./actions";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
 import { DeleteUserButton } from "./DeleteUserButton";
@@ -36,6 +36,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     successMessage = "User account has been permanently deleted!";
   } else if (successAction === "added_user") {
     successMessage = "User has been manually added and granted access!";
+  } else if (successAction === "updated_durations") {
+    successMessage = "Successfully updated the duration for all rounds!";
   }
 
   let errorMessage = "";
@@ -446,13 +448,31 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                   <h2 className="text-2xl font-black uppercase text-[#0D2421]">Session Rotations</h2>
                   <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Launch rounds and control active countdowns</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-3">
                   {slots.length > 0 && (
-                    <form action={resetAllRounds}>
-                      <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
-                        Reset Progress
-                      </SubmitButton>
-                    </form>
+                    <>
+                      <form action={updateAllRoundsDuration} className="flex items-center gap-2 bg-[#FAF8F4] p-1.5 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
+                        <input 
+                          type="number" 
+                          name="duration" 
+                          placeholder="Mins" 
+                          min={1} 
+                          max={120} 
+                          defaultValue={15}
+                          required
+                          className="w-16 p-2 border-2 border-[#0D2421] bg-white rounded-lg font-bold text-center text-xs focus:outline-none"
+                        />
+                        <SubmitButton loadingText="Applying..." className="px-3 py-2 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-lg text-xs font-black uppercase shadow-[1.5px_1.5px_0px_#0D2421] transition-all cursor-pointer">
+                          Set Duration (All)
+                        </SubmitButton>
+                      </form>
+
+                      <form action={resetAllRounds}>
+                        <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+                          Reset Progress
+                        </SubmitButton>
+                      </form>
+                    </>
                   )}
                 </div>
               </div>
@@ -491,7 +511,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 <div className="space-y-0.5">
                                   <h4 className="font-black text-xs uppercase">Round {round.roundNumber}</h4>
                                   <span className="text-[9px] font-black text-[#0D2421]/40 uppercase tracking-widest">
-                                    15 Mins • Rotation Pin
+                                    {round.durationMinutes} Mins • Rotation Pin
                                   </span>
                                 </div>
                               </div>
