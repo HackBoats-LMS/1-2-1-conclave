@@ -13,6 +13,29 @@ async function requireAdmin() {
   }
 }
 
+function verifyDeletePassword(password: string | null) {
+  if (!password) {
+    throw new Error("Admin Pin is required for deletion");
+  }
+  
+  const hash = crypto.createHash("sha256").update(password).digest("hex");
+  const expectedHash = process.env.ADMIN_DELETE_PASSWORD_HASH;
+  const expectedPlain = process.env.ADMIN_DELETE_PASSWORD;
+  
+  // Hashed password default: HACKBOATS
+  const defaultHash = "728fce39b4446fc2aaa0f4a42971737f137b3ad20c36099fba20891eacca64f8";
+  
+  const match = expectedHash 
+    ? hash === expectedHash 
+    : expectedPlain 
+      ? password === expectedPlain 
+      : hash === defaultHash;
+      
+  if (!match) {
+    throw new Error("Incorrect Admin Pin. Action denied.");
+  }
+}
+
 // ──────────────────────────────────────────────
 // USER MANAGEMENT
 // ──────────────────────────────────────────────
@@ -57,28 +80,32 @@ export async function removeUser(formData: FormData) {
 export async function deleteUserAccount(formData: FormData) {
   await requireAdmin();
   const userId = formData.get("userId") as string;
+  const password = formData.get("password") as string;
   try {
+    verifyDeletePassword(password);
     await prisma.user.delete({
       where: { id: userId }
     });
     revalidatePath("/admin");
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    return;
+    redirect(`/admin?error=${encodeURIComponent(error.message || "Failed to delete user")}`);
   }
   redirect("/admin?success=deleted_user");
 }
 
-export async function removeAllUsers() {
+export async function removeAllUsers(formData: FormData) {
   await requireAdmin();
+  const password = formData.get("password") as string;
   try {
+    verifyDeletePassword(password);
     await prisma.user.deleteMany({
       where: { role: { not: "ADMIN" } }
     });
     revalidatePath("/admin");
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
-    return;
+    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to clear members")}`);
   }
   redirect("/admin?success=cleared_members");
 }
@@ -90,8 +117,7 @@ export async function removeAllUsers() {
 export async function startRound(formData: FormData) {
   await requireAdmin();
   const roundId = formData.get("roundId") as string;
-  const durationMinutesStr = formData.get("durationMinutes") as string;
-  const durationMinutes = Math.max(15, parseInt(durationMinutesStr) || 15);
+  const durationMinutes = 15;
 
   try {
     await prisma.round.update({
@@ -172,30 +198,36 @@ export async function resetAllRounds() {
   }
 }
 
-export async function clearReferrals() {
+export async function clearReferrals(formData: FormData) {
   await requireAdmin();
+  const password = formData.get("password") as string;
   try {
+    verifyDeletePassword(password);
     await prisma.referral.deleteMany({});
     revalidatePath("/admin");
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
-    return;
+    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to wipe data")}`);
   }
   redirect("/admin?success=cleared_referrals");
 }
 
-export async function revokeAllAccess() {
+export async function revokeAllAccess(formData: FormData) {
   await requireAdmin();
+  const password = formData.get("password") as string;
   try {
+    verifyDeletePassword(password);
     await prisma.user.updateMany({
       where: { role: { notIn: ["ADMIN"] } },
       data: { isApproved: false }
     });
     await prisma.tableAssignment.deleteMany({});
     revalidatePath("/admin");
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
+    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to revoke access")}`);
   }
+  redirect("/admin?success=revoked_access");
 }
 
 // ──────────────────────────────────────────────
@@ -312,9 +344,11 @@ export async function uploadCaptainExcel(formData: FormData) {
 // CLEAR GENERATED ASSIGNMENTS (without touching users)
 // ──────────────────────────────────────────────
 
-export async function clearAssignments() {
+export async function clearAssignments(formData: FormData) {
   await requireAdmin();
+  const password = formData.get("password") as string;
   try {
+    verifyDeletePassword(password);
     // Order matters: children first due to FK constraints
     await prisma.tableAssignment.deleteMany({});
     await prisma.table.deleteMany({});
@@ -327,9 +361,9 @@ export async function clearAssignments() {
     }
     revalidatePath("/admin");
     revalidatePath("/dashboard");
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
-    return;
+    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to clear assignments")}`);
   }
   redirect("/admin?success=cleared_assignments");
 }

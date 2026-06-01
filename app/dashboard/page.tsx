@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { LiveControls, AutoRefresh } from "./LiveControls";
 import { UserCard } from "./UserCard";
+import { CaptainActiveRound } from "./CaptainActiveRound";
 
 export const dynamic = 'force-dynamic';
 
@@ -215,8 +216,73 @@ export default async function UserDashboard() {
     orderBy: { isCaptain: 'desc' }
   });
 
+  if (isCaptain) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col">
+        {/* Blueprint Dot Grid */}
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
+
+        <AutoRefresh initialRoundId={gameState.currentRoundId} />
+
+        <div className="max-w-6xl mx-auto w-full relative z-10 space-y-12">
+          {/* Header Block */}
+          <header className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] gap-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-[#0D2421]"></span>
+                </span>
+                <h1 className="text-3xl font-black uppercase tracking-tight">
+                  Round {round?.roundNumber} is Live
+                </h1>
+                <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-xl border-2 border-amber-700 text-[10px] font-black uppercase shadow-[2px_2px_0px_#0D2421]">
+                  👑 TABLE CAPTAIN
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-black uppercase tracking-wider text-[#0D2421]/60">
+                <span className="bg-[#FAF8F4] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
+                  Table: {myAssignment.table.tableNumber}
+                </span>
+                <span className="hidden sm:inline text-[#0D2421]/30 font-bold">•</span>
+                <span className="bg-[#FAF8F4] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
+                  {tableUsers.length + 1} Table Members
+                </span>
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              <LiveControls 
+                updatedAtTime={round?.startTime?.getTime() || 0} 
+                durationMinutes={round?.durationMinutes}
+              />
+            </div>
+          </header>
+
+          {/* Captain Dashboard Orchestrator */}
+          {round && (
+            <CaptainActiveRound 
+              round={{
+                id: round.id,
+                roundNumber: round.roundNumber,
+                startTime: round.startTime,
+                durationMinutes: round.durationMinutes
+              }}
+              tableNumber={myAssignment.table.tableNumber}
+              tableUsers={tableUsers}
+              sessionUser={{
+                id: session.user.id as string,
+                email: session.user.email as string,
+                name: session.user.name
+              }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-6 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col">
+    <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col">
       {/* Blueprint Dot Grid */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
@@ -262,7 +328,7 @@ export default async function UserDashboard() {
 
           <div className="flex-shrink-0">
             <LiveControls 
-              updatedAtTime={round?.startTime?.getTime() || Date.now()} 
+              updatedAtTime={round?.startTime?.getTime() || 0} 
               durationMinutes={round?.durationMinutes}
             />
           </div>

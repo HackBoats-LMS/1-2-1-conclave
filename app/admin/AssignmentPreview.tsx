@@ -195,17 +195,17 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
     <div className="space-y-8">
 
       {/* ── Coverage Analytics Card ── */}
-      <div className={`border-2 p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-6 ${
+      <div className={`border-2 border-[#0D2421] p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-6 ${
         isPerfectCoverage 
-          ? 'bg-emerald-50 border-emerald-600' 
-          : 'bg-amber-50 border-amber-600'
+          ? 'bg-emerald-50/60' 
+          : 'bg-amber-50/60'
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-[2px_2px_0px_#0D2421] ${
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421] ${
               isPerfectCoverage 
-                ? 'bg-emerald-500 border-emerald-700 text-white' 
-                : 'bg-amber-500 border-amber-700 text-white'
+                ? 'bg-emerald-400 text-[#0D2421]' 
+                : 'bg-amber-400 text-[#0D2421]'
             }`}>
               {isPerfectCoverage ? (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -237,9 +237,9 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
             <div className="text-2xl font-black text-[#0D2421]">{analytics.totalMembers}</div>
             <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Members</div>
           </div>
-          <div className="bg-white p-4 rounded-2xl border-2 border-amber-500 text-center shadow-[2px_2px_0px_#0D2421]">
-            <div className="text-2xl font-black text-amber-600">{analytics.totalCaptains}</div>
-            <div className="text-[9px] font-black text-amber-600/60 uppercase tracking-wider">Captains</div>
+          <div className="bg-amber-50 p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
+            <div className="text-2xl font-black text-[#0D2421]">{analytics.totalCaptains}</div>
+            <div className="text-[9px] font-black text-[#0D2421]/50 uppercase tracking-wider">Captains</div>
           </div>
           <div className="bg-white p-4 rounded-2xl border-2 border-[#0D2421] text-center shadow-[2px_2px_0px_#0D2421]">
             <div className="text-2xl font-black text-[#0D2421]">{analytics.totalRounds}</div>
@@ -276,13 +276,13 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
 
         {/* Left Out Members */}
         {analytics.leftOutMembers.length > 0 && (
-          <div className="bg-red-50 border-2 border-red-500 p-4 rounded-xl space-y-2">
+          <div className="bg-red-50 border-2 border-[#0D2421] p-4 rounded-xl space-y-2 shadow-[3px_3px_0px_#0D2421]">
             <span className="text-[10px] font-black text-red-700 uppercase tracking-widest block">
               ⛔ MEMBERS LEFT OUT ({analytics.leftOutMembers.length})
             </span>
             <div className="flex flex-wrap gap-2">
               {analytics.leftOutMembers.map(email => (
-                <span key={email} className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-1 rounded-lg border border-red-300">
+                <span key={email} className="text-[10px] font-bold bg-white text-[#0D2421] px-2 py-1 rounded-lg border border-[#0D2421]">
                   {email}
                 </span>
               ))}
@@ -300,7 +300,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
               {showUnmetDetails ? 'Hide' : 'Show'} Unmet Pair Details ({analytics.unmetPairs.length})
             </button>
             {showUnmetDetails && (
-              <div className="mt-3 max-h-48 overflow-y-auto bg-white border border-amber-300 rounded-xl p-3 space-y-1">
+              <div className="mt-3 max-h-48 overflow-y-auto bg-white border-2 border-[#0D2421] rounded-xl p-3 space-y-1 shadow-[2px_2px_0px_#0D2421]">
                 {analytics.unmetPairs.slice(0, 100).map((pair, i) => (
                   <div key={i} className="text-[10px] font-bold text-amber-800 flex items-center gap-2">
                     <span className="text-amber-500">✗</span>
@@ -370,7 +370,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
           <span className="font-black text-sm text-[#BEF03C] tracking-widest uppercase">
             FULL ASSIGNMENT MATRIX
           </span>
-          <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">
+          <span className="text-[10px] font-black text-[#BEF03C]/70 uppercase tracking-widest">
             {slots.length} SLOTS • {slots.reduce((sum, s) => sum + s.rounds.length, 0)} ROUNDS
           </span>
         </div>
@@ -408,7 +408,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
                           className="w-full px-5 py-3 flex items-center justify-between bg-[#FAF8F4] hover:bg-[#BEF03C]/10 transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-7 h-7 rounded-lg bg-white border-2 border-[#0D2421]/20 flex items-center justify-center font-black text-xs">
+                            <div className="w-7 h-7 rounded-lg bg-white border-2 border-[#0D2421] flex items-center justify-center font-black text-xs">
                               R{round.roundNumber}
                             </div>
                             <span className="font-black text-xs uppercase">Round {round.roundNumber}</span>
@@ -436,10 +436,10 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
                                   {table.users.map(user => (
                                     <div 
                                       key={user.id} 
-                                      className={`flex items-center gap-2 text-[10px] font-bold px-2 py-1.5 rounded-lg ${
+                                      className={`flex items-center gap-2 text-[10px] font-bold px-2 py-1.5 rounded-lg border ${
                                         user.isCaptain 
-                                          ? 'bg-amber-100 border border-amber-400 text-amber-800' 
-                                          : 'bg-[#FAF8F4] border border-[#0D2421]/10 text-[#0D2421]/80'
+                                          ? 'bg-amber-100 border-[#0D2421] text-[#0D2421]' 
+                                          : 'bg-white border-[#0D2421]/20 text-[#0D2421]/80'
                                       }`}
                                     >
                                       {user.isCaptain && <span className="text-xs">👑</span>}

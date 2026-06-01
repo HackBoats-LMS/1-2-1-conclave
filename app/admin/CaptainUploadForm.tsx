@@ -35,11 +35,11 @@ export function CaptainUploadForm() {
   };
 
   return (
-    <div className="bg-amber-50/80 border-2 border-amber-600 p-6 rounded-2xl shadow-[3px_3px_0px_#0D2421] space-y-4 relative overflow-hidden">
+    <div className="bg-[#FAF8F4] border-2 border-[#0D2421] p-6 rounded-2xl shadow-[3px_3px_0px_#0D2421] space-y-4 relative overflow-hidden">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-base">👑</span>
-          <span className="text-[10px] font-black tracking-widest text-amber-800 uppercase">
+          <span className="text-[10px] font-black tracking-widest text-[#0D2421] uppercase">
             IMPORT CAPTAIN EMAILS (.XLSX, .CSV)
           </span>
         </div>
@@ -56,10 +56,10 @@ export function CaptainUploadForm() {
       <form action={formAction} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
         <div className={`flex-1 relative border-2 border-dashed rounded-xl bg-white p-4 transition-all flex items-center justify-center min-h-[58px] ${
           isPending 
-            ? "border-amber-300/50 bg-amber-50/30 cursor-not-allowed" 
+            ? "border-[#0D2421]/15 bg-slate-50 cursor-not-allowed" 
             : fileName 
-              ? "border-amber-500 bg-amber-50" 
-              : "border-amber-400/40 hover:bg-amber-50/50"
+              ? "border-amber-400 bg-amber-400/5" 
+              : "border-[#0D2421]/30 hover:bg-amber-400/5"
         }`}>
           <input
             type="file"
@@ -74,11 +74,11 @@ export function CaptainUploadForm() {
           <div className="flex items-center gap-3">
             {isPending ? (
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-amber-700 animate-spin" fill="none" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-[#0D2421] animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="text-xs font-black uppercase text-amber-700/60 animate-pulse">
+                <span className="text-xs font-black uppercase text-[#0D2421]/40 animate-pulse">
                   Processing Captain Emails...
                 </span>
               </div>
@@ -94,7 +94,7 @@ export function CaptainUploadForm() {
             ) : (
               <div className="flex items-center gap-3">
                 <span className="text-lg">👑</span>
-                <span className="text-xs font-black uppercase text-amber-700/70">
+                <span className="text-xs font-black uppercase text-[#0D2421]/75">
                   Choose Captain Email Spreadsheet
                 </span>
               </div>
@@ -105,10 +105,10 @@ export function CaptainUploadForm() {
         <button
           type="submit"
           disabled={isPending || !fileName}
-          className={`px-6 py-4 border-2 rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-2 ${
+          className={`px-6 py-4 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-2 ${
             isPending || !fileName
               ? "bg-slate-100 text-slate-400 border-slate-300 shadow-none cursor-not-allowed"
-              : "bg-amber-500 text-white border-amber-700 hover:bg-amber-600 shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer"
+              : "bg-amber-400 text-[#0D2421] hover:bg-amber-500 shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer"
           }`}
         >
           {isPending ? (
@@ -126,15 +126,12 @@ export function CaptainUploadForm() {
       </form>
 
       {isPending && (
-        <div className="absolute inset-0 bg-amber-50/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 text-center border-2 border-amber-600 rounded-2xl animate-fadeIn">
-          <div className="w-12 h-12 bg-amber-500 border border-amber-700 rounded-2xl flex items-center justify-center shadow-[3px_3px_0px_#0D2421] mb-4">
-            <svg className="w-6 h-6 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+        <div className="absolute inset-0 bg-[#FAF8F4]/85 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 text-center border-2 border-[#0D2421] rounded-2xl animate-fadeIn">
+          <div className="w-12 h-12 bg-[#0D2421] border border-[#0D2421] rounded-2xl flex items-center justify-center shadow-[3px_3px_0px_#BEF03C] mb-4">
+            <span className="text-xl">👑</span>
           </div>
-          <h4 className="font-black text-sm uppercase tracking-tight text-amber-800">Registering Table Captains</h4>
-          <p className="text-[10px] font-bold text-amber-700/60 uppercase tracking-widest mt-1">
+          <h4 className="font-black text-sm uppercase tracking-tight text-[#0D2421]">Registering Table Captains</h4>
+          <p className="text-[10px] font-bold text-[#0D2421]/60 uppercase tracking-widest mt-1">
             Reading spreadsheet and assigning captain roles...
           </p>
         </div>
