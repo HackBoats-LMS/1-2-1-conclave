@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, revokeAllAccess, addManualUser, removeAllUsers, deleteUserAccount, generateAutoAssignments, clearAssignments } from "./actions";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
+import { DeleteUserButton } from "./DeleteUserButton";
+import { SecureAdminButton } from "./SecureAdminButton";
 import { MemberUploadForm } from "./MemberUploadForm";
 import { CaptainUploadForm } from "./CaptainUploadForm";
 import { AssignmentPreview } from "./AssignmentPreview";
@@ -15,6 +17,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const resolvedParams = await searchParams;
   const addedCount = resolvedParams?.added;
   const successAction = resolvedParams?.success;
+  const errorAction = resolvedParams?.error;
 
   let successMessage = "";
   if (successAction === "uploaded_whitelist" && addedCount) {
@@ -25,6 +28,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     successMessage = "Round assignments have been auto-generated! Review the matrix below.";
   } else if (successAction === "cleared_assignments") {
     successMessage = "All assignment data (slots, rounds, tables) has been cleared!";
+  } else if (successAction === "revoked_access") {
+    successMessage = "All attendee access has been revoked and table assignments cleared!";
   } else if (successAction === "cleared_referrals") {
     successMessage = "Live referrals data has been successfully cleared!";
   } else if (successAction === "cleared_members") {
@@ -33,6 +38,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     successMessage = "User account has been permanently deleted!";
   } else if (successAction === "added_user") {
     successMessage = "User has been manually added and granted access!";
+  }
+
+  let errorMessage = "";
+  if (errorAction) {
+    errorMessage = String(errorAction);
   }
 
   // ── Data Fetching (batched queries) ──
@@ -250,6 +260,24 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         {/* Success Alert Banner */}
         {successMessage && <SuccessAlert initialMessage={successMessage} />}
 
+        {/* Error Alert Banner */}
+        {errorMessage && (
+          <div className="bg-red-100 border-2 border-[#0D2421] p-4 rounded-2xl shadow-[4px_4px_0px_#0D2421] flex items-center justify-between gap-3 relative z-20">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="font-black text-xs uppercase tracking-wide text-left text-red-700">{errorMessage}</span>
+            </div>
+            <a 
+              href="/admin"
+              className="text-[#0D2421]/60 hover:text-[#0D2421] font-black text-xs uppercase cursor-pointer flex-shrink-0 border-b border-[#0D2421]/30 hover:border-[#0D2421]"
+            >
+              Dismiss
+            </a>
+          </div>
+        )}
+
         {/* ── UPLOAD & GENERATE SECTION ── */}
         <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b-2 border-[#0D2421]">
@@ -281,32 +309,30 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           <div className="border-t-2 border-dashed border-[#0D2421]/20 pt-6 space-y-4">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <form action={generateAutoAssignments} className="flex-1 w-full space-y-4">
-                <div className="flex flex-col space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <label htmlFor="maxRounds" className="text-sm font-bold text-[#0D2421] uppercase tracking-wide">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-[#FAF8F4] p-4 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
+                  <label htmlFor="maxRounds" className="text-xs font-black text-[#0D2421] uppercase tracking-wide whitespace-nowrap flex-shrink-0">
                     Max Rounds to Generate
                   </label>
-                  <div className="flex items-center gap-3">
-                    <input 
-                      type="number" 
-                      id="maxRounds" 
-                      name="maxRounds" 
-                      defaultValue={12} 
-                      min={1} 
-                      max={20}
-                      className="p-3 border-2 border-[#0D2421]/10 rounded-xl font-bold focus:border-[#BEF03C] focus:ring-2 focus:ring-[#BEF03C]/20 outline-none w-24 text-center"
-                    />
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed flex-1">
-                      The engine will stop early if it hits 100% room coverage before reaching this limit.
-                    </p>
-                  </div>
+                  <input 
+                    type="number" 
+                    id="maxRounds" 
+                    name="maxRounds" 
+                    defaultValue={12} 
+                    min={1} 
+                    max={20}
+                    className="p-3 border-2 border-[#0D2421] bg-white rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 w-24 text-center text-xs flex-shrink-0"
+                  />
+                  <p className="text-[10px] text-[#0D2421]/60 font-semibold uppercase tracking-wide leading-relaxed flex-1">
+                    The engine will stop early if it hits 100% room coverage before reaching this limit.
+                  </p>
                 </div>
 
                 <SubmitButton 
                   loadingText="Generating Assignments..."
-                  className={`w-full py-4 border-2 border-[#0D2421] rounded-2xl font-black uppercase text-sm transition-all cursor-pointer ${
+                  className={`w-full py-3.5 border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs transition-all cursor-pointer ${
                     captainCount > 0 && memberCount > 0
-                      ? 'bg-[#0D2421] text-[#BEF03C] hover:bg-[#163733] shadow-[4px_4px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px]'
-                      : 'bg-slate-100 text-slate-400 border-slate-300 cursor-not-allowed shadow-none'
+                      ? 'bg-[#0D2421] text-[#BEF03C] hover:bg-[#163733] shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px]'
+                      : 'bg-[#FAF8F4] text-[#0D2421]/40 border-[#0D2421]/30 cursor-not-allowed shadow-none'
                   }`}
                 >
                   🎲 Auto-Generate Round Assignments
@@ -314,27 +340,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               </form>
 
               {hasAssignments && (
-                <form action={clearAssignments}>
-                  <SubmitButton 
-                    loadingText="Clearing..."
-                    className="px-6 py-4 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-2xl font-black text-sm uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    Clear Assignments
-                  </SubmitButton>
-                </form>
+                <SecureAdminButton 
+                  action={clearAssignments}
+                  label="Clear Assignments"
+                  loadingText="Clearing..."
+                  promptText="Enter Admin Pin to clear assignments:"
+                  className="px-5 py-3.5 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap text-center"
+                  formClassName="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+                />
               )}
             </div>
 
-            {captainCount === 0 && (
-              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider text-center">
-                ⚠️ Upload captain emails first before generating assignments
-              </p>
-            )}
-            {captainCount > 0 && memberCount === 0 && (
-              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider text-center">
-                ⚠️ Upload member emails first before generating assignments
-              </p>
-            )}
+           
           </div>
         </div>
 
@@ -366,18 +383,16 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               <div className="text-6xl font-black tracking-tight text-[#0D2421] py-4 bg-[#BEF03C]/10 border-2 border-dashed border-[#0D2421]/20 text-center rounded-2xl">
                 {totalReferrals}
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <div className="flex-1 w-full flex items-center justify-center">
-                  <ReferralsExportButtons />
-                </div>
-                <form action={clearReferrals} className="flex-1">
-                  <SubmitButton 
-                    loadingText="Wiping..."
-                    className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
-                  >
-                    Wipe Data
-                  </SubmitButton>
-                </form>
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <ReferralsExportButtons />
+                <SecureAdminButton 
+                  action={clearReferrals}
+                  label="Wipe Data"
+                  loadingText="Wiping..."
+                  promptText="Enter Admin Pin to wipe live referrals data:"
+                  className="w-full py-3 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-[10px] uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  formClassName="flex-1 w-full"
+                />
               </div>
             </div>
 
@@ -436,11 +451,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 <div className="flex flex-wrap gap-2">
                   {slots.length > 0 && (
                     <>
-                      <form action={revokeAllAccess}>
-                        <SubmitButton loadingText="Revoking..." className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
-                          Revoke Access
-                        </SubmitButton>
-                      </form>
+                      <SecureAdminButton 
+                        action={revokeAllAccess}
+                        label="Revoke Access"
+                        loadingText="Revoking..."
+                        promptText="Enter Admin Pin to revoke all attendee access:"
+                        className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
+                        formClassName="flex items-center gap-2"
+                      />
                       <form action={resetAllRounds}>
                         <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                           Reset Progress
@@ -460,7 +478,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                       <span className="font-black text-sm text-[#BEF03C] tracking-widest uppercase">
                         SLOT COORDINATE: {slot.slotNumber}
                       </span>
-                      <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">
+                      <span className="text-[10px] font-black text-[#BEF03C]/70 uppercase tracking-widest">
                         {slot.rounds.length} ROUND MODULES
                       </span>
                     </div>
@@ -485,7 +503,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 <div className="space-y-0.5">
                                   <h4 className="font-black text-xs uppercase">Round {round.roundNumber}</h4>
                                   <span className="text-[9px] font-black text-[#0D2421]/40 uppercase tracking-widest">
-                                    {round.durationMinutes || 15} Mins • Rotation Pin
+                                    15 Mins • Rotation Pin
                                   </span>
                                 </div>
                               </div>
@@ -522,24 +540,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                   </form>
                                 </>
                               ) : (
-                                <form action={startRound} className="w-full space-y-3">
+                                <form action={startRound} className="w-full">
                                   <input type="hidden" name="roundId" value={round.id} />
-                                  {round.status !== 'COMPLETED' && (
-                                    <div className="space-y-1 text-left">
-                                      <label htmlFor={`duration-${round.id}`} className="block text-[9px] font-black uppercase tracking-wider text-[#0D2421]/60">
-                                        Duration (Min. 15m)
-                                      </label>
-                                      <input 
-                                        type="number" 
-                                        id={`duration-${round.id}`} 
-                                        name="durationMinutes" 
-                                        min={15} 
-                                        required
-                                        defaultValue={round.durationMinutes || 15}
-                                        className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all placeholder:text-[#0D2421]/30" 
-                                      />
-                                    </div>
-                                  )}
                                   <SubmitButton 
                                     loadingText="Launching..."
                                     className={`w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] transition-all ${
@@ -586,14 +588,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               <h2 className="text-2xl font-black uppercase text-[#0D2421]">Credential Whitelist</h2>
               <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Manage registered accounts and database credentials</p>
             </div>
-            <form action={removeAllUsers}>
-              <SubmitButton 
-                loadingText="Clearing..."
-                className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border-2 border-red-600 rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] transition-all cursor-pointer"
-              >
-                Clear Database Members
-              </SubmitButton>
-            </form>
+            <SecureAdminButton 
+              action={removeAllUsers}
+              label="Clear Database Members"
+              loadingText="Clearing..."
+              promptText="Enter Admin Pin to remove all members and captains:"
+              className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
+              formClassName="flex items-center gap-2"
+            />
           </div>
           
           {/* Manual User Add */}
@@ -633,7 +635,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                   </div>
                 </div>
               </div>
-              <SubmitButton loadingText="Granting..." className="w-full md:w-auto px-6 py-3.5 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+              <SubmitButton loadingText="Granting..." className="w-full md:w-auto px-6 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                 Grant Whitelist
               </SubmitButton>
             </div>
@@ -664,32 +666,25 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     </td>
                     <td className="py-4 px-6 text-center">
                       <span className={`inline-flex items-center px-3 py-1 rounded-xl border border-[#0D2421] font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
-                        user.isApproved ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-amber-100 text-amber-800'
+                        user.isApproved ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-amber-100 text-[#0D2421]'
                       }`}>
                         {user.isApproved ? 'Approved' : 'Pending'}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl border font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl border border-[#0D2421] font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
                         user.role === 'ADMIN' 
-                          ? 'bg-[#0D2421] text-white border-[#0D2421]' 
+                          ? 'bg-[#0D2421] text-[#BEF03C]' 
                           : user.role === 'CAPTAIN'
-                            ? 'bg-amber-500 text-white border-amber-700'
-                            : 'bg-slate-100 text-slate-700 border-[#0D2421]'
+                            ? 'bg-amber-400 text-[#0D2421]'
+                            : 'bg-white text-[#0D2421]'
                       }`}>
                         {user.role === 'CAPTAIN' && '👑 '}
                         {user.role}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <form action={deleteUserAccount}>
-                        <input type="hidden" name="userId" value={user.id} />
-                        <SubmitButton title="Delete User" loadingText="..." className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer">
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </SubmitButton>
-                      </form>
+                      <DeleteUserButton userId={user.id} />
                     </td>
                   </tr>
                 ))}

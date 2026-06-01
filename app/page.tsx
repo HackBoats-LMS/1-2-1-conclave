@@ -180,7 +180,7 @@ export default async function Home() {
                 </div>
                 <p className="text-xs font-bold leading-relaxed text-[#0D2421]/80">
                   You sent a digital connection request to <span className="underline">Marcus (Mkt)</span>: 
-                  <span className="italic text-slate-600 block mt-1 bg-white p-2 border border-[#0D2421]/15 rounded">"I have a client looking for a brand strategist. Let's sync up tomorrow."</span>
+                  <span className="italic text-slate-600 block mt-1 bg-white p-2 border border-[#0D2421]/15 rounded">{"\"I have a client looking for a brand strategist. Let's sync up tomorrow.\""}</span>
                 </p>
                 <div className="absolute -top-3 -right-2 bg-emerald-500 border border-[#0D2421] text-white font-black text-[9px] px-2 py-0.5 rounded-full shadow tracking-wider">
                   SENT SECURELY

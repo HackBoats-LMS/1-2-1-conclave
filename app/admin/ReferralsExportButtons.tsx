@@ -101,7 +101,7 @@ export function ReferralsExportButtons() {
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-2 w-full">
+    <>
       <a 
         href="/api/export/referrals"
         className="flex-1 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-[10px] uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
@@ -121,6 +121,6 @@ export function ReferralsExportButtons() {
         </svg>
         PDF
       </button>
-    </div>
+    </>
   );
 }
