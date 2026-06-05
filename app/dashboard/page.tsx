@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { LiveControls, AutoRefresh } from "./LiveControls";
 import { UserCard } from "./UserCard";
 import { CaptainActiveRound } from "./CaptainActiveRound";
@@ -17,12 +18,15 @@ export default async function UserDashboard() {
     redirect("/login?error=AccessDenied");
   }
 
-  // Verify onboarding status for non-admin users
-  const onboardingCompleted = (session.user as any).onboardingCompleted;
+  // Ensure they finished onboarding
+  const cookieStore = await cookies();
+  const hasOnboardedCookie = cookieStore.get("conclave_onboarded")?.value === "true";
+  const isProfileComplete = (session.user as any).onboardingCompleted || hasOnboardedCookie;
+  
   const userRole = (session.user as any).role;
   const isAdmin = userRole === "ADMIN";
   const isCaptain = userRole === "CAPTAIN";
-  if (!onboardingCompleted && !isAdmin) {
+  if (!isProfileComplete && !isAdmin) {
     redirect("/onboarding");
   }
 
