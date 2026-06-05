@@ -1,6 +1,6 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth, unstable_update } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export async function completeOnboarding(formData: FormData) {
@@ -27,6 +27,12 @@ export async function completeOnboarding(formData: FormData) {
       description,
       onboardingCompleted: true,
     }
+  });
+
+  // Forcefully update the JWT cookie so NextAuth knows the user is onboarded
+  await unstable_update({
+    onboardingCompleted: true,
+    role: updatedUser.role,
   });
 
   if (updatedUser.role === "ADMIN") {

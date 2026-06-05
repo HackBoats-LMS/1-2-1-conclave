@@ -3,7 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -31,7 +31,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       // user is only available the first time jwt callback is called (on sign in)
       if (user) {
         token.id = user.id;
@@ -42,6 +42,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.onboardingCompleted = dbUser.onboardingCompleted;
         }
       }
+      
+      // Allow updating session token natively
+      if (trigger === "update" && session) {
+        if (session.onboardingCompleted !== undefined) token.onboardingCompleted = session.onboardingCompleted;
+        if (session.role !== undefined) token.role = session.role;
+      }
+      
       return token;
     },
     async session({ session, token }) {
