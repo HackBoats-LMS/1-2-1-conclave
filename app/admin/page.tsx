@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, generateAutoAssignments, clearAssignments, updateAllRoundsDuration } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration } from "./actions";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
 import { DeleteUserButton } from "./DeleteUserButton";
@@ -10,6 +10,7 @@ import { AssignmentPreview } from "./AssignmentPreview";
 import { ReferralsExportButtons } from "./ReferralsExportButtons";
 import { RefreshButton } from "./RefreshButton";
 import { ClientTimer } from "./ClientTimer";
+import { AutoGenerateClient } from "./AutoGenerateClient";
 
 export const dynamic = 'force-dynamic';
 
@@ -308,36 +309,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           {/* Generate Button */}
           <div className="border-t-2 border-dashed border-[#0D2421]/20 pt-6 space-y-4">
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <form action={generateAutoAssignments} className="flex-1 w-full space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-[#FAF8F4] p-4 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
-                  <label htmlFor="maxRounds" className="text-xs font-black text-[#0D2421] uppercase tracking-wide whitespace-nowrap flex-shrink-0">
-                    Max Rounds to Generate
-                  </label>
-                  <input 
-                    type="number" 
-                    id="maxRounds" 
-                    name="maxRounds" 
-                    defaultValue={12} 
-                    min={1} 
-                    max={20}
-                    className="p-3 border-2 border-[#0D2421] bg-white rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 w-24 text-center text-xs flex-shrink-0"
-                  />
-                  <p className="text-[10px] text-[#0D2421]/60 font-semibold uppercase tracking-wide leading-relaxed flex-1">
-                    The engine will stop early if it hits 100% room coverage before reaching this limit.
-                  </p>
-                </div>
-
-                <SubmitButton 
-                  loadingText="Generating Assignments..."
-                  className={`w-full py-3.5 border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs transition-all cursor-pointer ${
-                    captainCount > 0 && memberCount > 0
-                      ? 'bg-[#0D2421] text-[#BEF03C] hover:bg-[#163733] shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px]'
-                      : 'bg-[#FAF8F4] text-[#0D2421]/40 border-[#0D2421]/30 cursor-not-allowed shadow-none'
-                  }`}
-                >
-                  🎲 Auto-Generate Round Assignments
-                </SubmitButton>
-              </form>
+              <AutoGenerateClient captainCount={captainCount} memberCount={memberCount} />
 
               {hasAssignments && (
                 <SecureAdminButton 

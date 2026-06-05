@@ -26,11 +26,13 @@ export default async function UserDashboard() {
     redirect("/onboarding");
   }
 
-  const gameState = await prisma.gameState.findFirst();
+  const [gameState, totalRounds, completedRounds] = await Promise.all([
+    prisma.gameState.findFirst(),
+    prisma.round.count(),
+    prisma.round.count({ where: { status: "COMPLETED" } })
+  ]);
 
   // Check if all rounds are completed (Ending Page condition)
-  const totalRounds = await prisma.round.count();
-  const completedRounds = await prisma.round.count({ where: { status: "COMPLETED" } });
   const allRoundsCompleted = totalRounds > 0 && completedRounds === totalRounds;
 
   if (allRoundsCompleted) {
@@ -279,16 +281,16 @@ export default async function UserDashboard() {
 
   // ── ACTIVE ROUND STATE ──
 
-  const round = await prisma.round.findUnique({
-    where: { id: gameState.currentRoundId },
-    include: { slot: true }
-  });
-
-  // Find user's table assignment for this round
-  const myAssignment = await prisma.tableAssignment.findFirst({
-    where: { userId: session.user.id, table: { roundId: gameState.currentRoundId } },
-    include: { table: true }
-  });
+  const [round, myAssignment] = await Promise.all([
+    prisma.round.findUnique({
+      where: { id: gameState.currentRoundId },
+      include: { slot: true }
+    }),
+    prisma.tableAssignment.findFirst({
+      where: { userId: session.user.id, table: { roundId: gameState.currentRoundId } },
+      include: { table: true }
+    })
+  ]);
 
   if (!myAssignment) {
     return (

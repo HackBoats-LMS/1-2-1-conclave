@@ -12,6 +12,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       allowDangerousEmailAccountLinking: true,
     }),
   ],
+  session: { 
+    strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 hours
+  },
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
@@ -27,15 +31,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
+    async jwt({ token, user }) {
+      // user is only available the first time jwt callback is called (on sign in)
+      if (user) {
+        token.id = user.id;
         const dbUser = await prisma.user.findUnique({ where: { id: user.id }});
         if (dbUser) {
-          (session.user as any).role = dbUser.role;
-          (session.user as any).isApproved = dbUser.isApproved;
-          (session.user as any).onboardingCompleted = dbUser.onboardingCompleted;
+          token.role = dbUser.role;
+          token.isApproved = dbUser.isApproved;
+          token.onboardingCompleted = dbUser.onboardingCompleted;
         }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        (session.user as any).role = token.role;
+        (session.user as any).isApproved = token.isApproved;
+        (session.user as any).onboardingCompleted = token.onboardingCompleted;
       }
       return session;
     },
