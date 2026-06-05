@@ -36,8 +36,5 @@ export async function completeOnboarding(formData: FormData) {
     role: updatedUser.role,
   } as any);
 
-  // We do not call redirect() here. Next.js sometimes swallows Set-Cookie headers 
-  // when redirect() is thrown in a Server Action. Instead, we revalidate the path.
-  // The /onboarding page will re-render, see the new cookie, and redirect safely.
-  revalidatePath("/onboarding", "page");
+  return { success: true, role: updatedUser.role };
 }
