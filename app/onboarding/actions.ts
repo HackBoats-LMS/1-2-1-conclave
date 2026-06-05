@@ -1,8 +1,10 @@
 "use server";
 import { prisma } from "@/lib/prisma";
-import { auth, unstable_update } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+
+import { cookies } from "next/headers";
 
 export async function completeOnboarding(formData: FormData) {
   const session = await auth();
@@ -30,11 +32,10 @@ export async function completeOnboarding(formData: FormData) {
     }
   });
 
-  // Forcefully update the JWT cookie so NextAuth knows the user is onboarded
-  await unstable_update({
-    onboardingCompleted: true,
-    role: updatedUser.role,
-  } as any);
+  // Use a standard Next.js cookie to flag completion instead of NextAuth's 
+  // buggy unstable_update which corrupts the JWT token (JWEInvalid).
+  const cookieStore = await cookies();
+  cookieStore.set("conclave_onboarded", "true", { path: "/", maxAge: 60 * 60 * 24 });
 
   return { success: true, role: updatedUser.role };
 }

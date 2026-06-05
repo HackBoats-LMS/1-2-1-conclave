@@ -11,9 +11,9 @@ export function OnboardingClient() {
     const result = await completeOnboarding(formData);
     if (result && result.success) {
       if (result.role === "ADMIN") {
-        router.push("/admin");
+        window.location.href = "/admin";
       } else {
-        router.push("/dashboard");
+        window.location.href = "/dashboard";
       }
     }
   };
