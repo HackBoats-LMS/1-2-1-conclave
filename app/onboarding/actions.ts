@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth, unstable_update } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 export async function completeOnboarding(formData: FormData) {
   const session = await auth();
@@ -33,11 +34,10 @@ export async function completeOnboarding(formData: FormData) {
   await unstable_update({
     onboardingCompleted: true,
     role: updatedUser.role,
-  });
+  } as any);
 
-  if (updatedUser.role === "ADMIN") {
-    redirect("/admin");
-  } else {
-    redirect("/dashboard");
-  }
+  // We do not call redirect() here. Next.js sometimes swallows Set-Cookie headers 
+  // when redirect() is thrown in a Server Action. Instead, we revalidate the path.
+  // The /onboarding page will re-render, see the new cookie, and redirect safely.
+  revalidatePath("/onboarding", "page");
 }
