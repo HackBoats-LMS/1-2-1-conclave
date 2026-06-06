@@ -42,7 +42,8 @@ function verifyDeletePassword(password: string | null) {
 
 export async function addManualUser(formData: FormData) {
   await requireAdmin();
-  const email = formData.get("email") as string;
+  const rawEmail = formData.get("email") as string;
+  const email = rawEmail?.trim().toLowerCase();
   const role = formData.get("role") as string || "USER";
   if (!email) {
     console.error("Email is required");
@@ -65,7 +66,8 @@ export async function addManualUser(formData: FormData) {
 
 export async function removeUser(formData: FormData) {
   await requireAdmin();
-  const email = formData.get("email") as string;
+  const rawEmail = formData.get("email") as string;
+  const email = rawEmail?.trim().toLowerCase();
   try {
     await prisma.user.update({
       where: { email },
