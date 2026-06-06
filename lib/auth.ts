@@ -20,9 +20,15 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
       
-      // Check if user exists and is approved by admin
-      const dbUser = await prisma.user.findUnique({
-        where: { email: user.email },
+      // Check if user exists and is approved by admin (case-insensitive)
+      const normalizedEmail = user.email.toLowerCase();
+      const dbUser = await prisma.user.findFirst({
+        where: { 
+          email: {
+            equals: normalizedEmail,
+            mode: "insensitive"
+          }
+        },
       });
 
       if (!dbUser || !dbUser.isApproved) {
