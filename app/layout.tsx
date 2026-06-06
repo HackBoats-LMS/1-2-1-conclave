@@ -33,15 +33,34 @@ export default function RootLayout({
           {children}
         </div>
         
-        {/* Global Footer */}
-        <footer className="w-full py-8 mt-auto flex justify-center items-center gap-3 select-none">
-          <span className="text-xs font-black text-[#0D2421]/50 uppercase tracking-widest mt-1">Powered by</span>
-          <img 
-            src="/hb-logo.png" 
-            alt="HackBoats" 
-            className="h-8 md:h-10 object-contain hover:scale-105 transition-transform duration-300 drop-shadow-sm" 
-            draggable={false}
-          />
+        {/* Unified Global Footer */}
+        <footer className="w-full bg-[#0D2421] text-[#FAF8F4]/60 py-6 px-6 border-t border-[#0D2421] mt-auto select-none">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            
+            {/* Left: Branding */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#BEF03C] border border-[#0D2421] flex items-center justify-center text-[#0D2421] font-black text-sm shadow-[1.5px_1.5px_0px_#FAF8F4]">
+                C
+              </div>
+              <span className="font-black text-[#FAF8F4] text-base tracking-tight uppercase">1-2-1 Conclave</span>
+            </div>
+
+            {/* Center: Powered By */}
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-black text-[#FAF8F4]/50 uppercase tracking-widest mt-0.5">Powered by</span>
+              <img 
+                src="/hb-logo.png" 
+                alt="HackBoats" 
+                className="h-6 md:h-7 object-contain hover:scale-105 transition-transform duration-300 drop-shadow-sm" 
+                draggable={false}
+              />
+            </div>
+
+            {/* Right: Copyright */}
+            <p className="text-[10px] font-bold text-[#FAF8F4]/40 uppercase tracking-widest">
+              &copy; {new Date().getFullYear()} 1-2-1 Conclave. All rights reserved.
+            </p>
+          </div>
         </footer>
       </body>
     </html>
