@@ -285,7 +285,7 @@ export default async function UserDashboard() {
 
   // ── ACTIVE ROUND STATE ──
 
-  const [round, myAssignment] = await Promise.all([
+  const [round, myAssignment, nextRound] = await Promise.all([
     prisma.round.findUnique({
       where: { id: gameState.currentRoundId },
       include: { slot: true }
@@ -293,8 +293,20 @@ export default async function UserDashboard() {
     prisma.tableAssignment.findFirst({
       where: { userId: session.user.id, table: { roundId: gameState.currentRoundId } },
       include: { table: true }
+    }),
+    prisma.round.findFirst({
+      where: { status: "PENDING" },
+      orderBy: [{ slot: { slotNumber: 'asc' } }, { roundNumber: 'asc' }]
     })
   ]);
+
+  let nextAssignment = null;
+  if (nextRound) {
+    nextAssignment = await prisma.tableAssignment.findFirst({
+      where: { userId: session.user.id, table: { roundId: nextRound.id } },
+      include: { table: true }
+    });
+  }
 
   if (!myAssignment) {
     return (
@@ -444,6 +456,43 @@ export default async function UserDashboard() {
             />
           </div>
         </header>
+
+        {/* Up Next Banner */}
+        {nextRound && nextAssignment && (
+          <div className={`border-2 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[4px_4px_0px_#0D2421] ${
+            myAssignment.table.tableNumber === nextAssignment.table.tableNumber 
+              ? 'bg-emerald-50 border-emerald-600' 
+              : 'bg-amber-50 border-amber-500'
+          }`}>
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421] ${
+                myAssignment.table.tableNumber === nextAssignment.table.tableNumber 
+                  ? 'bg-emerald-400' 
+                  : 'bg-amber-400'
+              }`}>
+                {myAssignment.table.tableNumber === nextAssignment.table.tableNumber ? '⚓' : '🏃'}
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#0D2421]/50">
+                  ROUND {nextRound.roundNumber} PREVIEW
+                </span>
+                <h3 className="font-black text-lg uppercase text-[#0D2421]">
+                  {myAssignment.table.tableNumber === nextAssignment.table.tableNumber 
+                    ? `Stay at Table ${nextAssignment.table.tableNumber}` 
+                    : `Move to Table ${nextAssignment.table.tableNumber}`
+                  }
+                </h3>
+              </div>
+            </div>
+            <div className="text-left sm:text-right">
+              <p className="text-xs font-bold text-[#0D2421]/60 uppercase tracking-wide">
+                {myAssignment.table.tableNumber === nextAssignment.table.tableNumber 
+                  ? "You don't need to move when this round ends." 
+                  : "Be ready to switch tables when the timer hits zero."}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Members Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
