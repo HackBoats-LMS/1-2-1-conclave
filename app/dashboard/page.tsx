@@ -141,35 +141,38 @@ export default async function UserDashboard() {
   if (!gameState?.currentRoundId) {
     // ── WAITING ROOM STATE ──
 
-    // Captain pre-round view: show upcoming table members
-    if (isCaptain) {
-      // Find the next PENDING round
-      const nextRound = await prisma.round.findFirst({
-        where: { status: "PENDING" },
-        orderBy: [{ slot: { slotNumber: 'asc' } }, { roundNumber: 'asc' }],
-        include: { slot: true },
+    // Find the next PENDING round for all users
+    const nextRound = await prisma.round.findFirst({
+      where: { status: "PENDING" },
+      orderBy: [{ slot: { slotNumber: 'asc' } }, { roundNumber: 'asc' }],
+      include: { slot: true },
+    });
+
+    let upcomingAssignment = null;
+    let upcomingMembers: any[] = [];
+    let tableNumber: number | null = null;
+
+    if (nextRound) {
+      upcomingAssignment = await prisma.tableAssignment.findFirst({
+        where: { userId: session.user.id, table: { roundId: nextRound.id } },
+        include: { table: true },
       });
 
-      let upcomingMembers: any[] = [];
-      let tableNumber: number | null = null;
-
-      if (nextRound) {
-        // Find captain's table assignment for this round
-        const captainAssignment = await prisma.tableAssignment.findFirst({
-          where: { userId: session.user.id, table: { roundId: nextRound.id }, isCaptain: true },
-          include: { table: true },
-        });
-
-        if (captainAssignment) {
-          tableNumber = captainAssignment.table.tableNumber;
-          // Get all other users at this table
+      if (upcomingAssignment) {
+        tableNumber = upcomingAssignment.table.tableNumber;
+        if (isCaptain) {
+          // Captain perk: preview who is coming to their table
           upcomingMembers = await prisma.tableAssignment.findMany({
-            where: { tableId: captainAssignment.tableId, userId: { not: session.user.id } },
+            where: { tableId: upcomingAssignment.tableId, userId: { not: session.user.id } },
             include: { user: true },
             orderBy: { isCaptain: 'desc' },
           });
         }
       }
+    }
+
+    // Captain pre-round view: show upcoming table members
+    if (isCaptain) {
 
       return (
         <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
@@ -275,9 +278,27 @@ export default async function UserDashboard() {
             </span>
             <h1 className="text-2xl font-black uppercase tracking-tight pt-2">Waiting Area</h1>
             <p className="text-xs font-bold text-[#0D2421]/60 leading-relaxed uppercase tracking-wider">
-              Please wait for the administrator to launch the next conclave round.
+              {nextRound 
+                ? `Next: Slot ${nextRound.slot.slotNumber} / Round ${nextRound.roundNumber}`
+                : 'Please wait for the administrator to launch the next conclave round.'
+              }
             </p>
           </div>
+
+          {/* Regular User Upcoming Table Preview */}
+          {upcomingAssignment && (
+            <div className="border-t-2 border-dashed border-[#0D2421]/20 pt-6 mt-6">
+              <div className="bg-[#BEF03C]/20 border-2 border-[#BEF03C] p-4 rounded-xl shadow-[4px_4px_0px_#0D2421] flex items-center gap-4 text-left">
+                <div className="w-12 h-12 bg-[#BEF03C] rounded-xl flex items-center justify-center text-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421] flex-shrink-0">
+                  🏃
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#0D2421]/60">Your Next Destination</p>
+                  <p className="font-black text-lg uppercase text-[#0D2421]">Go to Table {upcomingAssignment.table.tableNumber}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
