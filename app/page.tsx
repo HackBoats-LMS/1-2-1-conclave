@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { LogoutButton } from "./components/LogoutButton";
 
 export default async function Home() {
   const session = await auth();
@@ -56,10 +57,13 @@ export default async function Home() {
 
           <div className="flex items-center gap-4">
             {isLoggedIn && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 bg-[#0D2421]/5 text-[#0D2421] rounded-lg border border-[#0D2421] uppercase">
-                {isCaptain && <span>👑</span>}
-                {session.user?.name?.split(" ")[0]}
-              </span>
+              <div className="hidden sm:flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 bg-[#0D2421]/5 text-[#0D2421] rounded-lg border border-[#0D2421] uppercase">
+                  {isCaptain && <span>👑</span>}
+                  {session.user?.name?.split(" ")[0]}
+                </span>
+                <LogoutButton />
+              </div>
             )}
             {!isLoggedIn && (
               <a
@@ -334,21 +338,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#0D2421] text-[#FAF8F4]/60 py-12 px-6 border-t border-[#0D2421] relative z-10">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#BEF03C] border border-[#0D2421] flex items-center justify-center text-[#0D2421] font-black text-sm shadow-[1.5px_1.5px_0px_#FAF8F4]">
-              C
-            </div>
-            <span className="font-black text-[#FAF8F4] text-base tracking-tight uppercase">1-2-1 Conclave</span>
-          </div>
-
-          <p className="text-xs font-semibold text-[#FAF8F4]/40 uppercase tracking-widest">
-            &copy; {new Date().getFullYear()} 1-2-1 Conclave. All rights reserved.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

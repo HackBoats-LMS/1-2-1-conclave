@@ -35,7 +35,7 @@ export async function completeOnboarding(formData: FormData) {
   // Use a standard Next.js cookie to flag completion instead of NextAuth's 
   // buggy unstable_update which corrupts the JWT token (JWEInvalid).
   const cookieStore = await cookies();
-  cookieStore.set("conclave_onboarded", "true", { path: "/", maxAge: 60 * 60 * 24 });
+  cookieStore.set("conclave_onboarded", session.user.id, { path: "/", maxAge: 60 * 60 * 24 });
 
   return { success: true, role: updatedUser.role };
 }

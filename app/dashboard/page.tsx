@@ -20,7 +20,7 @@ export default async function UserDashboard() {
 
   // Ensure they finished onboarding
   const cookieStore = await cookies();
-  const hasOnboardedCookie = cookieStore.get("conclave_onboarded")?.value === "true";
+  const hasOnboardedCookie = cookieStore.get("conclave_onboarded")?.value === session.user.id;
   const isProfileComplete = (session.user as any).onboardingCompleted || hasOnboardedCookie;
   
   const userRole = (session.user as any).role;
