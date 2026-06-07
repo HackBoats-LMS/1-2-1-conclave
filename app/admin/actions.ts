@@ -96,6 +96,28 @@ export async function deleteUserAccount(formData: FormData) {
   redirect("/admin?success=deleted_user");
 }
 
+export async function updateUserRole(formData: FormData) {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+  const role = formData.get("role") as string;
+  
+  if (!userId || !role || !["USER", "CAPTAIN", "ADMIN"].includes(role)) {
+    redirect("/admin?error=Invalid+Role+Update");
+  }
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: role }
+    });
+    revalidatePath("/admin");
+  } catch (e: any) {
+    console.error(e);
+    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to update role")}`);
+  }
+  redirect("/admin?success=updated_role");
+}
+
 export async function removeAllUsers(formData: FormData) {
   await requireAdmin();
   const password = formData.get("password") as string;
@@ -124,13 +146,26 @@ export async function startRound(formData: FormData) {
     const round = await prisma.round.findUnique({
       where: { id: roundId }
     });
-    const durationMinutes = round?.durationMinutes || 15;
+    
+    const durationMinutesStr = formData.get("durationMinutes");
+    let durationMinutes = round?.durationMinutes || 15;
+    if (durationMinutesStr && typeof durationMinutesStr === "string") {
+      durationMinutes = parseInt(durationMinutesStr, 10);
+    }
+
+    let newStartTime = new Date();
+    if (round?.status?.startsWith("PAUSED_")) {
+      const elapsedSec = parseInt(round.status.split("_")[1]);
+      if (!isNaN(elapsedSec)) {
+        newStartTime = new Date(Date.now() - (elapsedSec * 1000));
+      }
+    }
 
     await prisma.round.update({
       where: { id: roundId },
       data: { 
         status: "IN_PROGRESS", 
-        startTime: new Date(),
+        startTime: newStartTime,
         durationMinutes
       }
     });
@@ -176,10 +211,16 @@ export async function pauseRound(formData: FormData) {
   await requireAdmin();
   try {
     const roundId = formData.get("roundId") as string;
-    const state = await prisma.gameState.findFirst();
-    if (state?.currentRoundId === roundId) {
-      await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+    
+    const round = await prisma.round.findUnique({ where: { id: roundId } });
+    if (round?.startTime && round.status === "IN_PROGRESS") {
+      const elapsedSec = Math.floor((Date.now() - round.startTime.getTime()) / 1000);
+      await prisma.round.update({
+        where: { id: roundId },
+        data: { status: `PAUSED_${elapsedSec}` }
+      });
     }
+
     revalidatePath("/admin");
     revalidatePath("/dashboard");
   } catch (e) {

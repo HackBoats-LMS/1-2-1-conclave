@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useEffect, useRef } from "react";
 import { sendReferral } from "./actions";
+import { supabase } from "@/lib/supabaseClient";
 
 interface UserCardProps {
   tu: any; // tableAssignment record with user details
@@ -13,6 +14,57 @@ export function UserCard({ tu }: UserCardProps) {
   const [note, setNote] = useState("");
   const [showAnimation, setShowAnimation] = useState(false);
   const [showCheck, setShowCheck] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [requireNoteLocally, setRequireNoteLocally] = useState(false);
+  
+  const [activeTimer, setActiveTimer] = useState<{ type: string, timeLeft: number } | null>(null);
+  const localIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!tu.table?.roundId || !tu.table?.tableNumber) return;
+    
+    const channelName = `room_${tu.table.roundId}_table_${tu.table.tableNumber}`;
+    const channel = supabase.channel(channelName);
+    
+    channel.on('broadcast', { event: 'timer_start' }, ({ payload }) => {
+      if (payload.userId === user.id) {
+        // Calculate remaining seconds
+        const elapsed = Math.floor((Date.now() - payload.timestamp) / 1000);
+        let remaining = payload.durationSec - elapsed;
+        
+        setActiveTimer({ type: payload.type, timeLeft: remaining });
+
+        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+        localIntervalRef.current = setInterval(() => {
+          setActiveTimer(prev => {
+            if (!prev) return null;
+            if (prev.timeLeft <= 1) {
+              if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+              return null;
+            }
+            return { ...prev, timeLeft: prev.timeLeft - 1 };
+          });
+        }, 1000);
+      } else {
+        setActiveTimer(null);
+        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+      }
+    });
+
+    channel.on('broadcast', { event: 'timer_stop' }, ({ payload }) => {
+      if (!payload.userId || payload.userId === user.id) {
+        setActiveTimer(null);
+        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+      }
+    });
+
+    channel.subscribe();
+
+    return () => {
+      if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [user.id, tu.table?.roundId, tu.table?.tableNumber]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -23,8 +75,16 @@ export function UserCard({ tu }: UserCardProps) {
 
     startTransition(async () => {
       try {
-        await sendReferral(formData);
+        setErrorMsg(null);
+        const result = await sendReferral(formData);
         
+        if (result?.error) {
+          setErrorMsg(result.error);
+          setRequireNoteLocally(true); // Force the user to type a note now
+          setShowAnimation(false);
+          return;
+        }
+
         // Wait a bit for the plane to finish flying, then show the checkmark
         setTimeout(() => {
           setShowCheck(true);
@@ -45,7 +105,11 @@ export function UserCard({ tu }: UserCardProps) {
   };
 
   return (
-    <div className="bg-white border-2 border-[#0D2421] rounded-[2rem] shadow-[6px_6px_0px_#0D2421] overflow-hidden hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_#0D2421] transition-all flex flex-col justify-between relative min-h-[420px]">
+    <div className={`bg-white border-2 rounded-[2rem] overflow-hidden transition-all flex flex-col justify-between relative min-h-[420px] ${
+      activeTimer 
+        ? 'border-[#BEF03C] shadow-[8px_8px_0px_#BEF03C] -translate-y-1 -translate-x-1 ring-4 ring-[#BEF03C]/20' 
+        : 'border-[#0D2421] shadow-[6px_6px_0px_#0D2421] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_#0D2421]'
+    }`}>
       
       {/* Dynamic Animated Vector Overlay */}
       {showAnimation && (
@@ -132,7 +196,12 @@ export function UserCard({ tu }: UserCardProps) {
             <div className={`w-14 h-14 ${tu.isCaptain ? 'bg-amber-400' : 'bg-[#BEF03C]'} border-2 border-[#0D2421] text-[#0D2421] rounded-2xl flex items-center justify-center font-black text-2xl shadow-[2px_2px_0px_#0D2421] flex-shrink-0 relative`}>
               {user.name?.charAt(0) || user.businessName?.charAt(0) || user.email?.charAt(0) || '?'}
               {tu.isCaptain && (
-                <span className="absolute -top-2 -right-2 text-sm">👑</span>
+                <span className="absolute -top-2 -right-2 text-sm z-10">👑</span>
+              )}
+              {activeTimer && (
+                <div className="absolute -top-3 -right-3 sm:-top-4 sm:-right-4 w-10 h-10 sm:w-12 sm:h-12 bg-[#0D2421] text-[#BEF03C] rounded-full border-2 border-white shadow-[2px_2px_0px_#0D2421] flex items-center justify-center font-black text-sm sm:text-base animate-pulse z-20">
+                  {activeTimer.timeLeft}s
+                </div>
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -157,10 +226,21 @@ export function UserCard({ tu }: UserCardProps) {
             name="note" 
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Add a connection note..." 
-            className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30 shadow-inner" 
+            placeholder={requireNoteLocally ? "A note is required now..." : "Add a connection note..."}
+            required={requireNoteLocally}
+            className={`w-full bg-[#FAF8F4] border-2 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 font-bold transition-all placeholder:text-[#0D2421]/30 shadow-inner ${
+              requireNoteLocally && !note.trim() 
+                ? 'border-red-400 focus:ring-red-400/50' 
+                : 'border-[#0D2421] focus:ring-[#BEF03C]/50'
+            }`} 
           />
           
+          {errorMsg && (
+            <p className="text-red-500 text-[10px] font-black uppercase tracking-wider text-center pt-1 leading-tight animate-pulse">
+              {errorMsg}
+            </p>
+          )}
+
           <button
             type="submit"
             disabled={isPending || showAnimation}

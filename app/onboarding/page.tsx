@@ -12,8 +12,9 @@ export default async function Onboarding() {
   }
 
   const isProfileComplete = (session.user as any).onboardingCompleted;
+  const role = (session.user as any).role;
+  
   if (isProfileComplete) {
-    const role = (session.user as any).role;
     if (role === "ADMIN") {
       redirect("/admin");
     } else {
@@ -32,14 +33,14 @@ export default async function Onboarding() {
             STEP 02 / ACCOUNT CONFIGURATION
           </div>
           <h2 className="text-3xl font-black uppercase tracking-tight text-center">
-            Complete Your Profile
+            {role === "ADMIN" ? "Admin Setup" : "Complete Your Profile"}
           </h2>
           <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wider">
-            Provide business detail credentials to join the table rounds
+            {role === "ADMIN" ? "Confirm your basic details to access the console" : "Provide business detail credentials to join the table rounds"}
           </p>
         </div>
         
-        <OnboardingClient />
+        <OnboardingClient userRole={role} />
       </div>
     </div>
   );

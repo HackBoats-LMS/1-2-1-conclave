@@ -97,15 +97,6 @@ export default async function LoginPage({
           </p>
         </div>
 
-        {/* Captain Login Link */}
-        <div className="pt-2">
-          <a 
-            href="/captain-login" 
-            className="inline-flex items-center gap-2 text-[11px] font-bold text-[#0D2421]/50 uppercase tracking-wider hover:text-amber-600 transition-colors underline decoration-[#0D2421]/20 underline-offset-4 hover:decoration-amber-500"
-          >
-            👑 Table Captain? Sign in here →
-          </a>
-        </div>
       </div>
     </div>
   );

@@ -139,7 +139,7 @@ export function DownloadMyReferralsButton({ userName, referrals }: DownloadMyRef
       } else {
         const x = 14;
         const cardWidth = 182;
-        const cardHeight = 44;
+        const cardHeight = 50; // Increased from 44 to allow text wrapping
         const cardGap = 8;
         const pageLimitY = 270;
         
@@ -161,12 +161,12 @@ export function DownloadMyReferralsButton({ userName, referrals }: DownloadMyRef
           doc.setFillColor(255, 255, 255);
           doc.setDrawColor(13, 36, 33);
           doc.setLineWidth(0.8);
-          doc.rect(x, currentY, cardWidth, 19, "FD");
+          doc.rect(x, currentY, cardWidth, 23, "FD");
 
           // 3. Draw Bottom Half Card Body (Light tan background)
           doc.setFillColor(250, 248, 244); // #FAF8F4
-          doc.rect(x, currentY + 19, cardWidth, 25, "F");
-          doc.rect(x, currentY + 19, cardWidth, 25, "S"); // Outline border for bottom half
+          doc.rect(x, currentY + 23, cardWidth, 27, "F");
+          doc.rect(x, currentY + 23, cardWidth, 27, "S"); // Outline border for bottom half
 
           // 4. Draw Initials Avatar Box
           doc.setFillColor(190, 240, 60); // #BEF03C
@@ -188,17 +188,21 @@ export function DownloadMyReferralsButton({ userName, referrals }: DownloadMyRef
           // 6. Draw Category & Company Subtext
           const category = ref.fromUser.businessCategory || "Participant";
           const company = ref.fromUser.businessName || "No Company";
+          const fullText = `${category.toUpperCase()}  |  ${company.toUpperCase()}`;
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7.5);
           doc.setTextColor(100);
-          doc.text(`${category.toUpperCase()}  |  ${company.toUpperCase()}`, x + 20, currentY + 12.5);
+          
+          const maxWidth = 90; // Space between name and right-aligned email
+          const wrappedSub = doc.splitTextToSize(fullText, maxWidth);
+          doc.text(wrappedSub, x + 20, currentY + 12.5);
 
-          // 7. Draw Contact Details
+          // 7. Draw Contact Details (Right Aligned to avoid overlap)
           doc.setFontSize(7.5);
           doc.setTextColor(100);
-          doc.text(`Email: ${ref.fromUser.email}`, x + 90, currentY + 8.5);
+          doc.text(`Email: ${ref.fromUser.email}`, x + cardWidth - 6, currentY + 8.5, { align: "right" });
           if (ref.fromUser.contactNumber) {
-            doc.text(`Phone: ${ref.fromUser.contactNumber}`, x + 90, currentY + 12.5);
+            doc.text(`Phone: ${ref.fromUser.contactNumber}`, x + cardWidth - 6, currentY + 12.5, { align: "right" });
           }
 
           // 8. Draw Watermark inside Card Background
@@ -206,7 +210,7 @@ export function DownloadMyReferralsButton({ userName, referrals }: DownloadMyRef
           doc.setFontSize(22);
           doc.setTextColor(233, 229, 221); // Balanced watermark slightly darker than the card background (250, 248, 244)
 
-          doc.text("HACKBOATS", x + cardWidth / 2, currentY + 35, { align: "center" });
+          doc.text("HACKBOATS", x + cardWidth / 2, currentY + 39, { align: "center" });
 
           // 9. Draw Connection Note Inside Bottom Half
           const noteText = ref.note ? `"${ref.note}"` : "No connection notes were provided.";
@@ -214,7 +218,7 @@ export function DownloadMyReferralsButton({ userName, referrals }: DownloadMyRef
           doc.setFontSize(8.5);
           doc.setTextColor(13, 36, 33);
           const wrappedLines = doc.splitTextToSize(noteText, cardWidth - 12);
-          doc.text(wrappedLines, x + 6, currentY + 25.5);
+          doc.text(wrappedLines, x + 6, currentY + 29.5);
 
           // Increment Y for next card
           currentY += cardHeight + cardGap;

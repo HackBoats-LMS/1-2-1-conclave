@@ -11,6 +11,10 @@ import { ReferralsExportButtons } from "./ReferralsExportButtons";
 import { RefreshButton } from "./RefreshButton";
 import { ClientTimer } from "./ClientTimer";
 import { AutoGenerateClient } from "./AutoGenerateClient";
+import { UserSearchFilter } from "./UserSearchFilter";
+import { OnboardingExportButton } from "./OnboardingExportButton";
+import { LogoutButton } from "../components/LogoutButton";
+import { EditUserRoleButton } from "./EditUserRoleButton";
 
 export const dynamic = 'force-dynamic';
 
@@ -21,10 +25,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const errorAction = resolvedParams?.error;
 
   let successMessage = "";
+  const reassignWarning = " IMPORTANT: If you have already generated rounds, you must re-generate assignments to apply these member changes!";
+
   if (successAction === "uploaded_whitelist" && addedCount) {
-    successMessage = `Successfully whitelisted ${addedCount} member email(s)!`;
+    successMessage = `Successfully whitelisted ${addedCount} member email(s)!${reassignWarning}`;
   } else if (successAction === "uploaded_captains" && addedCount) {
-    successMessage = `Successfully registered ${addedCount} captain(s)!`;
+    successMessage = `Successfully registered ${addedCount} captain(s)!${reassignWarning}`;
   } else if (successAction === "generated") {
     successMessage = "Round assignments have been auto-generated! Review the matrix below.";
   } else if (successAction === "cleared_assignments") {
@@ -32,11 +38,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   } else if (successAction === "cleared_referrals") {
     successMessage = "Live referrals data has been successfully cleared!";
   } else if (successAction === "cleared_members") {
-    successMessage = "All non-admin members and captains have been removed!";
+    successMessage = `All non-admin members and captains have been removed!${reassignWarning}`;
   } else if (successAction === "deleted_user") {
-    successMessage = "User account has been permanently deleted!";
+    successMessage = `User account has been permanently deleted!${reassignWarning}`;
   } else if (successAction === "added_user") {
-    successMessage = "User has been manually added and granted access!";
+    successMessage = `User has been manually added and granted access!${reassignWarning}`;
   } else if (successAction === "updated_durations") {
     successMessage = "Successfully updated the duration for all rounds!";
   }
@@ -47,7 +53,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   }
 
   // ── Data Fetching (batched queries) ──
-  const [slots, gameState, totalReferrals, users] = await Promise.all([
+  const [slots, gameState, totalReferrals, allUsers] = await Promise.all([
     prisma.slot.findMany({
       include: { rounds: { orderBy: { roundNumber: 'asc' } } },
       orderBy: { slotNumber: 'asc' }
@@ -57,7 +63,26 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     prisma.user.findMany({ orderBy: { email: 'asc' } }),
   ]);
 
+  const searchQuery = (resolvedParams?.search as string)?.toLowerCase() || "";
+  const users = allUsers.filter(u => {
+    if (!searchQuery) return true;
+    return (
+      u.email?.toLowerCase().includes(searchQuery) ||
+      u.name?.toLowerCase().includes(searchQuery) ||
+      u.businessName?.toLowerCase().includes(searchQuery) ||
+      u.businessCategory?.toLowerCase().includes(searchQuery) ||
+      u.group?.toLowerCase().includes(searchQuery)
+    );
+  });
+
   // ── Calculate Stats ──
+  const activeRound = slots.flatMap(s => s.rounds).find(r => r.id === gameState?.currentRoundId);
+  
+  // Find current global duration
+  let currentDuration = 15;
+  if (slots.length > 0 && slots[0].rounds.length > 0) {
+    currentDuration = slots[0].rounds[0].durationMinutes || 15;
+  }
   const totalUsers = users.length;
   const approvedUsers = users.filter((u: any) => u.isApproved).length;
   const pendingOnboarding = users.filter((u: any) => u.isApproved && !u.onboardingCompleted).length;
@@ -247,14 +272,21 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               Upload members & captains, auto-generate assignments, and control live rounds.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-black text-[#0D2421]/50 uppercase tracking-widest mt-1">Powered by</span>
-            <img 
-              src="/hb-logo.png" 
-              alt="HackBoats Logo" 
-              className="h-8 md:h-10 object-contain hover:scale-105 transition-transform duration-300"
-              draggable={false}
-            />
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-black text-[#0D2421]/50 uppercase tracking-widest mt-1">Powered by</span>
+              <img 
+                src="/hb-logo.png" 
+                alt="HackBoats Logo" 
+                className="h-8 md:h-10 object-contain hover:scale-105 transition-transform duration-300"
+                draggable={false}
+              />
+            </div>
+            <LogoutButton className="bg-transparent border-none shadow-none text-red-600 hover:bg-transparent hover:underline px-0 py-0 text-[10px]" />
+            <a href="/admin/leaderboard" target="_blank" className="mt-2 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+              Live Leaderboard
+            </a>
           </div>
         </header>
         
@@ -430,7 +462,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                           placeholder="Mins" 
                           min={1} 
                           max={120} 
-                          defaultValue={15}
+                          defaultValue={currentDuration}
                           required
                           className="w-16 p-2 border-2 border-[#0D2421] bg-white rounded-lg font-bold text-center text-xs focus:outline-none"
                         />
@@ -506,12 +538,21 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                             <div className="pt-2 border-t border-[#0D2421]/10 flex gap-2">
                               {isActive ? (
                                 <>
-                                  <form action={pauseRound} className="flex-1">
-                                    <input type="hidden" name="roundId" value={round.id} />
-                                    <SubmitButton loadingText="Pausing..." className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] bg-white hover:bg-slate-50 shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer">
-                                      Pause
-                                    </SubmitButton>
-                                  </form>
+                                  {round.status.startsWith('PAUSED_') ? (
+                                    <form action={startRound} className="flex-1">
+                                      <input type="hidden" name="roundId" value={round.id} />
+                                      <SubmitButton loadingText="Resuming..." className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-amber-500 bg-amber-500 text-white shadow-[2px_2px_0px_#B45309] hover:bg-amber-400 transition-all cursor-pointer">
+                                        Resume
+                                      </SubmitButton>
+                                    </form>
+                                  ) : (
+                                    <form action={pauseRound} className="flex-1">
+                                      <input type="hidden" name="roundId" value={round.id} />
+                                      <SubmitButton loadingText="Pausing..." className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] bg-white hover:bg-slate-50 shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer">
+                                        Pause
+                                      </SubmitButton>
+                                    </form>
+                                  )}
                                   <form action={stopRound} className="flex-1">
                                     <input type="hidden" name="roundId" value={round.id} />
                                     <SubmitButton loadingText="Stopping..." className="w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] bg-[#0D2421] text-[#BEF03C] shadow-[2px_2px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
@@ -563,19 +604,23 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
         {/* ── USER MANAGEMENT TABLE ── */}
         <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b-2 border-[#0D2421]">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b-2 border-[#0D2421] pb-6">
             <div className="space-y-1">
               <h2 className="text-2xl font-black uppercase text-[#0D2421]">Credential Whitelist</h2>
               <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Manage registered accounts and database credentials</p>
             </div>
-            <SecureAdminButton 
-              action={removeAllUsers}
-              label="Clear Database Members"
-              loadingText="Clearing..."
-              promptText="Enter Admin Pin to remove all members and captains:"
-              className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
-              formClassName="flex items-center gap-2"
-            />
+            <div className="flex flex-wrap items-center gap-3">
+              <OnboardingExportButton users={users} />
+              
+              <SecureAdminButton 
+                action={removeAllUsers}
+                label="Clear Database Members"
+                loadingText="Clearing..."
+                promptText="Enter Admin Pin to remove all members and captains:"
+                className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer w-full sm:w-auto"
+                formClassName="flex items-center gap-2"
+              />
+            </div>
           </div>
           
           {/* Manual User Add */}
@@ -621,6 +666,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             </div>
           </form>
 
+          {/* User Search Bar */}
+          <UserSearchFilter />
+
           {/* Members Table */}
           <div className="overflow-x-auto border-2 border-[#0D2421] rounded-[2rem] bg-white shadow-[4px_4px_0px_#0D2421] overflow-hidden">
             <table className="w-full text-left border-collapse">
@@ -664,7 +712,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <DeleteUserButton userId={user.id} />
+                      <div className="flex items-center justify-end gap-1">
+                        <EditUserRoleButton userId={user.id} currentRole={user.role} />
+                        <DeleteUserButton userId={user.id} />
+                      </div>
                     </td>
                   </tr>
                 ))}

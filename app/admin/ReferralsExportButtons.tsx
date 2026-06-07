@@ -139,7 +139,7 @@ export function ReferralsExportButtons() {
       } else {
         const x = 14;
         const cardWidth = 182;
-        const cardHeight = 52;
+        const cardHeight = 58; // Increased from 52 to allow text wrapping
         const cardGap = 8;
         const pageLimitY = 270;
         
@@ -161,12 +161,12 @@ export function ReferralsExportButtons() {
           doc.setFillColor(255, 255, 255);
           doc.setDrawColor(13, 36, 33);
           doc.setLineWidth(0.8);
-          doc.rect(x, currentY, cardWidth, 22, "FD");
+          doc.rect(x, currentY, cardWidth, 28, "FD");
 
           // 3. Draw Bottom Half Card Body (Light tan background)
           doc.setFillColor(250, 248, 244); // #FAF8F4
-          doc.rect(x, currentY + 22, cardWidth, 30, "F");
-          doc.rect(x, currentY + 22, cardWidth, 30, "S"); // Outline border for bottom half
+          doc.rect(x, currentY + 28, cardWidth, 30, "F");
+          doc.rect(x, currentY + 28, cardWidth, 30, "S"); // Outline border for bottom half
 
           // 4. Draw Initials Avatar Box for Sender
           doc.setFillColor(190, 240, 60); // #BEF03C
@@ -191,17 +191,25 @@ export function ReferralsExportButtons() {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
           doc.setTextColor(100);
-          doc.text(fromSub || "PARTICIPANT", x + 18, currentY + 13.5);
+
+          let fromSubText = fromSub || "PARTICIPANT";
+          const maxSubWidth = 68; // Space before the middle divider
+          
+          const wrappedFromSub = doc.splitTextToSize(fromSubText, maxSubWidth);
+          doc.text(wrappedFromSub, x + 18, currentY + 13.5);
 
           const fromContact = ref["From Contact"] !== "N/A" ? ref["From Contact"] : "";
           doc.setFontSize(6.5);
           doc.setTextColor(100);
-          doc.text(fromContact, x + 18, currentY + 17.5);
+          
+          const wrappedFromContact = doc.splitTextToSize(fromContact, maxSubWidth);
+          const fromContactStartY = currentY + 13.5 + (wrappedFromSub.length * 3.5);
+          doc.text(wrappedFromContact, x + 18, fromContactStartY);
 
           // 6. Draw middle divider
           doc.setDrawColor(13, 36, 33, 0.15);
           doc.setLineWidth(0.4);
-          doc.line(x + 91, currentY + 2, x + 91, currentY + 20);
+          doc.line(x + 91, currentY + 2, x + 91, currentY + 26);
 
           // 7. Draw Initials Avatar Box for Recipient
           doc.setFillColor(26, 62, 58); // Teal background for recipient to distinguish visually!
@@ -226,18 +234,24 @@ export function ReferralsExportButtons() {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
           doc.setTextColor(100);
-          doc.text(toSub || "PARTICIPANT", x + 109, currentY + 13.5);
+
+          let toSubText = toSub || "PARTICIPANT";
+          const wrappedToSub = doc.splitTextToSize(toSubText, maxSubWidth);
+          doc.text(wrappedToSub, x + 109, currentY + 13.5);
 
           const toContact = ref["To Contact"] !== "N/A" ? ref["To Contact"] : "";
           doc.setFontSize(6.5);
           doc.setTextColor(100);
-          doc.text(toContact, x + 109, currentY + 17.5);
+          
+          const wrappedToContact = doc.splitTextToSize(toContact, maxSubWidth);
+          const toContactStartY = currentY + 13.5 + (wrappedToSub.length * 3.5);
+          doc.text(wrappedToContact, x + 109, toContactStartY);
 
           // 9. Draw Watermark inside Card Background
           doc.setFont("helvetica", "bold");
           doc.setFontSize(22);
           doc.setTextColor(233, 229, 221);
-          doc.text("HACKBOATS", x + cardWidth / 2, currentY + 41, { align: "center" });
+          doc.text("HACKBOATS", x + cardWidth / 2, currentY + 47, { align: "center" });
 
           // 10. Draw Connection Note Inside Bottom Half
           const noteText = ref.Note ? `"${ref.Note}"` : "No connection notes were provided.";
@@ -245,13 +259,13 @@ export function ReferralsExportButtons() {
           doc.setFontSize(8.5);
           doc.setTextColor(13, 36, 33);
           const wrappedLines = doc.splitTextToSize(noteText, cardWidth - 12);
-          doc.text(wrappedLines, x + 6, currentY + 29);
+          doc.text(wrappedLines, x + 6, currentY + 35);
 
           // 11. Draw referral date at bottom right of card
           doc.setFont("helvetica", "normal");
           doc.setFontSize(6.5);
           doc.setTextColor(120);
-          doc.text(`Date: ${ref.Date}`, x + cardWidth - 6, currentY + 48, { align: "right" });
+          doc.text(`Date: ${ref.Date}`, x + cardWidth - 6, currentY + 54, { align: "right" });
 
           // Increment Y for next card
           currentY += cardHeight + cardGap;

@@ -9,19 +9,9 @@ export function SuccessAlert({ initialMessage }: { initialMessage: string }) {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!message) return;
-
-    const timer = setTimeout(() => {
-      setMessage("");
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("success");
-      params.delete("added");
-      const newQuery = params.toString();
-      const cleanPath = newQuery ? `${pathname}?${newQuery}` : pathname;
-      router.replace(cleanPath, { scroll: false });
-    }, 5000); // Auto-dismiss after 5 seconds
-
-    return () => clearTimeout(timer);
+    // We removed the 5-second auto-dismiss timeout here.
+    // The notification will now stay on the screen until the user explicitly clicks "Dismiss".
+    // This ensures they have plenty of time to read long warning messages.
   }, [message, pathname, searchParams, router]);
 
   if (!message) return null;
