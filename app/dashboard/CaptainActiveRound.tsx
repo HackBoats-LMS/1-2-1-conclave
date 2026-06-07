@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { UserCard } from "./UserCard";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Participant {
   id: string;
@@ -18,6 +19,7 @@ interface CaptainActiveRoundProps {
     roundNumber: number;
     startTime: Date | string | null;
     durationMinutes: number;
+    status?: string;
   };
   tableNumber: number;
   tableUsers: any[];
@@ -35,6 +37,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const [speakerDuration, setSpeakerDuration] = useState<number>(60);
   const [speakerTimerType, setSpeakerTimerType] = useState<"PITCH" | "REFERRAL" | null>(null);
   const [manualPhase, setManualPhase] = useState<number | null>(null);
+  const [maxUnlockedPhase, setMaxUnlockedPhase] = useState<number>(1);
   const [pitchedUsers, setPitchedUsers] = useState<Record<string, boolean>>({});
   const [referredUsers, setReferredUsers] = useState<Record<string, boolean>>({});
   const [windowWidth, setWindowWidth] = useState(1024);
@@ -49,6 +52,20 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
   const speakerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Initialize realtime broadcast channel for table members
+    const channelName = `room_${round.id}_table_${tableNumber}`;
+    const channel = supabase.channel(channelName);
+    
+    channel.subscribe();
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [round.id, tableNumber]);
 
   // Track window resizing for responsive circular coordinates
   useEffect(() => {
@@ -64,6 +81,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   useEffect(() => {
     if (!round.startTime) return;
     
+    if (round.status?.startsWith("PAUSED_")) {
+      const pausedElapsed = parseInt(round.status.split("_")[1]);
+      setElapsedTime(Math.max(0, pausedElapsed || 0));
+      return;
+    }
+    
     const startTimeMs = new Date(round.startTime).getTime();
     
     const updateElapsed = () => {
@@ -75,7 +98,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     updateElapsed();
     const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
-  }, [round.startTime]);
+  }, [round.startTime, round.status]);
 
   const allParticipantsRef = useRef<Participant[]>([]);
   const pitchedUsersRef = useRef<Record<string, boolean>>({});
@@ -235,6 +258,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
   const currentPhase = manualPhase !== null ? manualPhase : computedPhase;
 
+  useEffect(() => {
+    if (currentPhase > maxUnlockedPhase) {
+      setMaxUnlockedPhase(currentPhase);
+    }
+  }, [currentPhase, maxUnlockedPhase]);
+
   // Calculate dynamic radius and avatar sizing based on participant count to prevent overlaps
   const N = allParticipants.length;
   const isMobile = windowWidth < 768;
@@ -274,6 +303,18 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     } else if (type === "REFERRAL" && currentPhase < 3) {
       setManualPhase(3);
     }
+
+    // Broadcast to UserCards on all screens at this table
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'timer_start',
+      payload: {
+        userId: participantId,
+        durationSec,
+        type,
+        timestamp: Date.now()
+      }
+    });
   };
 
   const stopSpeakerTimer = () => {
@@ -289,6 +330,15 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     setActiveSpeakerId(null);
     setSpeakerTimeLeft(null);
     setSpeakerTimerType(null);
+
+    // Broadcast stop
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'timer_stop',
+      payload: {
+        userId: activeSpeakerId
+      }
+    });
   };
 
   const addExtraTime = (seconds: number) => {
@@ -416,223 +466,53 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         .animate-radar-sweep { animation: radarSweep 8s linear infinite; }
       ` }} />
 
-      {/* ── CENTRAL WIZARD & RADAR GRID ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+      {/* ── CENTRAL WIZARD ── */}
+      <div className="flex flex-col space-y-6">
         
-        {/* Left Column: Seating Layout & Clock (7 Cols) */}
-        <div className="lg:col-span-7 flex flex-col justify-between bg-white border-3 border-[#0D2421] p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] relative overflow-hidden">
+        {/* Header row with timer & sound control */}
+        <div className="flex flex-wrap justify-between items-center bg-white border-3 border-[#0D2421] p-4 md:p-6 rounded-[1.5rem] shadow-[4px_4px_0px_#0D2421]">
+          <div className="space-y-0.5">
+            <span className="text-[9px] font-black tracking-widest text-[#0D2421]/50 uppercase block">01 / LIVE ORCHESTRATION</span>
+            <h3 className="font-black text-lg uppercase text-[#0D2421]">Round Facilitation</h3>
+          </div>
           
-          {/* Header row with timer, title & sound control */}
-          <div className="flex justify-between items-center border-b-2 border-dashed border-[#0D2421]/15 pb-4 w-full">
-            <div className="space-y-0.5">
-              <span className="text-[9px] font-black tracking-widest text-[#0D2421]/50 uppercase block">01 / LIVE ORCHESTRATION</span>
-              <h3 className="font-black text-lg uppercase text-[#0D2421]">Table Seating Radar</h3>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Sound toggle */}
-              <button
-                onClick={toggleMute}
-                className="bg-[#FAF8F4] border-2 border-[#0D2421] px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer flex items-center gap-1.5"
-                title={isMuted ? "Unmute alert chime" : "Mute alert chime"}
-              >
-                <span>{isMuted ? "🔇 Muted" : "🔊 Sound ON"}</span>
-              </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleMute}
+              className="bg-[#FAF8F4] border-2 border-[#0D2421] px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer flex items-center gap-1.5"
+              title={isMuted ? "Unmute alert chime" : "Mute alert chime"}
+            >
+              <span>{isMuted ? "🔇 Muted" : "🔊 Sound ON"}</span>
+            </button>
 
-              <div className="bg-[#0D2421] text-white border-2 border-[#0D2421] px-4 py-1.5 rounded-xl text-xs font-black tracking-wider shadow-[2.5px_2.5px_0px_#BEF03C] flex items-center gap-2">
-                <span>Timer: {formatTime(remainingRoundSec)}</span>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[10px] font-bold text-[#0D2421]/60 uppercase tracking-wider text-center mt-4">
-            💡 Quick Tip: Tap any member&apos;s circle to immediately start their pitch timer.
-          </p>
-
-          {/* Circle Map container */}
-          <div className="relative w-56 h-56 md:w-80 md:h-80 flex items-center justify-center select-none my-6 mx-auto bg-white rounded-full">
-            
-            {/* Radar sweep effect */}
-            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_60%,rgba(190,240,60,0.06)_100%)] animate-radar-sweep pointer-events-none z-0" />
-
-            {/* Radar crosshairs */}
-            <div className="absolute w-full h-[1px] border-t border-dashed border-[#0D2421]/5 pointer-events-none z-0" />
-            <div className="absolute h-full w-[1px] border-l border-dashed border-[#0D2421]/5 pointer-events-none z-0" />
-
-            {/* Dashed outer rings */}
-            <div className="absolute w-48 h-48 md:w-60 md:h-60 rounded-full border-2 border-[#BEF03C]/25 animate-pulse pointer-events-none z-0" />
-            <div className="absolute w-38 h-38 md:w-50 md:h-50 rounded-full border border-dashed border-[#0D2421]/10 pointer-events-none z-0" />
-
-            {/* Center table area */}
-            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-[#0D2421] to-[#1A3F3A] text-white flex flex-col items-center justify-center border-4 border-[#0D2421] ring-3 ring-[#BEF03C] z-10 relative">
-              
-              {/* Default Table Label */}
-              {!activeSpeakerId ? (
-                <>
-                  <span className="text-[8px] font-black text-[#BEF03C] uppercase tracking-widest leading-none">TABLE</span>
-                  <span className="text-3xl font-black tracking-tighter text-[#BEF03C] leading-none my-1">{tableNumber}</span>
-                  <span className="text-[8px] font-bold text-white/50 uppercase tracking-widest mt-0.5 animate-pulse">STANDBY</span>
-                </>
-              ) : (
-                <div className="absolute inset-0 rounded-full flex items-center justify-center z-20">
-                  {/* Symmetrical responsive SVG progress track */}
-                  {speakerTimeLeft !== null && (
-                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r={svgRadius}
-                        className="stroke-[#0D2421]/20"
-                        strokeWidth="6"
-                        fill="transparent"
-                      />
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r={svgRadius}
-                        className="stroke-[#BEF03C] transition-all duration-1000"
-                        strokeWidth="6"
-                        fill="transparent"
-                        strokeDasharray={svgCircumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  )}
-                  
-                  {/* Proportional inner details circle - zero size jumps */}
-                  <div className="relative z-30 flex flex-col items-center justify-center bg-[#0D2421] w-[76%] h-[76%] rounded-full border border-white/10 shadow-lg">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-[#BEF03C]">
-                      {speakerTimerType === "PITCH" ? "🎙️ PITCH" : "📨 REFER"}
-                    </span>
-                    
-                    <span className="text-2xl font-black tracking-tighter text-[#BEF03C] tabular-nums leading-none my-1">
-                      {speakerTimeLeft}s
-                    </span>
-
-                    <button 
-                      onClick={stopSpeakerTimer}
-                      className="text-[9px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest underline cursor-pointer"
-                    >
-                      Skip
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Circular participant nodes */}
-            {allParticipants.map((p, index) => {
-              const angle = (360 / N) * index - 90;
-              const x = Math.cos((angle * Math.PI) / 180) * radius;
-              const y = Math.sin((angle * Math.PI) / 180) * radius;
-
-              const isSpeaker = activeSpeakerId === p.id;
-              const hasCompleted = currentPhase === 4 
-                ? (pitchedUsers[p.id] && referredUsers[p.id])
-                : currentPhase === 3 
-                  ? referredUsers[p.id] 
-                  : pitchedUsers[p.id];
-
-              return (
-                <div 
-                  key={p.id}
-                  style={{ transform: `translate(${x}px, ${y}px)` }}
-                  className={`absolute z-20 transition-all duration-300 ${
-                    isSpeaker ? "scale-120" : "hover:scale-110"
-                  }`}
-                >
-                  <button 
-                    onClick={() => {
-                      if (!p.isCaptain) {
-                        if (isSpeaker) {
-                          stopSpeakerTimer();
-                        } else {
-                          if (currentPhase === 3) {
-                            startSpeakerTimer(p.id, 30, "REFERRAL");
-                          } else {
-                            startSpeakerTimer(p.id, pitchDurationSec, "PITCH");
-                          }
-                        }
-                      }
-                    }}
-                    title={p.isCaptain ? "Table Captain" : isSpeaker ? "Click to stop timer" : currentPhase === 3 ? `Click to start referral (30s) for ${p.name}` : `Click to start pitch (${pitchDurationSec}s) for ${p.name}`}
-                    className={`rounded-xl flex items-center justify-center font-black border-2 uppercase relative transition-all shadow-[2.5px_2.5px_0px_#0D2421] cursor-pointer ${avatarSizeClass} ${
-                      p.isCaptain 
-                        ? "bg-amber-400 text-[#0D2421] border-[#0D2421]" 
-                        : isSpeaker
-                          ? "bg-[#BEF03C] text-[#0D2421] border-[#0D2421] animate-avatar-pulse"
-                          : hasCompleted
-                            ? "bg-[#0D2421] text-[#BEF03C] border-[#0D2421] opacity-75"
-                            : "bg-white text-[#0D2421] border-[#0D2421]"
-                    }`}
-                  >
-                    {p.name.charAt(0)}
-                    
-                    {p.isCaptain ? (
-                      <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-sm drop-shadow-sm select-none">👑</span>
-                    ) : hasCompleted ? (
-                      <span className="absolute -bottom-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] text-[9px] font-black shadow-[1.5px_1.5px_0px_#0D2421]">
-                        ✓
-                      </span>
-                    ) : null}
-
-                    {isSpeaker && (
-                      <span className="absolute -bottom-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#0D2421] text-[#BEF03C] border border-[#0D2421] text-[9px] animate-bounce">
-                        {currentPhase === 3 ? "📨" : "🎙️"}
-                      </span>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Stepper Timeline & Progress Indicator */}
-          <div className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] p-4 rounded-2xl shadow-[3px_3px_0px_#0D2421] mt-auto">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[9px] font-black text-[#0D2421]/60 uppercase tracking-widest">Global Round Progression</span>
-              <span className="text-[9px] font-black text-[#0D2421] uppercase bg-[#BEF03C] px-2 py-0.5 rounded border border-[#0D2421]">
-                Stage {currentPhase} of 4
-              </span>
-            </div>
-            
-            {/* Color-shifting dynamic progress bar */}
-            <div className="h-4 bg-slate-100 rounded-full border-2 border-[#0D2421] overflow-hidden relative">
-              <div 
-                className={`h-full transition-all duration-1000 ${progressColorClass}`} 
-                style={{ width: `${Math.min(100, (elapsedTime / totalRoundSec) * 100)}%` }} 
-              />
-            </div>
-            
-            <div className="grid grid-cols-4 text-[8px] font-black text-[#0D2421]/50 text-center uppercase tracking-wider mt-2.5">
-              <span className={currentPhase === 1 ? "text-[#0D2421] font-black bg-amber-400/20 py-0.5 rounded" : ""}>1. Briefing</span>
-              <span className={currentPhase === 2 ? "text-[#0D2421] font-black bg-[#BEF03C]/20 py-0.5 rounded" : ""}>2. Pitches</span>
-              <span className={currentPhase === 3 ? "text-[#0D2421] font-black bg-[#FFC000]/20 py-0.5 rounded" : ""}>3. Referrals</span>
-              <span className={currentPhase === 4 ? "text-[#0D2421] font-black bg-red-100 py-0.5 rounded" : ""}>4. Rotation</span>
+            <div className={`bg-[#0D2421] text-white border-2 border-[#0D2421] px-4 py-1.5 rounded-xl text-xs font-black tracking-wider shadow-[2.5px_2.5px_0px_#BEF03C] flex items-center gap-2 ${round.status?.startsWith("PAUSED_") ? "text-amber-400 animate-pulse border-amber-400 shadow-[2.5px_2.5px_0px_#F59E0B]" : ""}`}>
+              <span>{round.status?.startsWith("PAUSED_") ? "PAUSED: " : "Timer: "} {formatTime(remainingRoundSec)}</span>
             </div>
           </div>
         </div>
-
-        {/* Right Column: Unified Active Step Wizard (5 Cols) */}
-        <div className="lg:col-span-5 flex flex-col space-y-6 justify-between">
           
-          {/* Quick Stage manual jump override tabs */}
-          <div className="bg-[#0D2421] p-1.5 rounded-2xl border-2 border-[#0D2421] grid grid-cols-4 gap-1.5 shadow-[4px_4px_0px_#0D2421]">
-            {[1, 2, 3, 4].map((phNum) => (
+        {/* Quick Stage manual jump override tabs */}
+        <div className="bg-[#0D2421] p-1.5 rounded-2xl border-2 border-[#0D2421] grid grid-cols-4 gap-1.5 shadow-[4px_4px_0px_#0D2421]">
+          {[1, 2, 3, 4].map((phNum) => {
+            const isUnlocked = phNum <= maxUnlockedPhase;
+            return (
               <button
                 key={phNum}
-                onClick={() => setManualPhase(phNum)}
-                className={`py-2 text-[9px] font-black uppercase rounded-lg transition-all cursor-pointer text-center ${
+                onClick={() => isUnlocked && setManualPhase(phNum)}
+                disabled={!isUnlocked}
+                className={`py-2 text-[9px] font-black uppercase rounded-lg transition-all text-center ${
                   currentPhase === phNum 
                     ? "bg-[#BEF03C] text-[#0D2421]" 
-                    : "text-white/60 hover:text-white hover:bg-white/10"
+                    : isUnlocked
+                      ? "text-white/60 hover:text-white hover:bg-white/10 cursor-pointer"
+                      : "text-white/20 cursor-not-allowed"
                 }`}
               >
-                Stage {phNum}
+                {isUnlocked ? `Stage ${phNum}` : `🔒 Stage ${phNum}`}
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
 
           {/* Wizard Card Container */}
           <div className={`flex-1 border-3 border-[#0D2421] p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] flex flex-col justify-between gap-6 transition-all duration-300 ${
@@ -883,7 +763,6 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
             </div>
           </div>
         </div>
-      </div>
 
       {/* ── SEAT CARDS GRID (Attendees Control Board) ── */}
       <div className="bg-white border-3 border-[#0D2421] p-6 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] space-y-6">
@@ -1075,7 +954,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {tableUsers.map((tu: any) => (
-            <UserCard key={tu.user.id} tu={tu} />
+            <UserCard key={tu.user.id} tu={{ ...tu, table: { roundId: round.id, tableNumber } }} />
           ))}
           {tableUsers.length === 0 && (
             <div className="col-span-full py-10 text-center text-xs font-bold text-[#0D2421]/40 uppercase tracking-wider">

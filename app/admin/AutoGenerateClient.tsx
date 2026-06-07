@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { fetchUsersForGeneration, saveAutoAssignments } from "./actions";
 import { SubmitButton } from "../components/SubmitButton";
@@ -78,6 +78,20 @@ export function AutoGenerateClient({ captainCount, memberCount }: { captainCount
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [maxRounds, setMaxRounds] = useState(12);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("conclave_max_rounds");
+    if (saved) setMaxRounds(parseInt(saved, 10));
+  }, []);
+
+  const handleMaxRoundsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setMaxRounds(val);
+    if (!isNaN(val)) {
+      localStorage.setItem("conclave_max_rounds", val.toString());
+    }
+  };
 
   async function handleGenerate(formData: FormData) {
     setIsGenerating(true);
@@ -375,7 +389,8 @@ export function AutoGenerateClient({ captainCount, memberCount }: { captainCount
             type="number" 
             id="maxRounds" 
             name="maxRounds" 
-            defaultValue={12} 
+            value={maxRounds}
+            onChange={handleMaxRoundsChange}
             min={1} 
             max={20}
             className="p-3 border-2 border-[#0D2421] bg-white rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 w-24 text-center text-xs flex-shrink-0"

@@ -409,7 +409,8 @@ export default async function UserDashboard() {
                 id: round.id,
                 roundNumber: round.roundNumber,
                 startTime: round.startTime,
-                durationMinutes: round.durationMinutes
+                durationMinutes: round.durationMinutes,
+                status: round.status
               }}
               tableNumber={myAssignment.table.tableNumber}
               tableUsers={tableUsers}
@@ -500,7 +501,7 @@ export default async function UserDashboard() {
                 <h3 className="font-black text-lg uppercase text-[#0D2421]">
                   {myAssignment.table.tableNumber === nextAssignment.table.tableNumber 
                     ? `Stay at Table ${nextAssignment.table.tableNumber}` 
-                    : `Move to Table ${nextAssignment.table.tableNumber}`
+                    : `In next round, TRAVEL to Table ${nextAssignment.table.tableNumber}`
                   }
                 </h3>
               </div>
@@ -509,7 +510,7 @@ export default async function UserDashboard() {
               <p className="text-xs font-bold text-[#0D2421]/60 uppercase tracking-wide">
                 {myAssignment.table.tableNumber === nextAssignment.table.tableNumber 
                   ? "You don't need to move when this round ends." 
-                  : "Be ready to switch tables when the timer hits zero."}
+                  : "Be ready to travel to your next table when the timer hits zero."}
               </p>
             </div>
           </div>
@@ -518,7 +519,7 @@ export default async function UserDashboard() {
         {/* Members Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {tableUsers.map((tu: any) => (
-            <UserCard key={tu.user.id} tu={tu} />
+            <UserCard key={tu.user.id} tu={{ ...tu, table: myAssignment.table }} />
           ))}
           {tableUsers.length === 0 && (
             <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-white space-y-4">

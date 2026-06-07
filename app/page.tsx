@@ -66,12 +66,7 @@ export default async function Home() {
               </div>
             )}
             {!isLoggedIn && (
-              <a
-                href="/captain-login"
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-white border-2 border-amber-700 rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
-              >
-                👑 Captain Login
-              </a>
+              <></>
             )}
             <a
               href={ctaLink}
