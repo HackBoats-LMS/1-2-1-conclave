@@ -39,11 +39,10 @@ export default async function LeaderboardPage() {
           
           <div className="flex-1 flex justify-center items-center">
             <div className="flex items-center gap-2.5">
-              <span className="text-[10px] md:text-[11px] font-black text-[#0D2421]/60 uppercase tracking-widest mt-0.5">Powered by</span>
               <img 
                 src="/hb-logo.png" 
                 alt="HackBoats" 
-                className="h-6 md:h-7 object-contain drop-shadow-sm" 
+                className="h-10 md:h-12 object-contain" 
                 draggable={false}
               />
             </div>
@@ -67,7 +66,13 @@ export default async function LeaderboardPage() {
               <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest text-[#0D2421]/70 bg-white/50 px-5 py-2 rounded-2xl border-2 border-[#0D2421] shadow-[3px_3px_0px_#0D2421] inline-block mb-4">
                 Total Connections Made
               </h2>
-              <div className="text-8xl md:text-[10rem] lg:text-[12rem] font-black tracking-tighter leading-none tabular-nums text-[#0D2421] drop-shadow-[4px_4px_0px_rgba(255,255,255,0.7)] pt-2">
+              <div className={`${
+                totalReferrals.toString().length >= 4 
+                  ? "text-6xl md:text-7xl lg:text-[7rem]" 
+                  : totalReferrals.toString().length === 3 
+                    ? "text-7xl md:text-8xl lg:text-[9rem]"
+                    : "text-8xl md:text-[10rem] lg:text-[12rem]"
+              } font-black tracking-tighter leading-none tabular-nums text-[#0D2421] drop-shadow-[4px_4px_0px_rgba(255,255,255,0.7)] pt-2 transition-all`}>
                 {totalReferrals}
               </div>
             </div>
