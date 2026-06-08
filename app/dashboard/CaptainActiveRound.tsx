@@ -128,7 +128,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   pitchedUsersRef.current = pitchedUsers;
   referredUsersRef.current = referredUsers;
   
-  const pitchDurationSec = round.roundNumber === 1 ? 60 : 30;
+  const pitchDurationSec = 60; // 60s for all pitches
 
   // Speaker timer countdown logic
   useEffect(() => {
@@ -362,7 +362,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     if (currentPhase === 1) {
       // Advance to pitches, select first pitcher
       setManualPhase(2);
-      const first = allParticipants.find(p => !p.isCaptain && !pitchedUsers[p.id]);
+      const first = allParticipants.find(p => !pitchedUsers[p.id]);
       if (first) {
         startSpeakerTimer(first.id, pitchDurationSec, "PITCH");
       }
@@ -373,7 +373,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         stopSpeakerTimer();
         setPitchedUsers(prev => ({ ...prev, [currentId]: true }));
 
-        const next = allParticipants.find(p => !p.isCaptain && p.id !== currentId && !pitchedUsers[p.id]);
+        const next = allParticipants.find(p => p.id !== currentId && !pitchedUsers[p.id]);
         if (next) {
           startSpeakerTimer(next.id, pitchDurationSec, "PITCH");
         } else {
@@ -382,7 +382,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         }
       } else {
         // No active speaker, start the next speaker
-        const next = allParticipants.find(p => !p.isCaptain && !pitchedUsers[p.id]);
+        const next = allParticipants.find(p => !pitchedUsers[p.id]);
         if (next) {
           startSpeakerTimer(next.id, pitchDurationSec, "PITCH");
         } else {
@@ -396,7 +396,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         stopSpeakerTimer();
         setReferredUsers(prev => ({ ...prev, [currentId]: true }));
 
-        const next = allParticipants.find(p => !p.isCaptain && p.id !== currentId && !referredUsers[p.id]);
+        const next = allParticipants.find(p => p.id !== currentId && !referredUsers[p.id]);
         if (next) {
           startSpeakerTimer(next.id, 30, "REFERRAL");
         } else {
@@ -405,7 +405,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         }
       } else {
         // No active speaker, start the next speaker's referral turn
-        const next = allParticipants.find(p => !p.isCaptain && !referredUsers[p.id]);
+        const next = allParticipants.find(p => !referredUsers[p.id]);
         if (next) {
           startSpeakerTimer(next.id, 30, "REFERRAL");
         } else {
@@ -548,7 +548,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                 
                 {currentPhase === 1 && (
                   <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                    {"Welcome to Table " + tableNumber + "! I am your captain. We have " + round.durationMinutes + " minutes to network. Each of you gets " + (pitchDurationSec === 60 ? "1 minute" : "30 seconds") + " to speak, 30 seconds for referral, then we switch tables. Let's begin!"}
+                    {"Welcome to Table " + tableNumber + "! I am your captain. We have " + round.durationMinutes + " minutes to network. Each of you gets 1 minute to speak, 30 seconds for referral, then we switch tables. Let's begin!"}
                   </p>
                 )}
 
@@ -831,7 +831,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                   </div>
                   
                   {/* Top Right Vector / Checkbox slot (prevents mixing/overlapping) */}
-                  {!p.isCaptain && (
+                  {true && (
                     <div className="flex-shrink-0">
                       {isSpeaker ? (
                         <div className="flex items-center gap-3">
@@ -889,11 +889,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
                 {/* State-Based Primary Action Button */}
                 <div className="pt-2 border-t border-[#0D2421]/10">
-                  {p.isCaptain ? (
-                    <div className="text-[9px] font-black text-amber-600/70 uppercase text-center py-2">
-                      Facilitator Role
-                    </div>
-                  ) : currentPhase === 4 ? (
+                  {currentPhase === 4 ? (
                     <div className="text-[9px] font-black text-[#0D2421]/40 uppercase text-center py-2">
                       ✓ Round Finished
                     </div>
