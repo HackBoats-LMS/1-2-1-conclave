@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cookies } from "next/headers";
 import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration } from "./actions";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
@@ -16,15 +17,27 @@ import { OnboardingExportButton } from "./OnboardingExportButton";
 import { LogoutButton } from "../components/LogoutButton";
 import { EditUserRoleButton } from "./EditUserRoleButton";
 
+
 import { AdminLiveReferralsClient } from "./AdminLiveReferralsClient";
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const resolvedParams = await searchParams;
-  const addedCount = resolvedParams?.added;
-  const successAction = resolvedParams?.success;
-  const errorAction = resolvedParams?.error;
+  const cookieStore = await cookies();
+  
+  // Read success/error from cookies (set by server actions, auto-expire in 5s)
+  let successAction = cookieStore.get('admin_success')?.value || "";
+  const errorAction = cookieStore.get('admin_error')?.value || "";
+  
+  let addedCount: string | undefined;
+  
+  // Parse compound cookie values like "uploaded_whitelist&added=5"
+  if (successAction.includes('&added=')) {
+    const parts = successAction.split('&added=');
+    successAction = parts[0];
+    addedCount = parts[1];
+  }
 
   let successMessage = "";
   const reassignWarning = " IMPORTANT: If you have already generated rounds, you must re-generate assignments to apply these member changes!";

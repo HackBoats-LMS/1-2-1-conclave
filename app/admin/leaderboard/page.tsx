@@ -31,7 +31,7 @@ export default async function LeaderboardPage() {
               LIVE CONNECTION EVENT
             </div>
             <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight pt-1">
-              Global Referrals Dashboard
+              Referrals Dashboard
             </h1>
           </div>
           <div className="flex items-center gap-3 bg-[#FAF8F4] border-2 border-[#0D2421] px-4 py-2 rounded-2xl shadow-[2px_2px_0px_#0D2421]">
@@ -41,10 +41,10 @@ export default async function LeaderboardPage() {
         </header>
 
         {/* 2-COLUMN LAYOUT */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch flex-1 overflow-hidden min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch flex-1 overflow-hidden min-h-0">
           
           {/* LEFT: TOTAL CONNECTIONS (Takes up 5 columns) */}
-          <div className="xl:col-span-5 bg-[#BEF03C] border-2 border-[#0D2421] rounded-3xl p-6 shadow-[6px_6px_0px_#0D2421] flex flex-col items-center justify-center text-center relative overflow-hidden h-full">
+          <div className="md:col-span-5 bg-[#BEF03C] border-2 border-[#0D2421] rounded-3xl p-4 lg:p-6 shadow-[6px_6px_0px_#0D2421] flex flex-col items-center justify-center text-center relative overflow-hidden h-full">
             {/* Decorative background grid inside the box */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(13,36,33,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(13,36,33,0.05)_2px,transparent_2px)] bg-[size:24px_24px]"></div>
             
@@ -59,9 +59,9 @@ export default async function LeaderboardPage() {
           </div>
 
           {/* RIGHT: LEADERBOARD GRID (Takes up 7 columns) */}
-          <div className="xl:col-span-7 bg-white border-2 border-[#0D2421] rounded-3xl p-5 md:p-6 shadow-[6px_6px_0px_#0D2421] flex flex-col h-full overflow-hidden">
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b-2 border-[#0D2421] shrink-0">
-              <div className="w-10 h-10 bg-[#0D2421] rounded-xl flex items-center justify-center shadow-[3px_3px_0px_#BEF03C]">
+          <div className="md:col-span-7 bg-white border-2 border-[#0D2421] rounded-3xl p-4 md:p-5 shadow-[6px_6px_0px_#0D2421] flex flex-col h-full overflow-hidden">
+            <div className="flex items-center gap-3 mb-3 md:mb-4 pb-3 md:pb-4 border-b-2 border-[#0D2421] shrink-0">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-[#0D2421] rounded-xl flex items-center justify-center shadow-[3px_3px_0px_#BEF03C]">
                 <span className="text-xl">🏆</span>
               </div>
               <h3 className="text-2xl md:text-3xl font-black uppercase text-[#0D2421] tracking-wide">
@@ -69,7 +69,7 @@ export default async function LeaderboardPage() {
               </h3>
             </div>
 
-            <div className="flex flex-col gap-2 overflow-y-auto pr-2 pb-2">
+            <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 pb-1">
               {topSenders.map((user: any, index: number) => {
                 const count = user._count.sentReferrals;
                 if (count === 0 && index > 2) return null; // Hide 0s if they aren't top 3
@@ -90,25 +90,25 @@ export default async function LeaderboardPage() {
                 return (
                   <div 
                     key={user.id} 
-                    className={`flex items-center justify-between p-3 md:p-4 rounded-xl border-2 transition-all shrink-0 ${cardStyle}`}
+                    className={`flex items-center justify-between p-2 lg:p-3 rounded-xl border-2 transition-all shrink-0 ${cardStyle}`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center font-black text-lg md:text-xl border-2 ${rankStyle}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-lg flex items-center justify-center font-black text-sm lg:text-lg border-2 ${rankStyle}`}>
                         {index + 1}
                       </div>
                       <div className="flex flex-col">
-                        <h4 className="text-lg md:text-xl font-black text-[#0D2421] leading-tight">{user.name || "Anonymous"}</h4>
-                        <span className="text-[10px] font-bold text-[#0D2421]/50 uppercase tracking-wider mt-0.5">
+                        <h4 className="text-base lg:text-lg font-black text-[#0D2421] leading-tight">{user.name || "Anonymous"}</h4>
+                        <span className="text-[9px] font-bold text-[#0D2421]/50 uppercase tracking-wider mt-0.5">
                           {user.businessCategory || "Participant"}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-0.5 border-l-2 border-[#0D2421]/10 pl-4">
-                      <div className="text-3xl md:text-4xl font-black tabular-nums text-[#0D2421] leading-none">
+                    <div className="flex flex-col items-end gap-0 border-l-2 border-[#0D2421]/10 pl-3 lg:pl-4">
+                      <div className="text-2xl lg:text-3xl font-black tabular-nums text-[#0D2421] leading-none">
                         {count}
                       </div>
-                      <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-[#0D2421]/50 bg-[#0D2421]/5 px-2 py-0.5 rounded-md mt-0.5">
+                      <span className="text-[7px] lg:text-[8px] font-black uppercase tracking-widest text-[#0D2421]/50 bg-[#0D2421]/5 px-1.5 py-0.5 rounded-md mt-0.5">
                         Referrals
                       </span>
                     </div>

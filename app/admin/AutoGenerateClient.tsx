@@ -362,8 +362,8 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
       const result = await saveAutoAssignments(payload);
       if (result.error) throw new Error(result.error);
       
-      // Navigate on success without throwing NEXT_REDIRECT in try-catch
-      router.push("/admin?success=generated");
+      // Refresh in-place (no scroll jump) — server already revalidated
+      router.refresh();
       
     } catch (e: any) {
       console.error(e);
