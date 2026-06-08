@@ -6,6 +6,7 @@ import { LiveControls, AutoRefresh } from "./LiveControls";
 import { UserCard } from "./UserCard";
 import { CaptainActiveRound } from "./CaptainActiveRound";
 import { DownloadMyReferralsButton } from "./DownloadMyReferralsButton";
+import { SelfSpeakerTimer } from "./SelfSpeakerTimer";
 
 export const dynamic = 'force-dynamic';
 
@@ -398,6 +399,7 @@ export default async function UserDashboard() {
               <LiveControls 
                 updatedAtTime={round?.startTime?.getTime() || 0} 
                 durationMinutes={round?.durationMinutes}
+                status={round?.status}
               />
             </div>
           </header>
@@ -475,6 +477,7 @@ export default async function UserDashboard() {
             <LiveControls 
               updatedAtTime={round?.startTime?.getTime() || 0} 
               durationMinutes={round?.durationMinutes}
+              status={round?.status}
             />
           </div>
         </header>
@@ -514,6 +517,15 @@ export default async function UserDashboard() {
               </p>
             </div>
           </div>
+        )}
+
+        {/* My Own Speaking Timer (Visible only when I am speaking) */}
+        {!myAssignment.isCaptain && (
+          <SelfSpeakerTimer 
+            roundId={round?.id as string} 
+            tableNumber={myAssignment.table.tableNumber} 
+            userId={session.user.id as string} 
+          />
         )}
 
         {/* Members Grid */}

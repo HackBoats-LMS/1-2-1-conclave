@@ -343,7 +343,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           {/* Generate Button */}
           <div className="border-t-2 border-dashed border-[#0D2421]/20 pt-6 space-y-4">
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <AutoGenerateClient captainCount={captainCount} memberCount={memberCount} />
+              <AutoGenerateClient captainCount={captainCount} memberCount={memberCount} currentDuration={currentDuration} />
 
               {hasAssignments && (
                 <SecureAdminButton 
