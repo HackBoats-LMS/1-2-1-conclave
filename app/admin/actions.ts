@@ -1,7 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import * as xlsx from 'xlsx';
 import { auth } from "@/lib/auth";
 import crypto from 'crypto';
@@ -37,6 +37,14 @@ function verifyDeletePassword(password: string | null) {
   }
 }
 
+// Helper: set a success cookie (read by page.tsx, auto-expires in 5s)
+async function setSuccess(key: string) {
+  (await cookies()).set("admin_success", key, { maxAge: 5 });
+}
+async function setError(msg: string) {
+  (await cookies()).set("admin_error", msg, { maxAge: 5 });
+}
+
 // ──────────────────────────────────────────────
 // USER MANAGEMENT
 // ──────────────────────────────────────────────
@@ -57,12 +65,12 @@ export async function addManualUser(formData: FormData) {
       update: { isApproved: true, role },
       create: { email, isApproved: true, role }
     });
-    revalidatePath("/admin");
   } catch (error) {
     console.error(error);
     return;
   }
-  redirect("/admin?success=added_user");
+  await setSuccess("added_user");
+  revalidatePath("/admin");
 }
 
 export async function removeUser(formData: FormData) {
@@ -89,12 +97,14 @@ export async function deleteUserAccount(formData: FormData) {
     await prisma.user.delete({
       where: { id: userId }
     });
-    revalidatePath("/admin");
   } catch (error: any) {
     console.error(error);
-    redirect(`/admin?error=${encodeURIComponent(error.message || "Failed to delete user")}`);
+    await setError(error.message || "Failed to delete user");
+    revalidatePath("/admin");
+    return;
   }
-  redirect("/admin?success=deleted_user");
+  await setSuccess("deleted_user");
+  revalidatePath("/admin");
 }
 
 export async function updateUserRole(formData: FormData) {
@@ -103,7 +113,9 @@ export async function updateUserRole(formData: FormData) {
   const role = formData.get("role") as string;
   
   if (!userId || !role || !["USER", "CAPTAIN", "ADMIN"].includes(role)) {
-    redirect("/admin?error=Invalid+Role+Update");
+    await setError("Invalid Role Update");
+    revalidatePath("/admin");
+    return;
   }
 
   try {
@@ -111,12 +123,14 @@ export async function updateUserRole(formData: FormData) {
       where: { id: userId },
       data: { role: role }
     });
-    revalidatePath("/admin");
   } catch (e: any) {
     console.error(e);
-    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to update role")}`);
+    await setError(e.message || "Failed to update role");
+    revalidatePath("/admin");
+    return;
   }
-  redirect("/admin?success=updated_role");
+  await setSuccess("updated_role");
+  revalidatePath("/admin");
 }
 
 export async function removeAllUsers(formData: FormData) {
@@ -127,12 +141,14 @@ export async function removeAllUsers(formData: FormData) {
     await prisma.user.deleteMany({
       where: { role: { not: "ADMIN" } }
     });
-    revalidatePath("/admin");
   } catch (e: any) {
     console.error(e);
-    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to clear members")}`);
+    await setError(e.message || "Failed to clear members");
+    revalidatePath("/admin");
+    return;
   }
-  redirect("/admin?success=cleared_members");
+  await setSuccess("cleared_members");
+  revalidatePath("/admin");
 }
 
 // ──────────────────────────────────────────────
@@ -279,12 +295,14 @@ export async function clearReferrals(formData: FormData) {
   try {
     verifyDeletePassword(password);
     await prisma.referral.deleteMany({});
-    revalidatePath("/admin");
   } catch (e: any) {
     console.error(e);
-    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to wipe data")}`);
+    await setError(e.message || "Failed to wipe data");
+    revalidatePath("/admin");
+    return;
   }
-  redirect("/admin?success=cleared_referrals");
+  await setSuccess("cleared_referrals");
+  revalidatePath("/admin");
 }
 
 
@@ -336,12 +354,12 @@ export async function uploadWhitelistExcel(formData: FormData) {
       });
     }
     emailsCount = usersData.length;
-    revalidatePath("/admin");
   } catch (e) {
     console.error(e);
     return;
   }
-  redirect(`/admin?success=uploaded_whitelist&added=${emailsCount}`);
+  await setSuccess(`uploaded_whitelist&added=${emailsCount}`);
+  revalidatePath("/admin");
 }
 
 // ──────────────────────────────────────────────
@@ -391,12 +409,12 @@ export async function uploadCaptainExcel(formData: FormData) {
       });
     }
     captainCount = usersData.length;
-    revalidatePath("/admin");
   } catch (e) {
     console.error(e);
     return;
   }
-  redirect(`/admin?success=uploaded_captains&added=${captainCount}`);
+  await setSuccess(`uploaded_captains&added=${captainCount}`);
+  revalidatePath("/admin");
 }
 
 // ──────────────────────────────────────────────
@@ -418,13 +436,15 @@ export async function clearAssignments(formData: FormData) {
     if (state) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
-    revalidatePath("/admin");
     revalidatePath("/dashboard");
   } catch (e: any) {
     console.error(e);
-    redirect(`/admin?error=${encodeURIComponent(e.message || "Failed to clear assignments")}`);
+    await setError(e.message || "Failed to clear assignments");
+    revalidatePath("/admin");
+    return;
   }
-  redirect("/admin?success=cleared_assignments");
+  await setSuccess("cleared_assignments");
+  revalidatePath("/admin");
 }
 
 // ──────────────────────────────────────────────
@@ -493,11 +513,13 @@ export async function updateAllRoundsDuration(formData: FormData) {
     await prisma.round.updateMany({
       data: { durationMinutes: duration }
     });
-    revalidatePath("/admin");
     revalidatePath("/dashboard");
   } catch (error) {
     console.error("Failed to update round durations:", error);
-    redirect(`/admin?error=${encodeURIComponent("Failed to update round durations")}`);
+    await setError("Failed to update round durations");
+    revalidatePath("/admin");
+    return;
   }
-  redirect("/admin?success=updated_durations");
+  await setSuccess("updated_durations");
+  revalidatePath("/admin");
 }

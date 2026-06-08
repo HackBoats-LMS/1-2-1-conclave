@@ -834,14 +834,19 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                   {!p.isCaptain && (
                     <div className="flex-shrink-0">
                       {isSpeaker ? (
-                        /* Beautiful animated microphone vector in place of the checkbox when speaking */
-                        <div className="relative flex items-center justify-center w-7 h-7 bg-[#BEF03C]/10 border-2 border-[#0D2421] rounded-lg">
-                          <span className="absolute inset-0.5 rounded bg-[#BEF03C]/30 animate-ping" />
-                          <svg className="w-4 h-4 text-[#0D2421] relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" className="fill-[#BEF03C]" />
-                            <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
-                            <line x1="12" y1="19" x2="12" y2="22" />
-                          </svg>
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-3xl text-[#BEF03C] drop-shadow-[2px_2px_0px_#0D2421] animate-pulse">
+                            {speakerTimeLeft}s
+                          </span>
+                          {/* Beautiful animated microphone vector in place of the checkbox when speaking */}
+                          <div className="relative flex items-center justify-center w-7 h-7 bg-[#BEF03C]/10 border-2 border-[#0D2421] rounded-lg">
+                            <span className="absolute inset-0.5 rounded bg-[#BEF03C]/30 animate-ping" />
+                            <svg className="w-4 h-4 text-[#0D2421] relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" className="fill-[#BEF03C]" />
+                              <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+                              <line x1="12" y1="19" x2="12" y2="22" />
+                            </svg>
+                          </div>
                         </div>
                       ) : (
                         /* Manual checkbox toggle check when not active speaker */
