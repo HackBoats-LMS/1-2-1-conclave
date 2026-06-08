@@ -287,7 +287,7 @@ export default async function UserDashboard() {
           </div>
 
           {/* Regular User Upcoming Table Preview */}
-          {upcomingAssignment && (
+          {nextRound && upcomingAssignment && (
             <div className="border-t-2 border-dashed border-[#0D2421]/20 pt-6 mt-6">
               <div className="bg-[#BEF03C]/20 border-2 border-[#BEF03C] p-4 rounded-xl shadow-[4px_4px_0px_#0D2421] flex items-center gap-4 text-left">
                 <div className="w-12 h-12 bg-[#BEF03C] rounded-xl flex items-center justify-center text-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421] flex-shrink-0">
