@@ -678,7 +678,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                   <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider">Business Details</th>
                   <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-center">Login Whitelist</th>
                   <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-center">Auth Level</th>
-                  <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider"></th>
+                  <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-right">
+                    Total: {users.length}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#0D2421]/15 text-xs">
