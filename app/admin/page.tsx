@@ -16,6 +16,8 @@ import { OnboardingExportButton } from "./OnboardingExportButton";
 import { LogoutButton } from "../components/LogoutButton";
 import { EditUserRoleButton } from "./EditUserRoleButton";
 
+import { AdminLiveReferralsClient } from "./AdminLiveReferralsClient";
+
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -384,9 +386,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 <h3 className="font-black text-lg uppercase">Live Referrals</h3>
                 <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Digital referrals exchanged during rounds</p>
               </div>
-              <div className="text-6xl font-black tracking-tight text-[#0D2421] py-4 bg-[#BEF03C]/10 border-2 border-dashed border-[#0D2421]/20 text-center rounded-2xl">
-                {totalReferrals}
-              </div>
+              <AdminLiveReferralsClient initialTotal={totalReferrals} />
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <ReferralsExportButtons />
                 <SecureAdminButton 
