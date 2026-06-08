@@ -66,7 +66,7 @@ export function LiveControls({
   );
 }
 
-export function AutoRefresh({ initialRoundId }: { initialRoundId: string | null }) {
+export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId: string | null; currentStatus?: string }) {
   const router = useRouter();
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -76,7 +76,7 @@ export function AutoRefresh({ initialRoundId }: { initialRoundId: string | null 
 
     // Listen to global_events for zero-lag syncing when the admin clicks pause/resume
     import('@/lib/supabaseClient').then(({ supabase }) => {
-      const channel = supabase.channel("live_controls_sync");
+      const channel = supabase.channel("global_events");
       channel.on("broadcast", { event: "round_state_change" }, () => {
         router.refresh();
       });
@@ -99,11 +99,28 @@ export function AutoRefresh({ initialRoundId }: { initialRoundId: string | null 
         if (data && data.length > 0) {
           if (data[0].currentRoundId !== initialRoundId) {
             router.refresh(); 
+            return;
+          }
+        }
+        
+        if (initialRoundId) {
+          const res2 = await fetch(`${supabaseUrl}/rest/v1/Round?select=status&id=eq.${initialRoundId}`, {
+            headers: {
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`
+            },
+            cache: 'no-store'
+          });
+          const data2 = await res2.json();
+          if (data2 && data2.length > 0) {
+            if (data2[0].status !== currentStatus) {
+              router.refresh();
+            }
           }
         }
       } catch (e) {}
-    }, 15000);
+    }, 10000);
     return () => clearInterval(interval);
-  }, [router, initialRoundId]);
+  }, [router, initialRoundId, currentStatus]);
   return null;
 }

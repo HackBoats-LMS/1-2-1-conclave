@@ -198,11 +198,6 @@ export function UserCard({ tu }: UserCardProps) {
               {tu.isCaptain && (
                 <span className="absolute -top-2 -right-2 text-sm z-10">👑</span>
               )}
-              {activeTimer && (
-                <div className="absolute -top-3 -right-3 sm:-top-4 sm:-right-4 w-10 h-10 sm:w-12 sm:h-12 bg-[#0D2421] text-[#BEF03C] rounded-full border-2 border-white shadow-[2px_2px_0px_#0D2421] flex items-center justify-center font-black text-sm sm:text-base animate-pulse z-20">
-                  {activeTimer.timeLeft}s
-                </div>
-              )}
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-black text-lg uppercase truncate">{user.name || user.businessName || user.email}</h3>
@@ -212,10 +207,20 @@ export function UserCard({ tu }: UserCardProps) {
             </div>
           </div>
           
-          <div className="bg-[#FAF8F4] p-4 rounded-xl border border-[#0D2421]/15 h-28 overflow-y-auto">
-            <p className="text-[#0D2421]/80 text-xs font-semibold leading-relaxed">
+          <div className="bg-[#FAF8F4] p-4 rounded-xl border border-[#0D2421]/15 h-28 overflow-y-auto relative">
+            <p className={`text-[#0D2421]/80 text-xs font-semibold leading-relaxed transition-opacity ${activeTimer ? 'opacity-10' : ''}`}>
               {user.description || "No description provided by this user."}
             </p>
+            {activeTimer && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#FAF8F4]/60 backdrop-blur-sm z-10">
+                <span className="font-black text-[10px] uppercase tracking-widest text-[#0D2421] mb-1">
+                  {activeTimer.type === "PITCH" ? "Pitching Time" : "Referral Time"}
+                </span>
+                <span className="text-4xl font-black text-[#BEF03C] drop-shadow-[2px_2px_0px_#0D2421] animate-pulse">
+                  {activeTimer.timeLeft}s
+                </span>
+              </div>
+            )}
           </div>
         </div>
         
