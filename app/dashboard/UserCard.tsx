@@ -207,21 +207,21 @@ export function UserCard({ tu }: UserCardProps) {
             </div>
           </div>
           
-          <div className="bg-[#FAF8F4] p-4 rounded-xl border border-[#0D2421]/15 h-28 overflow-y-auto relative">
-            <p className={`text-[#0D2421]/80 text-xs font-semibold leading-relaxed transition-opacity ${activeTimer ? 'opacity-10' : ''}`}>
+          <div className="bg-[#FAF8F4] p-4 rounded-xl border border-[#0D2421]/15 h-24 overflow-y-auto">
+            <p className="text-[#0D2421]/80 text-xs font-semibold leading-relaxed">
               {user.description || "No description provided by this user."}
             </p>
-            {activeTimer && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#FAF8F4]/60 backdrop-blur-sm z-10">
-                <span className="font-black text-[10px] uppercase tracking-widest text-[#0D2421] mb-1">
-                  {activeTimer.type === "PITCH" ? "Pitching Time" : "Referral Time"}
-                </span>
-                <span className="text-4xl font-black text-[#BEF03C] drop-shadow-[2px_2px_0px_#0D2421] animate-pulse">
-                  {activeTimer.timeLeft}s
-                </span>
-              </div>
-            )}
           </div>
+          {activeTimer && (
+            <div className="flex flex-col items-center justify-center py-2 bg-white rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
+              <span className="font-black text-[10px] uppercase tracking-widest text-[#0D2421] mb-1">
+                {activeTimer.type === "PITCH" ? "Pitching Time" : "Referral Time"}
+              </span>
+              <span className="text-4xl font-black text-[#BEF03C] drop-shadow-[2px_2px_0px_#0D2421] animate-pulse">
+                {activeTimer.timeLeft}s
+              </span>
+            </div>
+          )}
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-3 pt-4 border-t border-[#0D2421]/10 mt-4">
