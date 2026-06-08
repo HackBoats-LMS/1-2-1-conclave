@@ -294,7 +294,7 @@ export default async function UserDashboard() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-[#0D2421]/60">Your Next Destination</p>
-                  <p className="font-black text-lg uppercase text-[#0D2421]">Go to Table {upcomingAssignment.table.tableNumber}</p>
+                  <p className="font-black text-lg uppercase text-[#0D2421]">In next round, TRAVEL to Table {upcomingAssignment.table.tableNumber}</p>
                 </div>
               </div>
             </div>
