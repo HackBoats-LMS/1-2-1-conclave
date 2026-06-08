@@ -294,8 +294,8 @@ export default async function UserDashboard() {
                   🏃
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#0D2421]/60">Your Next Destination</p>
-                  <p className="font-black text-lg uppercase text-[#0D2421]">In next round, TRAVEL to Table {upcomingAssignment.table.tableNumber}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#0D2421]/60">Your Destination</p>
+                  <p className="font-black text-lg uppercase text-[#0D2421]">For Round {nextRound.roundNumber}, TRAVEL to Table {upcomingAssignment.table.tableNumber}</p>
                 </div>
               </div>
             </div>
@@ -503,8 +503,8 @@ export default async function UserDashboard() {
                 </span>
                 <h3 className="font-black text-lg uppercase text-[#0D2421]">
                   {myAssignment.table.tableNumber === nextAssignment.table.tableNumber 
-                    ? `Stay at Table ${nextAssignment.table.tableNumber}` 
-                    : `In next round, TRAVEL to Table ${nextAssignment.table.tableNumber}`
+                    ? `Stay at Table ${nextAssignment.table.tableNumber} for Round ${nextRound.roundNumber}` 
+                    : `For Round ${nextRound.roundNumber}, TRAVEL to Table ${nextAssignment.table.tableNumber}`
                   }
                 </h3>
               </div>
