@@ -74,7 +74,7 @@ function calculateSlotGrouping(totalRounds: number): number[] {
   return slots;
 }
 
-export function AutoGenerateClient({ captainCount, memberCount }: { captainCount: number, memberCount: number }) {
+export function AutoGenerateClient({ captainCount, memberCount, currentDuration = 15 }: { captainCount: number, memberCount: number, currentDuration?: number }) {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -381,6 +381,7 @@ export function AutoGenerateClient({ captainCount, memberCount }: { captainCount
         </div>
       )}
       <form action={handleGenerate} className="flex flex-col space-y-4 w-full">
+        <input type="hidden" name="defaultDuration" value={currentDuration} />
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-[#FAF8F4] p-4 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
           <label htmlFor="maxRounds" className="text-xs font-black text-[#0D2421] uppercase tracking-wide whitespace-nowrap flex-shrink-0">
             Max Rounds to Generate

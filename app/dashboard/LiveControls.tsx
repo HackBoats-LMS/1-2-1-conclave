@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 
 export function LiveControls({ 
   updatedAtTime, 
-  durationMinutes = 15 
+  durationMinutes = 15,
+  status
 }: { 
   updatedAtTime: number; 
   durationMinutes?: number; 
+  status?: string;
 }) {
   const router = useRouter();
   const [timeLeft, setTimeLeft] = useState(`${durationMinutes.toString().padStart(2, '0')}:00`);
@@ -17,12 +19,19 @@ export function LiveControls({
 
   // Real-time custom countdown synchronized to when the Admin clicked Launch
   useEffect(() => {
+    let remaining = 0;
+    const totalDuration = durationMinutes * 60 * 1000; // custom mins in ms
+
     const updateTimer = () => {
-      const now = new Date().getTime();
-      const elapsed = now - updatedAtTime;
-      const totalDuration = durationMinutes * 60 * 1000; // custom mins in ms
-      
-      const remaining = totalDuration - elapsed;
+      if (status?.startsWith("PAUSED_")) {
+        const elapsedSec = parseInt(status.split("_")[1]);
+        const elapsedMs = (isNaN(elapsedSec) ? 0 : elapsedSec) * 1000;
+        remaining = totalDuration - elapsedMs;
+      } else {
+        const now = new Date().getTime();
+        const elapsed = now - updatedAtTime;
+        remaining = totalDuration - elapsed;
+      }
 
       if (remaining <= 0) {
         setTimeLeft("00:00");
@@ -35,9 +44,17 @@ export function LiveControls({
     };
 
     updateTimer(); 
-    const timerInterval = setInterval(updateTimer, 1000);
-    return () => clearInterval(timerInterval);
-  }, [updatedAtTime, durationMinutes]);
+    
+    // Only tick if not paused
+    let timerInterval: NodeJS.Timeout | null = null;
+    if (!status?.startsWith("PAUSED_")) {
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+    
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [updatedAtTime, durationMinutes, status]);
 
   return (
     <div className={`px-6 py-3.5 rounded-2xl font-black text-xl border-2 text-center transition-all ${isEnded ? 'bg-[#FAF8F4] text-[#0D2421]/40 border-[#0D2421]/30' : 'bg-[#0D2421] text-[#BEF03C] border-[#0D2421] shadow-[3px_3px_0px_#0D2421]'}`}>
@@ -57,6 +74,16 @@ export function AutoRefresh({ initialRoundId }: { initialRoundId: string | null 
 
     if (!supabaseUrl || !anonKey) return;
 
+    // Listen to global_events for zero-lag syncing when the admin clicks pause/resume
+    import('@/lib/supabaseClient').then(({ supabase }) => {
+      const channel = supabase.channel("live_controls_sync");
+      channel.on("broadcast", { event: "round_state_change" }, () => {
+        router.refresh();
+      });
+      channel.subscribe();
+    });
+
+    // Fallback polling just in case WebSockets fail
     const interval = setInterval(async () => {
       try {
         // Ping Supabase PostgREST API directly, bypassing Vercel entirely!
@@ -75,7 +102,7 @@ export function AutoRefresh({ initialRoundId }: { initialRoundId: string | null 
           }
         }
       } catch (e) {}
-    }, 10000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [router, initialRoundId]);
   return null;

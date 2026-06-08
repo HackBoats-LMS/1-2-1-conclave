@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import * as xlsx from 'xlsx';
 import { auth } from "@/lib/auth";
 import crypto from 'crypto';
+import { supabase } from "@/lib/supabaseClient";
 
 async function requireAdmin() {
   const session = await auth();
@@ -181,6 +182,13 @@ export async function startRound(formData: FormData) {
         data: { currentRoundId: roundId }
       });
     }
+
+    await supabase.channel('global_events').send({
+      type: 'broadcast',
+      event: 'round_state_change',
+      payload: { action: 'start' }
+    });
+
     revalidatePath("/admin");
     revalidatePath("/dashboard");
   } catch (e) {
@@ -200,6 +208,13 @@ export async function stopRound(formData: FormData) {
     if (state?.currentRoundId === roundId) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
+
+    await supabase.channel('global_events').send({
+      type: 'broadcast',
+      event: 'round_state_change',
+      payload: { action: 'stop' }
+    });
+
     revalidatePath("/admin");
     revalidatePath("/dashboard");
   } catch (e) {
@@ -221,6 +236,12 @@ export async function pauseRound(formData: FormData) {
       });
     }
 
+    await supabase.channel('global_events').send({
+      type: 'broadcast',
+      event: 'round_state_change',
+      payload: { action: 'pause' }
+    });
+
     revalidatePath("/admin");
     revalidatePath("/dashboard");
   } catch (e) {
@@ -238,6 +259,13 @@ export async function resetAllRounds() {
     if (state) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
+
+    await supabase.channel('global_events').send({
+      type: 'broadcast',
+      event: 'round_state_change',
+      payload: { action: 'reset' }
+    });
+
     revalidatePath("/admin");
     revalidatePath("/dashboard");
   } catch (e) {
