@@ -41,6 +41,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const [pitchedUsers, setPitchedUsers] = useState<Record<string, boolean>>({});
   const [referredUsers, setReferredUsers] = useState<Record<string, boolean>>({});
   const [windowWidth, setWindowWidth] = useState(1024);
+  const [briefingTimeLeft, setBriefingTimeLeft] = useState<number | null>(null);
+  const [briefingStarted, setBriefingStarted] = useState(false);
   
   // Sound mute state stored in local storage
   const [isMuted, setIsMuted] = useState<boolean>(() => {
@@ -53,13 +55,23 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const speakerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
+  const startSpeakerTimerRef = useRef<(participantId: string, durationSec: number, type: "PITCH" | "REFERRAL") => void>(() => {});
+  const isMutedRef = useRef(false);
+  const speakerEndTimeRef = useRef<number | null>(null);
+  const briefingEndTimeRef = useRef<number | null>(null);
+  const tickCountRef = useRef(0);
+  const [isChannelConnected, setIsChannelConnected] = useState(false);
 
   useEffect(() => {
     // Initialize realtime broadcast channel for table members
     const channelName = `room_${round.id}_table_${tableNumber}`;
     const channel = supabase.channel(channelName);
     
-    channel.subscribe();
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        setIsChannelConnected(true);
+      }
+    });
     channelRef.current = channel;
 
     return () => {
@@ -70,6 +82,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   // Track window resizing for responsive circular coordinates
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWindowWidth(window.innerWidth);
       const handleResize = () => setWindowWidth(window.innerWidth);
       window.addEventListener("resize", handleResize);
@@ -83,6 +96,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     
     if (round.status?.startsWith("PAUSED_")) {
       const pausedElapsed = parseInt(round.status.split("_")[1]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setElapsedTime(Math.max(0, pausedElapsed || 0));
       return;
     }
@@ -124,19 +138,25 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     }))
   ];
 
-  allParticipantsRef.current = allParticipants;
-  pitchedUsersRef.current = pitchedUsers;
-  referredUsersRef.current = referredUsers;
+  useEffect(() => {
+    allParticipantsRef.current = allParticipants;
+    pitchedUsersRef.current = pitchedUsers;
+    referredUsersRef.current = referredUsers;
+  }, [allParticipants, pitchedUsers, referredUsers]);
   
   const pitchDurationSec = 60; // 60s for all pitches
 
-  // Speaker timer countdown logic
+  // Keep muted ref in sync
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+
+  // Speaker timer countdown logic — wall-clock based for accuracy
   useEffect(() => {
     if (speakerTimeLeft === null) return;
     
     if (speakerTimeLeft <= 0) {
       const currentId = activeSpeakerId;
       const currentType = speakerTimerType;
+      speakerEndTimeRef.current = null;
 
       // Mark user as completed when their timer ends
       if (currentId && currentType === "PITCH") {
@@ -146,13 +166,13 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         setReferredUsers(prev => ({ ...prev, [currentId]: true }));
       }
       
-      // Clear active speaker states immediately to avoid rendering "nulls" during transitions
+      // Clear active speaker states
       setSpeakerTimeLeft(null);
       setActiveSpeakerId(null);
       setSpeakerTimerType(null);
       
       // Play success chime if not muted
-      if (!isMuted) {
+      if (!isMutedRef.current) {
         try {
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = audioCtx.createOscillator();
@@ -164,7 +184,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime);
           oscillator.start();
           oscillator.stop(audioCtx.currentTime + 0.35);
-        } catch (err) {}
+        } catch (_err) {}
       }
 
       // Automatically move to the next person to pitch
@@ -177,21 +197,18 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         for (let i = 1; i <= parts.length; i++) {
           const nextIndex = (currentIndex + i) % parts.length;
           const candidate = parts[nextIndex];
-          
-          // Next speaker must not be the captain, not be the current speaker, and not be marked as pitched already
-          if (!candidate.isCaptain && candidate.id !== currentId && !pitched[candidate.id]) {
+          if (candidate.id !== currentId && !pitched[candidate.id]) {
             nextSpeaker = candidate;
             break;
           }
         }
 
         if (nextSpeaker) {
-          // Small transition delay so user hears chime and sees status transition
+          const nextId = nextSpeaker.id;
           transitionTimeoutRef.current = setTimeout(() => {
-            startSpeakerTimer(nextSpeaker!.id, pitchDurationSec, "PITCH");
+            startSpeakerTimerRef.current(nextId, pitchDurationSec, "PITCH");
           }, 800);
         } else {
-          // No more speakers left, advance to Stage 3 (Referrals)
           setManualPhase(3);
         }
       }
@@ -206,36 +223,58 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         for (let i = 1; i <= parts.length; i++) {
           const nextIndex = (currentIndex + i) % parts.length;
           const candidate = parts[nextIndex];
-          
-          // Next speaker must not be the captain, not be the current speaker, and not be marked as referred already
-          if (!candidate.isCaptain && candidate.id !== currentId && !referred[candidate.id]) {
+          if (candidate.id !== currentId && !referred[candidate.id]) {
             nextSpeaker = candidate;
             break;
           }
         }
 
         if (nextSpeaker) {
-          // Small transition delay so user hears chime and sees status transition
+          const nextId = nextSpeaker.id;
           transitionTimeoutRef.current = setTimeout(() => {
-            startSpeakerTimer(nextSpeaker!.id, 30, "REFERRAL");
+            startSpeakerTimerRef.current(nextId, 30, "REFERRAL");
           }, 800);
         } else {
-          // No more speakers left, advance to Stage 4 (Rotation)
           setManualPhase(4);
         }
       }
       return;
     }
 
-    speakerIntervalRef.current = setTimeout(() => {
-      setSpeakerTimeLeft(prev => (prev !== null ? prev - 1 : null));
-    }, 1000);
+    // Wall-clock tick: recalculate from end time every 250ms for accuracy
+    speakerIntervalRef.current = setInterval(() => {
+      if (!speakerEndTimeRef.current) return;
+      const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
+      setSpeakerTimeLeft(remaining);
+
+      // Broadcast heartbeat sync every 1 second (4 * 250ms)
+      tickCountRef.current += 1;
+      if (tickCountRef.current % 4 === 0 && isChannelConnected && activeSpeakerId && speakerTimerType) {
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'timer_sync',
+          payload: {
+            userId: activeSpeakerId,
+            durationSec: remaining,
+            type: speakerTimerType,
+            targetEndTime: speakerEndTimeRef.current
+          }
+        });
+      }
+    }, 250);
 
     return () => {
-      if (speakerIntervalRef.current) clearTimeout(speakerIntervalRef.current);
-      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+      if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     };
-  }, [speakerTimeLeft, activeSpeakerId, speakerTimerType, isMuted, pitchDurationSec]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speakerTimeLeft, activeSpeakerId, speakerTimerType, pitchDurationSec, isChannelConnected]);
+
+  // Clean up transitions only on unmount
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+    }
+  }, []);
 
   const totalRoundSec = round.durationMinutes * 60; // e.g. 15 mins = 900s
   const remainingRoundSec = Math.max(0, totalRoundSec - elapsedTime);
@@ -258,29 +297,94 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
   const currentPhase = manualPhase !== null ? manualPhase : computedPhase;
 
+  if (currentPhase > maxUnlockedPhase) {
+    setMaxUnlockedPhase(currentPhase);
+  }
+
+  // ── FULLY AUTOMATED MODE ──
+  // Phase 1: Auto-start the 60-second captain briefing countdown as soon as round launches
   useEffect(() => {
-    if (currentPhase > maxUnlockedPhase) {
-      setMaxUnlockedPhase(currentPhase);
+    if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
+    if (currentPhase === 1 && !briefingStarted) {
+      setBriefingStarted(true);
+      const briefingDuration = 60;
+      const alreadyElapsed = elapsedTime;
+      const remaining = Math.max(0, briefingDuration - alreadyElapsed);
+      briefingEndTimeRef.current = Date.now() + remaining * 1000;
+      setBriefingTimeLeft(remaining);
     }
-  }, [currentPhase, maxUnlockedPhase]);
+  }, [round.startTime, round.status, currentPhase, briefingStarted, elapsedTime]);
+
+  // Briefing countdown — wall-clock based
+  useEffect(() => {
+    if (briefingTimeLeft === null || briefingTimeLeft <= 0) return;
+    const interval = setInterval(() => {
+      if (!briefingEndTimeRef.current) return;
+      const remaining = Math.max(0, Math.ceil((briefingEndTimeRef.current - Date.now()) / 1000));
+      setBriefingTimeLeft(remaining);
+    }, 250);
+    return () => clearInterval(interval);
+  }, [briefingTimeLeft]);
+
+  // When briefing countdown hits 0, just clear the UI state.
+  // The system automatically advances to Phase 2 because elapsedTime >= 60s.
+  useEffect(() => {
+    if (briefingTimeLeft !== null && briefingTimeLeft <= 0) {
+      setBriefingTimeLeft(null);
+    }
+  }, [briefingTimeLeft]);
+
+  // Phase 1→2 transition: when Phase 2 starts (either by timer reaching 60s or skip button), auto-start first pitcher
+  useEffect(() => {
+    if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
+    // Wait until the real-time channel is actually connected before broadcasting
+    if (!isChannelConnected) return;
+
+    if (currentPhase === 2 && !activeSpeakerId && Object.keys(pitchedUsers).length === 0) {
+      const first = allParticipantsRef.current.find(p => !pitchedUsersRef.current[p.id]);
+      if (first) {
+        // Use setTimeout to ensure state updates from above have flushed
+        setTimeout(() => {
+          startSpeakerTimerRef.current(first.id, pitchDurationSec, "PITCH");
+        }, 100);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPhase, activeSpeakerId, pitchedUsers, round.startTime, round.status, pitchDurationSec, isChannelConnected]);
+
+  // Phase 2→3 transition: when all pitches finish, auto-start first referral
+  useEffect(() => {
+    if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
+    if (!isChannelConnected) return;
+
+    if (currentPhase === 3 && !activeSpeakerId && Object.keys(referredUsers).length === 0) {
+      const first = allParticipantsRef.current.find(p => !referredUsersRef.current[p.id]);
+      if (first) {
+        setTimeout(() => {
+          startSpeakerTimerRef.current(first.id, 30, "REFERRAL");
+        }, 100);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPhase, activeSpeakerId, referredUsers, round.startTime, round.status, isChannelConnected]);
 
   // Calculate dynamic radius and avatar sizing based on participant count to prevent overlaps
   const N = allParticipants.length;
   const isMobile = windowWidth < 768;
-  const radius = isMobile
-    ? (N > 15 ? 65 : N > 10 ? 72 : 68)
-    : (N > 15 ? 130 : N > 10 ? 115 : 95);
+  // const radius = isMobile
+  //   ? (N > 15 ? 65 : N > 10 ? 72 : 68)
+  //   : (N > 15 ? 130 : N > 10 ? 115 : 95);
 
-  const avatarSizeClass = isMobile
-    ? (N > 15 ? "w-6 h-6 text-[8px]" : N > 10 ? "w-7 h-7 text-[9px] border-2" : "w-9 h-9 text-xs border-2")
-    : (N > 15 ? "w-6 h-6 text-[8px]" : N > 10 ? "w-8 h-8 text-[9px] border-2" : "w-11 h-11 text-xs border-2");
+  // const avatarSizeClass = isMobile
+  //   ? (N > 15 ? "w-6 h-6 text-[8px]" : N > 10 ? "w-7 h-7 text-[9px] border-2" : "w-9 h-9 text-xs border-2")
+  //   : (N > 15 ? "w-6 h-6 text-[8px]" : N > 10 ? "w-8 h-8 text-[9px] border-2" : "w-11 h-11 text-xs border-2");
 
   // Identify next recommended pitcher / referrer
-  const nextToPitch = allParticipants.find(p => !p.isCaptain && !pitchedUsers[p.id]);
-  const nextToRefer = allParticipants.find(p => !p.isCaptain && !referredUsers[p.id]);
+  const nextToPitch = allParticipants.find(p => !pitchedUsers[p.id]);
+  const nextToRefer = allParticipants.find(p => !referredUsers[p.id]);
 
-  const startSpeakerTimer = (participantId: string, durationSec: number, type: "PITCH" | "REFERRAL") => {
-    if (speakerIntervalRef.current) clearTimeout(speakerIntervalRef.current);
+  function startSpeakerTimer(participantId: string, durationSec: number, type: "PITCH" | "REFERRAL") {
+    if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
     
     // Mark previous speaker as completed if switching directly
@@ -292,12 +396,15 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       }
     }
 
+    // Set wall-clock end time
+    speakerEndTimeRef.current = Date.now() + durationSec * 1000;
+
     setActiveSpeakerId(participantId);
     setSpeakerDuration(durationSec);
     setSpeakerTimeLeft(durationSec);
     setSpeakerTimerType(type);
 
-    // Auto-advance manualPhase to keep the UI in sync if the captain triggers a later step action
+    // Auto-advance manualPhase to keep the UI in sync
     if (type === "PITCH" && currentPhase === 1) {
       setManualPhase(2);
     } else if (type === "REFERRAL" && currentPhase < 3) {
@@ -315,11 +422,15 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         timestamp: Date.now()
       }
     });
-  };
+  }
+
+  // Keep the ref always pointing to the latest version of startSpeakerTimer
+  startSpeakerTimerRef.current = startSpeakerTimer;
 
   const stopSpeakerTimer = () => {
-    if (speakerIntervalRef.current) clearTimeout(speakerIntervalRef.current);
+    if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+    speakerEndTimeRef.current = null;
     if (activeSpeakerId) {
       if (speakerTimerType === "PITCH") {
         setPitchedUsers(prev => ({ ...prev, [activeSpeakerId]: true }));
@@ -342,9 +453,28 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   };
 
   const addExtraTime = (seconds: number) => {
-    if (speakerTimeLeft !== null) {
-      setSpeakerTimeLeft(prev => (prev !== null ? prev + seconds : seconds));
-      setSpeakerDuration(prev => prev + seconds);
+    if (speakerTimeLeft !== null && activeSpeakerId && speakerTimerType) {
+      const newDuration = speakerDuration + seconds;
+      setSpeakerDuration(newDuration);
+      
+      // Update the wall-clock target time
+      if (speakerEndTimeRef.current) {
+        speakerEndTimeRef.current += seconds * 1000;
+        const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
+        setSpeakerTimeLeft(remaining);
+
+        // Broadcast the extension to everyone's devices
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'timer_start',
+          payload: {
+            userId: activeSpeakerId,
+            durationSec: remaining,
+            type: speakerTimerType,
+            timestamp: Date.now()
+          }
+        });
+      }
     }
   };
 
@@ -426,14 +556,14 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   // SVG circular countdown swept configurations (responsive 100x100 coordinate system)
   const svgRadius = 40;
   const svgCircumference = 2 * Math.PI * svgRadius;
-  const strokeDashoffset = speakerTimeLeft !== null
-    ? svgCircumference - (svgCircumference * speakerTimeLeft) / speakerDuration
-    : svgCircumference;
+  // const strokeDashoffset = speakerTimeLeft !== null
+  //   ? svgCircumference - (svgCircumference * speakerTimeLeft) / speakerDuration
+  //   : svgCircumference;
 
   // Determine global progress color
-  let progressColorClass = "bg-emerald-500";
-  if (currentPhase === 3) progressColorClass = "bg-[#FFC000]";
-  if (currentPhase === 4) progressColorClass = "bg-red-400";
+  // let progressColorClass = "bg-emerald-500";
+  // if (currentPhase === 3) progressColorClass = "bg-[#FFC000]";
+  // if (currentPhase === 4) progressColorClass = "bg-red-400";
 
   return (
     <div className="space-y-8">
@@ -698,12 +828,24 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
               {/* Main control action button */}
               <div>
                 {currentPhase === 1 && (
-                  <button 
-                    onClick={handleAutopilotAction}
-                    className="w-full py-5 bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base shadow-[5px_5px_0px_#0d2421] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 animate-button-glow"
-                  >
-                    🚀 Start Member Pitches
-                  </button>
+                  <div className="flex flex-col gap-3">
+                    {/* Auto-running briefing countdown */}
+                    {briefingTimeLeft !== null && briefingTimeLeft > 0 && (
+                      <div className="w-full py-6 bg-amber-400 text-[#0D2421] border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-center shadow-[5px_5px_0px_#0d2421] space-y-1">
+                        <div className="text-[10px] tracking-widest opacity-70">Captain Briefing Time</div>
+                        <div className="text-4xl tabular-nums">{Math.floor(briefingTimeLeft / 60).toString().padStart(2, '0')}:{(briefingTimeLeft % 60).toString().padStart(2, '0')}</div>
+                        <div className="text-[10px] tracking-widest opacity-60">Auto-advancing to pitches when done</div>
+                      </div>
+                    )}
+
+                    {/* Skip briefing button */}
+                    <button 
+                      onClick={handleAutopilotAction}
+                      className="w-full py-4 bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-sm shadow-[4px_4px_0px_#0d2421] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
+                    >
+                      ⏩ Skip Briefing &amp; Start Pitches Now
+                    </button>
+                  </div>
                 )}
 
                 {currentPhase === 2 && (

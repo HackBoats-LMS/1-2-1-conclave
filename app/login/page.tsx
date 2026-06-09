@@ -13,6 +13,7 @@ export default async function LoginPage({
       {/* Top Right HB Logo */}
       <div className="absolute top-6 right-6 z-20 flex items-center gap-3 select-none">
         <span className="text-[11px] font-black uppercase tracking-widest text-[#0D2421]/80 mt-1">Powered by</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/hb-logo.png" alt="HackBoats" className="h-8 md:h-10 object-contain hover:scale-105 transition-transform duration-300 drop-shadow-sm" draggable={false} />
       </div>
 

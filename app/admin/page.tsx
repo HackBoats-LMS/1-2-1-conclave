@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { User } from "@prisma/client";
 import { cookies } from "next/headers";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, endConclave } from "./actions";
+import { AdminAutoShiftingManager } from "./AdminAutoShiftingManager";
+import { EndConclaveButton } from "./EndConclaveButton";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
 import { DeleteUserButton } from "./DeleteUserButton";
@@ -14,7 +17,8 @@ import { ClientTimer } from "./ClientTimer";
 import { AutoGenerateClient } from "./AutoGenerateClient";
 import { UserSearchFilter } from "./UserSearchFilter";
 import { OnboardingExportButton } from "./OnboardingExportButton";
-import { LogoutButton } from "../components/LogoutButton";
+import { ClearMembersWarningButton } from "./ClearMembersWarningButton";
+
 import { EditUserRoleButton } from "./EditUserRoleButton";
 
 
@@ -60,6 +64,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     successMessage = `User has been manually added and granted access!${reassignWarning}`;
   } else if (successAction === "updated_durations") {
     successMessage = "Successfully updated the duration for all rounds!";
+  } else if (successAction === "ended_conclave") {
+    successMessage = "Conclave has been concluded! All rounds marked as completed.";
+  } else if (successAction === "updated_shift_duration") {
+    successMessage = "Successfully updated the shifting duration!";
+  } else if (successAction === "toggled_mode") {
+    successMessage = "Successfully switched mode!";
   }
 
   let errorMessage = "";
@@ -75,7 +85,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     }),
     prisma.gameState.findFirst(),
     prisma.referral.count(),
-    prisma.user.findMany({ orderBy: { email: 'asc' } }),
+    prisma.user.findMany({ orderBy: { email: 'asc' } })
   ]);
 
   const searchQuery = (resolvedParams?.search as string)?.toLowerCase() || "";
@@ -91,7 +101,22 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   });
 
   // ── Calculate Stats ──
-  const activeRound = slots.flatMap(s => s.rounds).find(r => r.id === gameState?.currentRoundId);
+  const allOrderedRounds = slots.flatMap(s => s.rounds);
+  const activeRound = allOrderedRounds.find(r => r.id === gameState?.currentRoundId);
+  
+  let lastCompletedRoundEndedAt: Date | null = null;
+  let nextRoundId: string | null = null;
+  if (!gameState?.currentRoundId && gameState?.isAutoMode) {
+    const completedRounds = allOrderedRounds.filter(r => r.status === 'COMPLETED');
+    const lastCompletedRound = completedRounds[completedRounds.length - 1];
+    if (lastCompletedRound?.startTime) {
+      lastCompletedRoundEndedAt = new Date(lastCompletedRound.startTime.getTime() + (lastCompletedRound.durationMinutes * 60000));
+    }
+    const pendingRound = allOrderedRounds.find(r => r.status === 'PENDING');
+    if (pendingRound) {
+      nextRoundId = pendingRound.id;
+    }
+  }
   
   // Find current global duration
   let currentDuration = 15;
@@ -99,25 +124,35 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     currentDuration = slots[0].rounds[0].durationMinutes || 15;
   }
   const totalUsers = users.length;
-  const approvedUsers = users.filter((u: any) => u.isApproved).length;
-  const pendingOnboarding = users.filter((u: any) => u.isApproved && !u.onboardingCompleted).length;
+  const approvedUsers = users.filter((u: User) => u.isApproved).length;
+  const pendingOnboarding = users.filter((u: User) => u.isApproved && !u.onboardingCompleted).length;
   const completedOnboarding = approvedUsers - pendingOnboarding;
-  const captainCount = users.filter((u: any) => u.role === "CAPTAIN").length;
-  const memberCount = users.filter((u: any) => u.role === "USER" && u.isApproved).length;
+  const captainCount = users.filter((u: User) => u.role === "CAPTAIN").length;
+  const memberCount = users.filter((u: User) => u.role === "USER" && u.isApproved).length;
   const hasAssignments = slots.length > 0;
 
   // ── Build Assignment Preview Data (only if assignments exist) ──
   let previewData = null;
   if (hasAssignments) {
+    // 1. Map existing slots/rounds into memory to avoid heavy database JOINs
+    const roundInfoMap = new Map<string, { slotNumber: number; roundNumber: number; status: string }>();
+    for (const s of slots) {
+      for (const r of s.rounds) {
+        roundInfoMap.set(r.id, { slotNumber: s.slotNumber, roundNumber: r.roundNumber, status: r.status });
+      }
+    }
+
+    // 2. Fetch assignments minimally without deeply joining round and slot
     const allAssignments = await prisma.tableAssignment.findMany({
-      include: {
-        user: true,
+      select: {
+        userId: true,
+        tableId: true,
+        isCaptain: true,
+        user: {
+          select: { id: true, email: true, name: true, businessName: true, businessCategory: true }
+        },
         table: {
-          include: {
-            round: {
-              include: { slot: true }
-            }
-          }
+          select: { tableNumber: true, roundId: true }
         }
       }
     });
@@ -135,10 +170,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       }>;
     }>();
 
-    for (const assignment of allAssignments as any[]) {
-      const slotNum = assignment.table.round.slot.slotNumber;
-      const roundNum = assignment.table.round.roundNumber;
-      const roundStatus = assignment.table.round.status;
+    for (const assignment of allAssignments) {
+      const roundInfo = roundInfoMap.get(assignment.table.roundId);
+      if (!roundInfo) continue;
+      
+      const slotNum = roundInfo.slotNumber;
+      const roundNum = roundInfo.roundNumber;
+      const roundStatus = roundInfo.status;
       const tableNum = assignment.table.tableNumber;
 
       if (!slotMap.has(slotNum)) {
@@ -186,9 +224,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       }));
 
     // ── Coverage Analytics (computed in-memory from DB data) ──
-    const memberUsers = users.filter((u: any) => u.role === "USER" && u.isApproved);
-    const memberIdSet = new Set(memberUsers.map((u: any) => u.id));
-    const memberEmailMap = new Map(memberUsers.map((u: any) => [u.id, u.email as string]));
+    const memberUsers: User[] = users.filter((u: User) => u.role === "USER" && u.isApproved);
+    const memberIdSet = new Set<string>(memberUsers.map((u: User) => u.id));
+    const memberEmailMap = new Map<string, string>(memberUsers.map((u: User) => [u.id, u.email as string] as [string, string]));
 
     // Build meeting matrix from assignments
     const met = new Map<string, Set<string>>();
@@ -197,7 +235,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     // Track which members appear in at least one assignment
     const assignedMembers = new Set<string>();
 
-    for (const assignment of allAssignments as any[]) {
+    for (const assignment of allAssignments) {
       if (!assignment.isCaptain && memberIdSet.has(assignment.userId)) {
         assignedMembers.add(assignment.userId);
       }
@@ -205,7 +243,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
     // Group assignments by round+table to find who met whom
     const tableGroups = new Map<string, string[]>();
-    for (const assignment of allAssignments as any[]) {
+    for (const assignment of allAssignments) {
       if (assignment.isCaptain || !memberIdSet.has(assignment.userId)) continue;
       const key = `${assignment.table.roundId}|${assignment.tableId}`;
       if (!tableGroups.has(key)) tableGroups.set(key, []);
@@ -233,7 +271,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
     // Find unmet pairs (limit to 200 for display)
     const unmetPairs: { member1Email: string; member2Email: string }[] = [];
-    const memberArr = Array.from(memberIdSet);
+    const memberArr: string[] = Array.from(memberIdSet);
     for (let i = 0; i < memberArr.length && unmetPairs.length < 200; i++) {
       for (let j = i + 1; j < memberArr.length && unmetPairs.length < 200; j++) {
         if (!met.get(memberArr[i])?.has(memberArr[j])) {
@@ -255,7 +293,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       analytics: {
         totalMembers: memberUsers.length,
         totalCaptains: captainCount,
-        totalRounds: slots.reduce((sum, s: any) => sum + s.rounds.length, 0),
+        totalRounds: slots.reduce((sum, s) => sum + s.rounds.length, 0),
         totalSlots: slots.length,
         totalPairs,
         metPairs,
@@ -297,11 +335,17 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 draggable={false}
               />
             </div>
-            <LogoutButton className="bg-transparent border-none shadow-none text-red-600 hover:bg-transparent hover:underline px-0 py-0 text-[10px]" />
-            <a href="/admin/leaderboard" target="_blank" className="mt-2 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-              Live Leaderboard
-            </a>
+
+            <div className="flex gap-2 mt-2">
+              <a href="/admin/leaderboard" target="_blank" className="bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                Live Leaderboard
+              </a>
+              <a href="/admin/archive" className="bg-white hover:bg-slate-50 text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                Archive Center
+              </a>
+            </div>
           </div>
         </header>
         
@@ -470,6 +514,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     <>
                       <form action={updateAllRoundsDuration} className="flex items-center gap-2 bg-[#FAF8F4] p-1.5 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
                         <input 
+                          key={`dur-${currentDuration}`}
                           type="number" 
                           name="duration" 
                           placeholder="Mins" 
@@ -484,11 +529,37 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         </SubmitButton>
                       </form>
 
+                      <form action={updateShiftDuration} className="flex items-center gap-2 bg-[#FAF8F4] p-1.5 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
+                        <input 
+                          key={`shift-${gameState?.shiftDuration || 3}`}
+                          type="number" 
+                          name="shiftDuration" 
+                          placeholder="Mins" 
+                          min={1} 
+                          max={60} 
+                          defaultValue={gameState?.shiftDuration || 3}
+                          required
+                          className="w-16 p-2 border-2 border-[#0D2421] bg-white rounded-lg font-bold text-center text-xs focus:outline-none"
+                        />
+                        <SubmitButton loadingText="Applying..." className="px-3 py-2 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-lg text-xs font-black uppercase shadow-[1.5px_1.5px_0px_#0D2421] transition-all cursor-pointer">
+                          Set Shifting Time
+                        </SubmitButton>
+                      </form>
+
                       <form action={resetAllRounds}>
                         <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
                           Reset Progress
                         </SubmitButton>
                       </form>
+
+                      <form action={toggleAutoMode}>
+                        <input type="hidden" name="isAutoMode" value={gameState?.isAutoMode ? "false" : "true"} />
+                        <SubmitButton loadingText="Switching..." className={`px-4 py-2.5 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer ${gameState?.isAutoMode ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-slate-200 text-slate-500'}`}>
+                          {gameState?.isAutoMode ? '🤖 Auto Mode: ON' : '✋ Manual Mode'}
+                        </SubmitButton>
+                      </form>
+
+                      <EndConclaveButton action={endConclave} />
                     </>
                   )}
                 </div>
@@ -496,7 +567,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
               {/* Slots and Rounds Grid */}
               <div className="space-y-8">
-                {slots.map((slot: any) => (
+                {slots.map((slot) => (
                   <div key={slot.id} className="border-2 border-[#0D2421] rounded-[2rem] overflow-hidden bg-[#FAF8F4] shadow-[4px_4px_0px_#0D2421]">
                     
                     <div className="bg-[#0D2421] px-6 py-4 border-b-2 border-[#0D2421] flex justify-between items-center">
@@ -509,7 +580,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white">
-                      {slot.rounds.map((round: any) => {
+                      {slot.rounds.map((round) => {
                         const isActive = gameState?.currentRoundId === round.id;
                         return (
                           <div 
@@ -545,6 +616,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 startedAt={round.startTime} 
                                 durationMinutes={round.durationMinutes || 15} 
                                 status={round.status} 
+                                onTimeUp={gameState?.isAutoMode ? stopRound.bind(null, round.id) : undefined}
                               />
                             )}
 
@@ -624,18 +696,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <OnboardingExportButton users={users} />
-              
-              <SecureAdminButton 
-                action={removeAllUsers}
-                label="Clear Database Members"
-                loadingText="Clearing..."
-                promptText="Enter Admin Pin to remove all members and captains:"
-                className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer w-full sm:w-auto"
-                formClassName="flex items-center gap-2"
-              />
+              <ClearMembersWarningButton users={users} clearAction={removeAllUsers} />
             </div>
           </div>
-          
+
+
           {/* Manual User Add */}
           <form action={addManualUser} className="bg-[#FAF8F4] p-6 rounded-2xl border-2 border-[#0D2421] shadow-[3px_3px_0px_#0D2421] space-y-4">
             <div className="flex items-center gap-2">
@@ -697,7 +762,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#0D2421]/15 text-xs">
-                {users.map((user: any) => (
+                {users.map((user: User) => (
                   <tr key={user.id} className="hover:bg-[#FAF8F4]/30 transition-colors">
                     <td className="py-4 px-6">
                       <div className="font-black text-sm text-[#0D2421]">{user.name || 'N/A'}</div>
@@ -744,6 +809,20 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           </div>
         </div>
       </div>
+      
+      {/* Invisible auto-shifting manager (only ticks if auto mode is ON and no round is active) */}
+      <AdminAutoShiftingManager 
+        isAutoMode={!!gameState?.isAutoMode}
+        lastCompletedRoundEndedAt={lastCompletedRoundEndedAt}
+        shiftDurationMinutes={gameState?.shiftDuration || 3}
+        nextRoundId={nextRoundId}
+        onStartRound={async (roundId) => {
+          "use server";
+          const fd = new FormData();
+          fd.append("roundId", roundId);
+          await startRound(fd);
+        }}
+      />
     </div>
   );
 }

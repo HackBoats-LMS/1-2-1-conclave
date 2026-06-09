@@ -11,7 +11,6 @@ export function LiveControls({
   durationMinutes?: number; 
   status?: string;
 }) {
-  const router = useRouter();
   const [timeLeft, setTimeLeft] = useState(`${durationMinutes.toString().padStart(2, '0')}:00`);
   const [isEnded, setIsEnded] = useState(false);
 
@@ -118,7 +117,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
             }
           }
         }
-      } catch (e) {}
+      } catch (_e) {}
     }, 10000);
     return () => clearInterval(interval);
   }, [router, initialRoundId, currentStatus]);

@@ -11,11 +11,18 @@ interface AdminPinModalProps {
 
 export function AdminPinModal({ isOpen, onClose, onConfirm, promptText }: AdminPinModalProps) {
   const [pin, setPin] = useState("");
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      setPin("");
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
-      setPin("");
       // Autofocus the input on mount
       const timer = setTimeout(() => {
         inputRef.current?.focus();

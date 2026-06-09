@@ -6,14 +6,24 @@ interface ClientTimerProps {
   startedAt: Date | string | null;
   durationMinutes: number;
   status: string;
+  onTimeUp?: () => void;
 }
 
-export function ClientTimer({ startedAt, durationMinutes, status }: ClientTimerProps) {
+export function ClientTimer({ startedAt, durationMinutes, status, onTimeUp }: ClientTimerProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [prevStatus, setPrevStatus] = useState(status);
+  const hasTriggeredRef = React.useRef(false);
+
+  if (status !== prevStatus) {
+    setPrevStatus(status);
+    if (!startedAt || (status !== 'IN_PROGRESS' && !status.startsWith('PAUSED_'))) {
+      setTimeLeft(null);
+      hasTriggeredRef.current = false;
+    }
+  }
 
   useEffect(() => {
     if (!startedAt || (status !== 'IN_PROGRESS' && !status.startsWith('PAUSED_'))) {
-      setTimeLeft(null);
       return;
     }
 
@@ -32,15 +42,27 @@ export function ClientTimer({ startedAt, durationMinutes, status }: ClientTimerP
       return Math.max(0, endTime - now);
     };
 
-    setTimeLeft(calculateTimeLeft());
+    const initialLeft = calculateTimeLeft();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTimeLeft(initialLeft);
+
+    if (initialLeft === 0 && !hasTriggeredRef.current && status === 'IN_PROGRESS') {
+      hasTriggeredRef.current = true;
+      onTimeUp?.();
+    }
 
     if (status === 'IN_PROGRESS') {
       const interval = setInterval(() => {
-        setTimeLeft(calculateTimeLeft());
+        const left = calculateTimeLeft();
+        setTimeLeft(left);
+        if (left === 0 && !hasTriggeredRef.current) {
+          hasTriggeredRef.current = true;
+          onTimeUp?.();
+        }
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [startedAt, durationMinutes, status]);
+  }, [startedAt, durationMinutes, status, onTimeUp]);
 
   if (timeLeft === null) return null;
 

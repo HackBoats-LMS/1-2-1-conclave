@@ -12,7 +12,7 @@ for (const url of urls) {
   const host = new URL(url).host;
   try {
     const pool = new Pool({ connectionString: url, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 5000 });
-    const res = await pool.query('SELECT 1 as test');
+    const _res = await pool.query('SELECT 1 as test');
     console.log(`✅ SUCCESS: ${host}`);
     await pool.end();
   } catch (e) {

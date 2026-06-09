@@ -48,6 +48,7 @@ export default function RootLayout({
             {/* Center: Powered By */}
             <div className="flex items-center gap-3">
               <span className="text-[10px] font-black text-[#FAF8F4]/50 uppercase tracking-widest mt-0.5">Powered by</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src="/hb-logo.png" 
                 alt="HackBoats" 

@@ -21,35 +21,57 @@ export function SelfSpeakerTimer({
     const channel = supabase.channel(channelName);
 
     let localInterval: NodeJS.Timeout | null = null;
+    let targetEndTime: number | null = null;
 
-    channel.on("broadcast", { event: "timer_start" }, ({ payload }) => {
-      if (payload.userId === userId) {
-        const elapsed = Math.floor((Date.now() - payload.timestamp) / 1000);
-        let remaining = payload.durationSec - elapsed;
-
-        setActiveTimer({ type: payload.type, timeLeft: remaining });
-
-        if (localInterval) clearInterval(localInterval);
-        localInterval = setInterval(() => {
-          setActiveTimer((prev) => {
-            if (!prev) return null;
-            if (prev.timeLeft <= 1) {
+    // Shared function to initialize or adopt a timer
+    const activateTimer = (payloadUserId: string, payloadType: string, payloadTargetEndTime: number) => {
+      if (payloadUserId === userId) {
+        if (targetEndTime === payloadTargetEndTime) return;
+        
+        targetEndTime = payloadTargetEndTime;
+        const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+        
+        if (remaining > 0) {
+          setActiveTimer({ type: payloadType, timeLeft: remaining });
+          if (localInterval) clearInterval(localInterval);
+          
+          localInterval = setInterval(() => {
+            if (!targetEndTime) return;
+            const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+            if (currentRemaining <= 0) {
+              setActiveTimer(null);
               if (localInterval) clearInterval(localInterval);
-              return null;
+              targetEndTime = null;
+            } else {
+              setActiveTimer(prev => prev ? { ...prev, timeLeft: currentRemaining } : null);
             }
-            return { ...prev, timeLeft: prev.timeLeft - 1 };
-          });
-        }, 1000);
+          }, 250); // Poll every 250ms for smooth, drift-free countdown
+        } else {
+          setActiveTimer(null);
+          if (localInterval) clearInterval(localInterval);
+          targetEndTime = null;
+        }
       } else {
         setActiveTimer(null);
         if (localInterval) clearInterval(localInterval);
+        targetEndTime = null;
       }
+    };
+
+    channel.on("broadcast", { event: "timer_start" }, ({ payload }) => {
+      const initialTarget = Date.now() + payload.durationSec * 1000;
+      activateTimer(payload.userId, payload.type, initialTarget);
+    });
+
+    channel.on("broadcast", { event: "timer_sync" }, ({ payload }) => {
+      activateTimer(payload.userId, payload.type, payload.targetEndTime);
     });
 
     channel.on("broadcast", { event: "timer_stop" }, ({ payload }) => {
       if (!payload.userId || payload.userId === userId) {
         setActiveTimer(null);
         if (localInterval) clearInterval(localInterval);
+        targetEndTime = null;
       }
     });
 

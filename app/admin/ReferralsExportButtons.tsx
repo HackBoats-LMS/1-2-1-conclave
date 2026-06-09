@@ -192,7 +192,7 @@ export function ReferralsExportButtons() {
           doc.setFontSize(7);
           doc.setTextColor(100);
 
-          let fromSubText = fromSub || "PARTICIPANT";
+          const fromSubText = fromSub || "PARTICIPANT";
           const maxSubWidth = 68; // Space before the middle divider
           
           const wrappedFromSub = doc.splitTextToSize(fromSubText, maxSubWidth);
@@ -235,7 +235,7 @@ export function ReferralsExportButtons() {
           doc.setFontSize(7);
           doc.setTextColor(100);
 
-          let toSubText = toSub || "PARTICIPANT";
+          const toSubText = toSub || "PARTICIPANT";
           const wrappedToSub = doc.splitTextToSize(toSubText, maxSubWidth);
           doc.text(wrappedToSub, x + 109, currentY + 13.5);
 

@@ -26,35 +26,60 @@ export function UserCard({ tu }: UserCardProps) {
     const channelName = `room_${tu.table.roundId}_table_${tu.table.tableNumber}`;
     const channel = supabase.channel(channelName);
     
-    channel.on('broadcast', { event: 'timer_start' }, ({ payload }) => {
-      if (payload.userId === user.id) {
-        // Calculate remaining seconds
-        const elapsed = Math.floor((Date.now() - payload.timestamp) / 1000);
-        let remaining = payload.durationSec - elapsed;
+    let targetEndTime: number | null = null;
+    
+    // Shared function to initialize or adopt a timer
+    const activateTimer = (payloadUserId: string, payloadType: string, payloadTargetEndTime: number) => {
+      if (payloadUserId === user.id) {
+        // Only update if we aren't already tracking this exact target end time (to avoid resetting intervals needlessly)
+        if (targetEndTime === payloadTargetEndTime) return;
         
-        setActiveTimer({ type: payload.type, timeLeft: remaining });
-
-        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-        localIntervalRef.current = setInterval(() => {
-          setActiveTimer(prev => {
-            if (!prev) return null;
-            if (prev.timeLeft <= 1) {
+        targetEndTime = payloadTargetEndTime;
+        const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+        
+        if (remaining > 0) {
+          setActiveTimer({ type: payloadType, timeLeft: remaining });
+          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+          
+          localIntervalRef.current = setInterval(() => {
+            if (!targetEndTime) return;
+            const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+            if (currentRemaining <= 0) {
+              setActiveTimer(null);
               if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-              return null;
+              targetEndTime = null;
+            } else {
+              setActiveTimer(prev => prev ? { ...prev, timeLeft: currentRemaining } : null);
             }
-            return { ...prev, timeLeft: prev.timeLeft - 1 };
-          });
-        }, 1000);
+          }, 250); // Polling every 250ms
+        } else {
+          setActiveTimer(null);
+          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+          targetEndTime = null;
+        }
       } else {
         setActiveTimer(null);
         if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+        targetEndTime = null;
       }
+    };
+    
+    channel.on('broadcast', { event: 'timer_start' }, ({ payload }) => {
+      // For timer_start, we calculate the initial target based on local time
+      const initialTarget = Date.now() + payload.durationSec * 1000;
+      activateTimer(payload.userId, payload.type, initialTarget);
+    });
+
+    channel.on('broadcast', { event: 'timer_sync' }, ({ payload }) => {
+      // For timer_sync, the Captain passes the actual wall-clock target time
+      activateTimer(payload.userId, payload.type, payload.targetEndTime);
     });
 
     channel.on('broadcast', { event: 'timer_stop' }, ({ payload }) => {
       if (!payload.userId || payload.userId === user.id) {
         setActiveTimer(null);
         if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+        targetEndTime = null;
       }
     });
 

@@ -78,16 +78,17 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [maxRounds, setMaxRounds] = useState(12);
+  const [maxRounds, setMaxRounds] = useState<number | string>(10);
 
   useEffect(() => {
     const saved = localStorage.getItem("conclave_max_rounds");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved) setMaxRounds(parseInt(saved, 10));
   }, []);
 
   const handleMaxRoundsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
-    setMaxRounds(val);
+    setMaxRounds(isNaN(val) ? "" : val);
     if (!isNaN(val)) {
       localStorage.setItem("conclave_max_rounds", val.toString());
     }
@@ -125,7 +126,6 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
       let bestRoundAssignments: { captainId: string; memberIds: string[] }[][] = [];
       let bestRoundCount = Infinity;
       let bestCoverage = -1;
-      let finalMet = new Map<string, Set<string>>();
 
       const evaluateCoverage = (matrix: string[][][]) => {
         const met = new Map<string, Set<string>>();
@@ -312,7 +312,6 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
               memberIds: [...memberList],
             }))
           );
-          finalMet = currentMet;
         }
       }
 
