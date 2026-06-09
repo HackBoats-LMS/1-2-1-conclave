@@ -16,6 +16,11 @@ export function LiveLeaderboardClient() {
       router.refresh();
     });
 
+    channel.on("broadcast", { event: "round_state_change" }, () => {
+      // Refresh to update the shifting timer or active round status instantly
+      router.refresh();
+    });
+
     channel.subscribe();
 
     return () => {

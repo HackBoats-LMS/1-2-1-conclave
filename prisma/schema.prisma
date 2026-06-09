@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,45 +7,40 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-
-  // Custom Fields
-  businessName     String?
-  businessCategory String?
-  contactNumber    String?
-  description      String?
-  group            String?  // Organization/College tracking
-  role             String   @default("USER") // ADMIN | CAPTAIN | USER
-  isApproved       Boolean  @default(false)
-  onboardingCompleted Boolean @default(false)
-
-  // Relations
-  tableAssignments TableAssignment[]
-  sentReferrals    Referral[] @relation("SentReferrals")
-  receivedReferrals Referral[] @relation("ReceivedReferrals")
+  id                  String            @id @default(cuid())
+  name                String?
+  email               String?           @unique
+  emailVerified       DateTime?
+  image               String?
+  businessName        String?
+  businessCategory    String?
+  contactNumber       String?
+  description         String?
+  role                String            @default("USER")
+  isApproved          Boolean           @default(false)
+  onboardingCompleted Boolean           @default(false)
+  group               String?
+  accounts            Account[]
+  sentReferrals       Referral[]        @relation("SentReferrals")
+  receivedReferrals   Referral[]        @relation("ReceivedReferrals")
+  sessions            Session[]
+  tableAssignments    TableAssignment[]
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -71,32 +61,31 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// Custom App Models
-
 model Slot {
-  id         String   @id @default(cuid())
-  slotNumber Int      @unique
+  id         String  @id @default(cuid())
+  slotNumber Int     @unique
   rounds     Round[]
 }
 
 model Round {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   slotId          String
   roundNumber     Int
-  status          String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  status          String    @default("PENDING")
   startTime       DateTime?
-  durationMinutes Int      @default(15)
-  slot            Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  endedAt         DateTime?
+  durationMinutes Int       @default(15)
+  slot            Slot      @relation(fields: [slotId], references: [id], onDelete: Cascade)
   tables          Table[]
-  
+
   @@unique([slotId, roundNumber])
 }
 
 model Table {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   roundId     String
   tableNumber Int
-  round       Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  round       Round             @relation(fields: [roundId], references: [id], onDelete: Cascade)
   assignments TableAssignment[]
 
   @@unique([roundId, tableNumber])
@@ -107,11 +96,12 @@ model TableAssignment {
   userId    String
   tableId   String
   isCaptain Boolean @default(false)
-
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  table   Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  table     Table   @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, tableId])
+  @@index([userId])
+  @@index([tableId])
 }
 
 model Referral {
@@ -120,12 +110,54 @@ model Referral {
   toUserId   String
   note       String?
   createdAt  DateTime @default(now())
-
   fromUser   User     @relation("SentReferrals", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser     User     @relation("ReceivedReferrals", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([toUserId])
+  @@index([fromUserId])
 }
 
 model GameState {
   id             String  @id @default(cuid())
   currentRoundId String?
+  shiftDuration  Int     @default(3)
+  isAutoMode     Boolean @default(false)
+}
+
+model ArchivedEvent {
+  id        String             @id @default(cuid())
+  name      String
+  createdAt DateTime           @default(now())
+  referrals ArchivedReferral[]
+  users     ArchivedUser[]
+}
+
+model ArchivedUser {
+  id               String        @id @default(cuid())
+  eventId          String
+  originalUserId   String
+  name             String?
+  email            String?
+  businessName     String?
+  businessCategory String?
+  contactNumber    String?
+  role             String
+  createdAt        DateTime      @default(now())
+  event            ArchivedEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+}
+
+model ArchivedReferral {
+  id        String        @id @default(cuid())
+  eventId   String
+  fromName  String?
+  fromEmail String?
+  toName    String?
+  toEmail   String?
+  note      String?
+  createdAt DateTime      @default(now())
+  event     ArchivedEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([toEmail])
 }

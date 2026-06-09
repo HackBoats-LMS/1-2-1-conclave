@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export function AdminLiveReferralsClient({ initialTotal }: { initialTotal: number }) {
+  const [prevInitial, setPrevInitial] = useState(initialTotal);
   const [total, setTotal] = useState(initialTotal);
 
-  useEffect(() => {
-    // Sync if initialTotal changes via server revalidation
+  if (initialTotal !== prevInitial) {
+    setPrevInitial(initialTotal);
     setTotal(initialTotal);
-  }, [initialTotal]);
+  }
 
   useEffect(() => {
     // Subscribe to the global events channel to listen for referrals

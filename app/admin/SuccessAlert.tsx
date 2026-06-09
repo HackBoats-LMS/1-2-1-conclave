@@ -3,9 +3,14 @@ import { useEffect, useState } from "react";
 
 export function SuccessAlert({ initialMessage }: { initialMessage: string }) {
   const [message, setMessage] = useState(initialMessage);
+  const [prevInitial, setPrevInitial] = useState(initialMessage);
+
+  if (initialMessage !== prevInitial) {
+    setPrevInitial(initialMessage);
+    setMessage(initialMessage);
+  }
 
   useEffect(() => {
-    setMessage(initialMessage);
     if (initialMessage) {
       const timer = setTimeout(() => {
         setMessage("");

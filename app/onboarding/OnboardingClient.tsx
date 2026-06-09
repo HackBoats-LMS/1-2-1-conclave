@@ -5,7 +5,6 @@ import { SubmitButton } from "@/app/components/SubmitButton";
 import { useRouter } from "next/navigation";
 
 export function OnboardingClient({ userRole }: { userRole?: string }) {
-  const router = useRouter();
 
   const handleSubmit = async (formData: FormData) => {
     const result = await completeOnboarding(formData);

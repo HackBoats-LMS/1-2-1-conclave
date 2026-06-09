@@ -142,12 +142,20 @@ export default async function UserDashboard() {
   if (!gameState?.currentRoundId) {
     // ── WAITING ROOM STATE ──
 
-    // Find the next PENDING round for all users
-    const nextRound = await prisma.round.findFirst({
-      where: { status: "PENDING" },
-      orderBy: [{ slot: { slotNumber: 'asc' } }, { roundNumber: 'asc' }],
-      include: { slot: true },
-    });
+    // Find the next PENDING round for all users, and the last completed round
+    const [nextRound, lastCompletedRound] = await Promise.all([
+      prisma.round.findFirst({
+        where: { status: "PENDING" },
+        orderBy: [{ slot: { slotNumber: 'asc' } }, { roundNumber: 'asc' }],
+        include: { slot: true },
+      }),
+      prisma.round.findFirst({
+        where: { status: "COMPLETED" },
+        orderBy: [{ slot: { slotNumber: 'desc' } }, { roundNumber: 'desc' }]
+      })
+    ]);
+
+
 
     let upcomingAssignment = null;
     let upcomingMembers: any[] = [];

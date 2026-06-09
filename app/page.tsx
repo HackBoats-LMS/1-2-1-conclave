@@ -109,12 +109,7 @@ export default async function Home() {
               >
                 {isLoggedIn ? "Enter Platform Lobby" : "Join the Next Session"}
               </a>
-              <a
-                href="#how-it-works"
-                className="px-8 py-4 bg-white hover:bg-slate-50 text-[#0D2421] border-2 border-[#0D2421] rounded-2xl font-black uppercase text-center shadow-[4px_4px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#BEF03C] transition-all"
-              >
-                Learn Architecture
-              </a>
+
             </div>
           </div>
 

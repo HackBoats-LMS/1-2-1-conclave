@@ -11,13 +11,13 @@ export async function GET() {
     }
 
     const assignments = await prisma.tableAssignment.findMany({
-      include: {
-        user: true,
+      select: {
+        isCaptain: true,
+        user: { select: { email: true, name: true, businessName: true, businessCategory: true } },
         table: {
-          include: {
-            round: {
-              include: { slot: true }
-            }
+          select: {
+            tableNumber: true,
+            round: { select: { roundNumber: true, slot: { select: { slotNumber: true } } } }
           }
         }
       }
