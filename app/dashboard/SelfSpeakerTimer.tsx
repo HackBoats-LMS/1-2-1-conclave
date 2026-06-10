@@ -1,87 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useState, useRef } from "react";
+
+interface SelfSpeakerTimerProps {
+  activeSpeakerTimer: { userId: string; type: string; targetEndTime: number } | null;
+  userId: string;
+}
 
 export function SelfSpeakerTimer({
-  roundId,
-  tableNumber,
+  activeSpeakerTimer,
   userId,
-}: {
-  roundId: string;
-  tableNumber: number;
-  userId: string;
-}) {
-  const [activeTimer, setActiveTimer] = useState<{ type: string; timeLeft: number } | null>(null);
+}: SelfSpeakerTimerProps) {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const localIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (!roundId || !tableNumber) return;
-
-    const channelName = `room_${roundId}_table_${tableNumber}`;
-    const channel = supabase.channel(channelName);
-
-    let localInterval: NodeJS.Timeout | null = null;
-    let targetEndTime: number | null = null;
-
-    // Shared function to initialize or adopt a timer
-    const activateTimer = (payloadUserId: string, payloadType: string, payloadTargetEndTime: number) => {
-      if (payloadUserId === userId) {
-        if (targetEndTime === payloadTargetEndTime) return;
-        
-        targetEndTime = payloadTargetEndTime;
-        const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
-        
-        if (remaining > 0) {
-          setActiveTimer({ type: payloadType, timeLeft: remaining });
-          if (localInterval) clearInterval(localInterval);
-          
-          localInterval = setInterval(() => {
-            if (!targetEndTime) return;
-            const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
-            if (currentRemaining <= 0) {
-              setActiveTimer(null);
-              if (localInterval) clearInterval(localInterval);
-              targetEndTime = null;
-            } else {
-              setActiveTimer(prev => prev ? { ...prev, timeLeft: currentRemaining } : null);
-            }
-          }, 250); // Poll every 250ms for smooth, drift-free countdown
+    if (activeSpeakerTimer && activeSpeakerTimer.userId === userId) {
+      const updateTimer = () => {
+        const remaining = Math.max(0, Math.ceil((activeSpeakerTimer.targetEndTime - Date.now()) / 1000));
+        if (remaining <= 0) {
+          setTimeLeft(null);
+          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
         } else {
-          setActiveTimer(null);
-          if (localInterval) clearInterval(localInterval);
-          targetEndTime = null;
+          setTimeLeft(remaining);
         }
-      } else {
-        setActiveTimer(null);
-        if (localInterval) clearInterval(localInterval);
-        targetEndTime = null;
-      }
-    };
+      };
 
-    channel.on("broadcast", { event: "timer_start" }, ({ payload }) => {
-      const initialTarget = Date.now() + payload.durationSec * 1000;
-      activateTimer(payload.userId, payload.type, initialTarget);
-    });
-
-    channel.on("broadcast", { event: "timer_sync" }, ({ payload }) => {
-      activateTimer(payload.userId, payload.type, payload.targetEndTime);
-    });
-
-    channel.on("broadcast", { event: "timer_stop" }, ({ payload }) => {
-      if (!payload.userId || payload.userId === userId) {
-        setActiveTimer(null);
-        if (localInterval) clearInterval(localInterval);
-        targetEndTime = null;
-      }
-    });
-
-    channel.subscribe();
+      updateTimer();
+      if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+      localIntervalRef.current = setInterval(updateTimer, 250);
+    } else {
+      setTimeLeft(null);
+      if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+    }
 
     return () => {
-      if (localInterval) clearInterval(localInterval);
-      supabase.removeChannel(channel);
+      if (localIntervalRef.current) clearInterval(localIntervalRef.current);
     };
-  }, [roundId, tableNumber, userId]);
+  }, [activeSpeakerTimer, userId]);
+
+  const activeTimer = timeLeft !== null && activeSpeakerTimer ? { type: activeSpeakerTimer.type, timeLeft } : null;
 
   if (!activeTimer) return null;
 

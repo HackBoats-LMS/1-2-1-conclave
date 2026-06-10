@@ -9,14 +9,30 @@ export const dynamic = "force-dynamic";
 export default async function LeaderboardPage() {
   const totalReferrals = await prisma.referral.count();
 
-  const topSenders = await prisma.user.findMany({
+  const usersWithReferrals = await prisma.user.findMany({
     where: { role: { in: ["USER", "CAPTAIN"] } },
-    include: {
-      _count: { select: { sentReferrals: true } },
-    },
-    orderBy: { sentReferrals: { _count: "desc" } },
-    take: 10,
+    select: {
+      id: true,
+      name: true,
+      businessCategory: true,
+      sentReferrals: {
+        select: { toUserId: true }
+      }
+    }
   });
+
+  const rankedUsers = usersWithReferrals.map(user => {
+    const uniqueRecipients = new Set(user.sentReferrals.map(r => r.toUserId));
+    return {
+      id: user.id,
+      name: user.name,
+      businessCategory: user.businessCategory,
+      uniqueCount: uniqueRecipients.size
+    };
+  });
+
+  rankedUsers.sort((a, b) => b.uniqueCount - a.uniqueCount);
+  const topSenders = rankedUsers.slice(0, 10);
 
   const gameState = await prisma.gameState.findFirst();
   let activeRound = null;
@@ -92,6 +108,7 @@ export default async function LeaderboardPage() {
         isRoundActive={!!activeRound}
         durationMinutes={gameState?.shiftDuration || 3}
         allRoundsCompleted={allRoundsCompleted}
+        serverNow={Date.now()}
       />
 
       {/* Blueprint Dot Grid Background */}
@@ -147,6 +164,7 @@ export default async function LeaderboardPage() {
                     startedAt={activeRound.startTime}
                     durationMinutes={activeRound.durationMinutes}
                     status={activeRound.status}
+                    serverNow={Date.now()}
                   />
                 ) : (
                   <div className="flex items-center gap-3 bg-[#FAF8F4] border-2 border-[#0D2421] px-4 py-2 rounded-2xl shadow-[3px_3px_0px_#0D2421] shrink-0">
@@ -215,7 +233,7 @@ export default async function LeaderboardPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 overflow-hidden p-2 content-start -m-2">
               {topSenders.map((user: any, index: number) => {
-                const count = user._count.sentReferrals;
+                const count = user.uniqueCount;
                 
                 const isTop1 = index === 0;
                 const isTop3 = index < 3;
@@ -252,7 +270,7 @@ export default async function LeaderboardPage() {
                         {count}
                       </div>
                       <span className="text-[7px] lg:text-[8px] font-black uppercase tracking-widest text-[#0D2421]/60 bg-[#0D2421]/5 px-1.5 py-0.5 rounded-md">
-                        Referrals
+                        Connections
                       </span>
                     </div>
                   </div>

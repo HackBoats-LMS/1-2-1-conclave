@@ -5,14 +5,17 @@ import { useEffect, useState } from "react";
 export function LiveControls({ 
   updatedAtTime, 
   durationMinutes = 15,
-  status
+  status,
+  serverNow
 }: { 
   updatedAtTime: number; 
   durationMinutes?: number; 
   status?: string;
+  serverNow?: number;
 }) {
   const [timeLeft, setTimeLeft] = useState(`${durationMinutes.toString().padStart(2, '0')}:00`);
   const [isEnded, setIsEnded] = useState(false);
+  const [clientServerOffset] = useState(() => serverNow ? serverNow - Date.now() : 0);
 
   // Removed all polling from live round to guarantee zero lag or infinite render loops.
 
@@ -27,7 +30,7 @@ export function LiveControls({
         const elapsedMs = (isNaN(elapsedSec) ? 0 : elapsedSec) * 1000;
         remaining = totalDuration - elapsedMs;
       } else {
-        const now = new Date().getTime();
+        const now = Date.now() + clientServerOffset;
         const elapsed = now - updatedAtTime;
         remaining = totalDuration - elapsed;
       }
@@ -73,13 +76,18 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
 
     if (!supabaseUrl || !anonKey) return;
 
+    let activeChannel: any = null;
+    let isCleanup = false;
+
     // Listen to global_events for zero-lag syncing when the admin clicks pause/resume
     import('@/lib/supabaseClient').then(({ supabase }) => {
+      if (isCleanup) return;
       const channel = supabase.channel("global_events");
       channel.on("broadcast", { event: "round_state_change" }, () => {
         router.refresh();
       });
       channel.subscribe();
+      activeChannel = channel;
     });
 
     // Fallback polling just in case WebSockets fail
@@ -119,7 +127,16 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
         }
       } catch (_e) {}
     }, 30000);
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      isCleanup = true;
+      if (activeChannel) {
+        import('@/lib/supabaseClient').then(({ supabase }) => {
+          supabase.removeChannel(activeChannel);
+        });
+      }
+    };
   }, [router, initialRoundId, currentStatus]);
   return null;
 }

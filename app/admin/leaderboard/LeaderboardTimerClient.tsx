@@ -7,11 +7,13 @@ interface LeaderboardTimerClientProps {
   startedAt: Date | string | null;
   durationMinutes: number;
   status: string;
+  serverNow?: number;
 }
 
-export function LeaderboardTimerClient({ roundNumber, startedAt, durationMinutes, status }: LeaderboardTimerClientProps) {
+export function LeaderboardTimerClient({ roundNumber, startedAt, durationMinutes, status, serverNow }: LeaderboardTimerClientProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [prevStatus, setPrevStatus] = useState(status);
+  const [clientServerOffset] = useState(() => serverNow ? serverNow - Date.now() : 0);
 
   if (status !== prevStatus) {
     setPrevStatus(status);
@@ -36,7 +38,7 @@ export function LeaderboardTimerClient({ roundNumber, startedAt, durationMinutes
         }
       }
       
-      const now = new Date().getTime();
+      const now = Date.now() + clientServerOffset;
       return Math.max(0, endTime - now);
     };
 

@@ -40,12 +40,27 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       // user is only available the first time jwt callback is called (on sign in)
       if (user) {
-        token.id = user.id;
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id }});
+        let dbUser = await prisma.user.findUnique({ where: { id: user.id }});
+        
+        if (!dbUser && user.email) {
+          // Fallback to finding by email if id doesn't match
+          dbUser = await prisma.user.findFirst({
+            where: {
+              email: {
+                equals: user.email,
+                mode: "insensitive"
+              }
+            }
+          });
+        }
+
         if (dbUser) {
+          token.id = dbUser.id;
           token.role = dbUser.role;
           token.isApproved = dbUser.isApproved;
           token.onboardingCompleted = dbUser.onboardingCompleted;
+        } else {
+          token.id = user.id;
         }
       }
       
