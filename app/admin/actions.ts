@@ -418,13 +418,36 @@ export async function uploadWhitelistExcel(formData: FormData) {
       }
     }
 
-    // Batch upsert — sequential but necessary since upsert isn't batchable
-    for (const userData of usersData) {
-      await prisma.user.upsert({
-        where: { email: userData.email },
-        update: { isApproved: true, group: userData.group },
-        create: { email: userData.email, isApproved: true, role: "USER", group: userData.group }
+    // High-performance batch upsert to prevent Vercel timeouts
+    const uploadedEmails = usersData.map(u => u.email);
+    const existingUsers = await prisma.user.findMany({
+      where: { email: { in: uploadedEmails } },
+      select: { email: true }
+    });
+    const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()));
+
+    const toCreate = usersData.filter(u => !existingEmails.has(u.email.toLowerCase()));
+    const toUpdate = usersData.filter(u => existingEmails.has(u.email.toLowerCase()));
+
+    if (toCreate.length > 0) {
+      await prisma.user.createMany({
+        data: toCreate.map(u => ({
+          email: u.email,
+          isApproved: true,
+          role: "USER",
+          group: u.group
+        })),
+        skipDuplicates: true
       });
+    }
+
+    if (toUpdate.length > 0) {
+      await prisma.$transaction(
+        toUpdate.map(u => prisma.user.update({
+          where: { email: u.email },
+          data: { isApproved: true, group: u.group }
+        }))
+      );
     }
     emailsCount = usersData.length;
   } catch (e) {
@@ -473,13 +496,36 @@ export async function uploadCaptainExcel(formData: FormData) {
       }
     }
 
-    // Upsert captains — always set role to CAPTAIN
-    for (const userData of usersData) {
-      await prisma.user.upsert({
-        where: { email: userData.email },
-        update: { isApproved: true, role: "CAPTAIN", group: userData.group },
-        create: { email: userData.email, isApproved: true, role: "CAPTAIN", group: userData.group }
+    // High-performance batch upsert to prevent Vercel timeouts
+    const uploadedEmails = usersData.map(u => u.email);
+    const existingUsers = await prisma.user.findMany({
+      where: { email: { in: uploadedEmails } },
+      select: { email: true }
+    });
+    const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()));
+
+    const toCreate = usersData.filter(u => !existingEmails.has(u.email.toLowerCase()));
+    const toUpdate = usersData.filter(u => existingEmails.has(u.email.toLowerCase()));
+
+    if (toCreate.length > 0) {
+      await prisma.user.createMany({
+        data: toCreate.map(u => ({
+          email: u.email,
+          isApproved: true,
+          role: "CAPTAIN",
+          group: u.group
+        })),
+        skipDuplicates: true
       });
+    }
+
+    if (toUpdate.length > 0) {
+      await prisma.$transaction(
+        toUpdate.map(u => prisma.user.update({
+          where: { email: u.email },
+          data: { isApproved: true, role: "CAPTAIN", group: u.group }
+        }))
+      );
     }
     captainCount = usersData.length;
   } catch (e) {

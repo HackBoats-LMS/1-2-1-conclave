@@ -118,7 +118,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
           }
         }
       } catch (_e) {}
-    }, 10000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [router, initialRoundId, currentStatus]);
   return null;
