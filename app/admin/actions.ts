@@ -424,7 +424,7 @@ export async function uploadWhitelistExcel(formData: FormData) {
       where: { email: { in: uploadedEmails } },
       select: { email: true }
     });
-    const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()));
+    const existingEmails = new Set(existingUsers.map(u => u.email?.toLowerCase()).filter(Boolean) as string[]);
 
     const toCreate = usersData.filter(u => !existingEmails.has(u.email.toLowerCase()));
     const toUpdate = usersData.filter(u => existingEmails.has(u.email.toLowerCase()));
@@ -502,7 +502,7 @@ export async function uploadCaptainExcel(formData: FormData) {
       where: { email: { in: uploadedEmails } },
       select: { email: true }
     });
-    const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()));
+    const existingEmails = new Set(existingUsers.map(u => u.email?.toLowerCase()).filter(Boolean) as string[]);
 
     const toCreate = usersData.filter(u => !existingEmails.has(u.email.toLowerCase()));
     const toUpdate = usersData.filter(u => existingEmails.has(u.email.toLowerCase()));
