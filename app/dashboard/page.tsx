@@ -429,6 +429,7 @@ export default async function UserDashboard() {
                 durationMinutes={round?.durationMinutes}
                 status={round?.status}
                 serverNow={Date.now()}
+                roundId={round?.id}
               />
             </div>
           </header>
@@ -508,6 +509,7 @@ export default async function UserDashboard() {
               durationMinutes={round?.durationMinutes}
               status={round?.status}
               serverNow={Date.now()}
+              roundId={round?.id}
             />
           </div>
         </header>
