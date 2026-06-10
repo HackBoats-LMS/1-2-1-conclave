@@ -92,10 +92,10 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
       if (isCleanup) return;
       const channel = supabase.channel("global_events");
       channel.on("broadcast", { event: "round_state_change" }, () => {
-        // Add jitter (0-3000ms) to prevent Thundering Herd DDoS on Vercel
-        const jitter = Math.floor(Math.random() * 3000);
+        // Add jitter (0-1500ms) to prevent exact simultaneous reloads, while feeling instantaneous
+        const jitter = Math.floor(Math.random() * 1500);
         setTimeout(() => {
-          router.refresh();
+          window.location.reload();
         }, jitter);
       });
       channel.subscribe();
@@ -105,8 +105,8 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
     // Fallback polling just in case WebSockets fail
     const interval = setInterval(async () => {
       try {
-        // Ping Supabase PostgREST API directly, bypassing Vercel entirely!
-        const res = await fetch(`${supabaseUrl}/rest/v1/GameState?select=currentRoundId&limit=1`, {
+        // Ping Supabase PostgREST API directly
+        const res = await fetch(`${supabaseUrl}/rest/v1/Round?select=id,status&status=eq.IN_PROGRESS&limit=1`, {
           headers: {
             'apikey': anonKey,
             'Authorization': `Bearer ${anonKey}`
@@ -115,13 +115,19 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
         });
         const data = await res.json();
         
+        // If there's an IN_PROGRESS round and it's not the one we're currently showing
         if (data && data.length > 0) {
-          if (data[0].currentRoundId !== initialRoundId) {
-            setTimeout(() => router.refresh(), Math.floor(Math.random() * 2000));
+          if (data[0].id !== initialRoundId) {
+            setTimeout(() => window.location.reload(), Math.floor(Math.random() * 1500));
             return;
           }
+        } else if (initialRoundId && currentStatus === 'IN_PROGRESS') {
+          // If we were in a round, but now there are NO in-progress rounds (round ended)
+          setTimeout(() => window.location.reload(), Math.floor(Math.random() * 1500));
+          return;
         }
         
+        // Check if current round status changed (e.g., PAUSED)
         if (initialRoundId && currentStatus !== undefined) {
           const res2 = await fetch(`${supabaseUrl}/rest/v1/Round?select=status&id=eq.${initialRoundId}`, {
             headers: {
@@ -133,7 +139,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
           const data2 = await res2.json();
           if (data2 && data2.length > 0) {
             if (data2[0].status !== currentStatus) {
-              setTimeout(() => router.refresh(), Math.floor(Math.random() * 2000));
+              setTimeout(() => window.location.reload(), Math.floor(Math.random() * 1500));
             }
           }
         }
