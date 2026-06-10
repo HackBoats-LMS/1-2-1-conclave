@@ -210,31 +210,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         } catch (_err) {}
       }
 
-      // Automatically move to the next person to pitch
-      if (currentId && currentType === "PITCH") {
-        const parts = allParticipantsRef.current;
-        const pitched = pitchedUsersRef.current;
-        
-        const currentIndex = parts.findIndex(p => p.id === currentId);
-        let nextSpeaker: Participant | null = null;
-        for (let i = 1; i <= parts.length; i++) {
-          const nextIndex = (currentIndex + i) % parts.length;
-          const candidate = parts[nextIndex];
-          if (candidate.id !== currentId && !pitched[candidate.id]) {
-            nextSpeaker = candidate;
-            break;
-          }
-        }
-
-        if (nextSpeaker) {
-          const nextId = nextSpeaker.id;
-          transitionTimeoutRef.current = setTimeout(() => {
-            startSpeakerTimerRef.current(nextId, pitchDurationSec, "PITCH");
-          }, 800);
-        } else {
-          setManualPhase(3);
-        }
-      }
+      // Note: Phase 2 and Phase 3 Orchestrator useEffects will handle advancing to the next speaker
 
 
       return;
@@ -318,17 +294,21 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     }
   }, [briefingTimeLeft]);
 
-  // Phase 1→2 transition: when Phase 2 starts (either by timer reaching 60s or skip button), auto-start first pitcher
+  // Pitches Auto-Start / Auto-Advance Orchestrator
   useEffect(() => {
     if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
 
-    if (currentPhase === 2 && !activeSpeakerId && Object.keys(pitchedUsers).length === 0) {
-      const first = allParticipantsRef.current.find(p => !pitchedUsersRef.current[p.id]);
-      if (first) {
-        // Use setTimeout to ensure state updates from above have flushed
-        setTimeout(() => {
-          startSpeakerTimerRef.current(first.id, pitchDurationSec, "PITCH");
-        }, 100);
+    if (currentPhase === 2 && !activeSpeakerId) {
+      const nextSpeaker = allParticipantsRef.current.find(p => !pitchedUsersRef.current[p.id]);
+      if (nextSpeaker) {
+        const nextId = nextSpeaker.id;
+        const timer = setTimeout(() => {
+          startSpeakerTimerRef.current(nextId, pitchDurationSec, "PITCH");
+        }, 800); // 800ms brief transition pause
+        return () => clearTimeout(timer);
+      } else {
+        // No one left to pitch, automatically advance to referrals (Phase 3)
+        setManualPhase(3);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
