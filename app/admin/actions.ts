@@ -732,6 +732,32 @@ export async function toggleAutoMode(formData: FormData) {
   }
 }
 
+export async function toggleOpenLogins(formData: FormData) {
+  await requireAdmin();
+  const isOpenLogins = formData.get("isOpenLogins") === "true";
+  
+  try {
+    const state = await prisma.gameState.findFirst();
+    if (state) {
+      await prisma.gameState.update({
+        where: { id: state.id },
+        data: { isOpenLogins }
+      });
+    } else {
+      await prisma.gameState.create({
+        data: { isOpenLogins }
+      });
+    }
+    
+    await setSuccess("toggled_mode");
+    revalidatePath("/admin");
+  } catch (e: any) {
+    console.error("Failed to toggle open logins:", e);
+    await setError("Failed to toggle mode.");
+    revalidatePath("/admin");
+  }
+}
+
 export async function endConclave(formData: FormData) {
   await requireAdmin();
   try {

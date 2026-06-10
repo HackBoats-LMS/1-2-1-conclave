@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { User } from "@prisma/client";
 import { cookies } from "next/headers";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, endConclave } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, toggleOpenLogins, endConclave } from "./actions";
 import { EndConclaveButton } from "./EndConclaveButton";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
@@ -366,7 +366,15 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               />
             </div>
 
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-2 flex-wrap justify-end">
+              <form action={toggleOpenLogins}>
+                <input type="hidden" name="isOpenLogins" value={gameState?.isOpenLogins ? "false" : "true"} />
+                <SubmitButton loadingText="Switching..." className={`border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2 cursor-pointer ${
+                  gameState?.isOpenLogins ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-white text-slate-500'
+                }`}>
+                  {gameState?.isOpenLogins ? '🔓 Open Logins: ON' : '🔒 Open Logins: OFF'}
+                </SubmitButton>
+              </form>
               <a href="/admin/leaderboard" target="_blank" className="bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                 Live Leaderboard

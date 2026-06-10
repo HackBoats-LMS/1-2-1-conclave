@@ -20,9 +20,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
       
-      // Check if user exists and is approved by admin (case-insensitive)
       const normalizedEmail = user.email.toLowerCase();
-      const dbUser = await prisma.user.findFirst({
+      
+      const gameState = await prisma.gameState.findFirst();
+      const isOpenLogins = gameState?.isOpenLogins || false;
+
+      let dbUser = await prisma.user.findFirst({
         where: { 
           email: {
             equals: normalizedEmail,
@@ -31,6 +34,28 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         },
       });
 
+      if (isOpenLogins) {
+        if (dbUser) {
+          if (!dbUser.isApproved) {
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: { isApproved: true }
+            });
+          }
+        } else {
+          await prisma.user.create({
+            data: {
+              email: normalizedEmail,
+              name: user.name,
+              image: user.image,
+              isApproved: true
+            }
+          });
+        }
+        return true;
+      }
+
+      // Open Logins is OFF: strictly enforce predefined and approved lists
       if (!dbUser || !dbUser.isApproved) {
         // Return false to deny access
         return false; 
