@@ -38,11 +38,7 @@ export async function sendReferral(formData: FormData) {
     });
 
     // Broadcast event to big screen leaderboard
-    await supabase.channel('global_events').send({
-      type: 'broadcast',
-      event: 'new_referral',
-      payload: { timestamp: Date.now() }
-    });
+    await supabase.channel('global_events').httpSend('new_referral', { timestamp: Date.now() });
 
     revalidatePath("/dashboard");
     revalidatePath("/admin"); // update admin live counter too

@@ -504,66 +504,101 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           <div className="lg:col-span-8 space-y-10">
             <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
               
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b-2 border-[#0D2421]">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b-2 border-[#0D2421]">
                 <div className="space-y-1">
                   <h2 className="text-2xl font-black uppercase text-[#0D2421]">Session Rotations</h2>
                   <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Launch rounds and control active countdowns</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {slots.length > 0 && (
-                    <>
-                      <form action={updateAllRoundsDuration} className="flex items-center gap-2 bg-[#FAF8F4] p-1.5 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
-                        <input 
-                          key={`dur-${currentDuration}`}
-                          type="number" 
-                          name="duration" 
-                          placeholder="Mins" 
-                          min={1} 
-                          max={120} 
-                          defaultValue={currentDuration}
-                          required
-                          className="w-16 p-2 border-2 border-[#0D2421] bg-white rounded-lg font-bold text-center text-xs focus:outline-none"
-                        />
-                        <SubmitButton loadingText="Applying..." className="px-3 py-2 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-lg text-xs font-black uppercase shadow-[1.5px_1.5px_0px_#0D2421] transition-all cursor-pointer">
-                          Set Duration (All)
+              </div>
+
+              {/* Controls Grid */}
+              {slots.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Timing Settings Card (Left) */}
+                  <div className="bg-[#FAF8F4] border-2 border-[#0D2421] p-5 rounded-2xl shadow-[4px_4px_0px_#0D2421] flex flex-col gap-4">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-[#0D2421]/15">
+                      <span className="text-sm">⏱️</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#0D2421]">Timing Configurations</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Round Duration Form */}
+                      <form action={updateAllRoundsDuration} className="space-y-1.5">
+                        <label className="block text-[9px] font-black uppercase tracking-wider text-[#0D2421]/50">Round Duration</label>
+                        <div className="flex gap-2">
+                          <input 
+                            key={`dur-${currentDuration}`}
+                            type="number" 
+                            name="duration" 
+                            min={1} 
+                            max={120} 
+                            defaultValue={currentDuration}
+                            required
+                            className="w-12 h-10 border-2 border-[#0D2421] bg-white rounded-xl font-bold text-center text-xs focus:outline-none shadow-[2px_2px_0px_#0D2421]"
+                          />
+                          <SubmitButton loadingText="Apply" className="flex-1 h-10 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center">
+                            Set Mins
+                          </SubmitButton>
+                        </div>
+                      </form>
+
+                      {/* Shift Duration Form */}
+                      <form action={updateShiftDuration} className="space-y-1.5">
+                        <label className="block text-[9px] font-black uppercase tracking-wider text-[#0D2421]/50">Shift Intermission</label>
+                        <div className="flex gap-2">
+                          <input 
+                            key={`shift-${gameState?.shiftDuration || 3}`}
+                            type="number" 
+                            name="shiftDuration" 
+                            min={1} 
+                            max={60} 
+                            defaultValue={gameState?.shiftDuration || 3}
+                            required
+                            className="w-12 h-10 border-2 border-[#0D2421] bg-white rounded-xl font-bold text-center text-xs focus:outline-none shadow-[2px_2px_0px_#0D2421]"
+                          />
+                          <SubmitButton loadingText="Apply" className="flex-1 h-10 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center">
+                            Set Shift
+                          </SubmitButton>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+
+                  {/* Live Orchestration Card (Right) */}
+                  <div className="bg-[#FAF8F4] border-2 border-[#0D2421] p-5 rounded-2xl shadow-[4px_4px_0px_#0D2421] flex flex-col gap-4">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-[#0D2421]/15">
+                      <span className="text-sm">⚙️</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#0D2421]">Orchestration Controls</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 h-full items-end">
+                      {/* Left: Auto Mode Toggle */}
+                      <form action={toggleAutoMode}>
+                        <input type="hidden" name="isAutoMode" value={gameState?.isAutoMode ? "false" : "true"} />
+                        <SubmitButton loadingText="Switching" className={`w-full h-10 px-3 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                          gameState?.isAutoMode ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-slate-200 text-slate-500'
+                        }`}>
+                          <span>{gameState?.isAutoMode ? '🤖 Auto Mode: ON' : '✋ Manual Mode'}</span>
                         </SubmitButton>
                       </form>
 
-                      <form action={updateShiftDuration} className="flex items-center gap-2 bg-[#FAF8F4] p-1.5 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
-                        <input 
-                          key={`shift-${gameState?.shiftDuration || 3}`}
-                          type="number" 
-                          name="shiftDuration" 
-                          placeholder="Mins" 
-                          min={1} 
-                          max={60} 
-                          defaultValue={gameState?.shiftDuration || 3}
-                          required
-                          className="w-16 p-2 border-2 border-[#0D2421] bg-white rounded-lg font-bold text-center text-xs focus:outline-none"
-                        />
-                        <SubmitButton loadingText="Applying..." className="px-3 py-2 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-lg text-xs font-black uppercase shadow-[1.5px_1.5px_0px_#0D2421] transition-all cursor-pointer">
-                          Set Shifting Time
-                        </SubmitButton>
-                      </form>
-
+                      {/* Right: Reset Progress */}
                       <form action={resetAllRounds}>
-                        <SubmitButton loadingText="Resetting..." className="px-4 py-2.5 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+                        <SubmitButton loadingText="Resetting" className="w-full h-10 px-3 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center">
                           Reset Progress
                         </SubmitButton>
                       </form>
 
-                      <form action={toggleAutoMode}>
-                        <input type="hidden" name="isAutoMode" value={gameState?.isAutoMode ? "false" : "true"} />
-                        <SubmitButton loadingText="Switching..." className={`px-4 py-2.5 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer ${gameState?.isAutoMode ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-slate-200 text-slate-500'}`}>
-                          {gameState?.isAutoMode ? '🤖 Auto Mode: ON' : '✋ Manual Mode'}
-                        </SubmitButton>
-                      </form>
+                      {/* Bottom: End Conclave */}
+                      <div className="col-span-2 w-full">
+                        <EndConclaveButton action={endConclave} />
+                      </div>
+                    </div>
+                  </div>
 
-                      <EndConclaveButton action={endConclave} />
-                    </>
-                  )}
                 </div>
-              </div>
+              )}
 
               {/* Slots and Rounds Grid */}
               <div className="space-y-8">

@@ -8,8 +8,8 @@ export function EndConclaveButton({ action }: { action: string | ((formData: For
       if (!confirm("Are you sure you want to end the Conclave early? This will skip all remaining rounds and mark the event as concluded.")) {
         e.preventDefault();
       }
-    }}>
-      <SubmitButton loadingText="Ending..." className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
+    }} className="w-full">
+      <SubmitButton loadingText="Ending..." className="w-full h-10 px-4 bg-red-500 hover:bg-red-600 text-white border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center">
         End Conclave
       </SubmitButton>
     </form>

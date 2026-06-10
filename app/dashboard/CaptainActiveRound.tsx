@@ -213,31 +213,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         }
       }
 
-      // Automatically move to the next person for referral turn
-      if (currentId && currentType === "REFERRAL") {
-        const parts = allParticipantsRef.current;
-        const referred = { ...referredUsersRef.current, [currentId]: true };
-        
-        const currentIndex = parts.findIndex(p => p.id === currentId);
-        let nextSpeaker: Participant | null = null;
-        for (let i = 1; i <= parts.length; i++) {
-          const nextIndex = (currentIndex + i) % parts.length;
-          const candidate = parts[nextIndex];
-          if (candidate.id !== currentId && !referred[candidate.id]) {
-            nextSpeaker = candidate;
-            break;
-          }
-        }
 
-        if (nextSpeaker) {
-          const nextId = nextSpeaker.id;
-          transitionTimeoutRef.current = setTimeout(() => {
-            startSpeakerTimerRef.current(nextId, 30, "REFERRAL");
-          }, 800);
-        } else {
-          setManualPhase(4);
-        }
-      }
       return;
     }
 
@@ -337,8 +313,6 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   // Phase 1→2 transition: when Phase 2 starts (either by timer reaching 60s or skip button), auto-start first pitcher
   useEffect(() => {
     if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
-    // Wait until the real-time channel is actually connected before broadcasting
-    if (!isChannelConnected) return;
 
     if (currentPhase === 2 && !activeSpeakerId && Object.keys(pitchedUsers).length === 0) {
       const first = allParticipantsRef.current.find(p => !pitchedUsersRef.current[p.id]);
@@ -350,23 +324,27 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPhase, activeSpeakerId, pitchedUsers, round.startTime, round.status, pitchDurationSec, isChannelConnected]);
+  }, [currentPhase, activeSpeakerId, pitchedUsers, round.startTime, round.status, pitchDurationSec]);
 
-  // Phase 2→3 transition: when all pitches finish, auto-start first referral
+  // Referrals Auto-Start / Auto-Advance Orchestrator
   useEffect(() => {
     if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
-    if (!isChannelConnected) return;
 
-    if (currentPhase === 3 && !activeSpeakerId && Object.keys(referredUsers).length === 0) {
-      const first = allParticipantsRef.current.find(p => !referredUsersRef.current[p.id]);
-      if (first) {
-        setTimeout(() => {
-          startSpeakerTimerRef.current(first.id, 30, "REFERRAL");
-        }, 100);
+    if (currentPhase === 3 && !activeSpeakerId) {
+      const nextSpeaker = allParticipantsRef.current.find(p => !referredUsersRef.current[p.id]);
+      if (nextSpeaker) {
+        const nextId = nextSpeaker.id;
+        const timer = setTimeout(() => {
+          startSpeakerTimerRef.current(nextId, 30, "REFERRAL");
+        }, 800); // 800ms brief transition pause
+        return () => clearTimeout(timer);
+      } else {
+        // No one left to refer, automatically advance to table rotation (Phase 4)
+        setManualPhase(4);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPhase, activeSpeakerId, referredUsers, round.startTime, round.status, isChannelConnected]);
+  }, [currentPhase, activeSpeakerId, referredUsers, round.startTime, round.status]);
 
   // Calculate dynamic radius and avatar sizing based on participant count to prevent overlaps
   const N = allParticipants.length;
@@ -382,6 +360,20 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   // Identify next recommended pitcher / referrer
   const nextToPitch = allParticipants.find(p => !pitchedUsers[p.id]);
   const nextToRefer = allParticipants.find(p => !referredUsers[p.id]);
+
+  const hasUnpitched = !!nextToPitch;
+  const hasUnreferred = !!nextToRefer;
+
+  // Auto-advance to Phase 3 when all pitches are completed
+  useEffect(() => {
+    if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
+    if (currentPhase === 2 && !activeSpeakerId && !hasUnpitched) {
+      setManualPhase(3);
+    }
+  }, [currentPhase, activeSpeakerId, hasUnpitched, round.startTime, round.status]);
+
+
+
 
   function startSpeakerTimer(participantId: string, durationSec: number, type: "PITCH" | "REFERRAL") {
     if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
@@ -780,7 +772,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                       ) : (
                         <>
                           <li className="flex items-center gap-2">
-                            <span className="text-emerald-500 font-black">✔</span> Click below to start the next speaker&apos;s referral turn
+                            <span className="text-emerald-500 font-black">✔</span> Referral turns will start and progress automatically
                           </li>
                           <li className="flex items-center gap-2">
                             <span className="text-slate-400 font-black">○</span> Completed: {Object.values(referredUsers).filter(Boolean).length} / {allParticipants.length - 1} members
@@ -868,22 +860,27 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                 )}
 
                 {currentPhase === 3 && (
-                  <button 
-                    onClick={handleAutopilotAction}
-                    className={`w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${
-                      activeSpeakerId 
-                        ? "bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
-                        : "bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
-                    }`}
-                  >
+                  <div className="w-full">
                     {activeSpeakerId ? (
-                      <>⏹️ Finish Referral Turn</>
+                      <button 
+                        onClick={handleAutopilotAction}
+                        className="w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
+                      >
+                        ⏹️ Finish Referral Turn
+                      </button>
                     ) : nextToRefer ? (
-                      <>📨 Start Referral: {nextToRefer.name}</>
+                      <div className="w-full py-5 bg-[#FAF8F4]/50 border-3 border-dashed border-[#0D2421]/20 rounded-[1.5rem] font-black uppercase text-base text-center text-[#0D2421]/40">
+                        📨 Starting Referral: {nextToRefer.name}...
+                      </div>
                     ) : (
-                      <>🔄 Move to Table Rotation</>
+                      <button 
+                        onClick={handleAutopilotAction}
+                        className="w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
+                      >
+                        🔄 Move to Table Rotation
+                      </button>
                     )}
-                  </button>
+                  </div>
                 )}
 
                 {currentPhase === 4 && (
@@ -1058,22 +1055,18 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                     >
                       <span>↺ Reset & Re-start</span>
                     </button>
+                  ) : currentPhase === 3 ? (
+                    <div className="w-full py-2 bg-slate-50 text-slate-400 border border-slate-200 rounded-xl text-[10px] font-black uppercase text-center">
+                      ⏳ Queueing
+                    </div>
                   ) : (
                     <button
                       onClick={() => {
-                        if (currentPhase === 3) {
-                          startSpeakerTimer(p.id, 30, "REFERRAL");
-                        } else {
-                          startSpeakerTimer(p.id, pitchDurationSec, "PITCH");
-                        }
+                        startSpeakerTimer(p.id, pitchDurationSec, "PITCH");
                       }}
                       className="w-full py-2 bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer text-center flex items-center justify-center gap-1"
                     >
-                      {currentPhase === 3 ? (
-                        <span>📨 Start Referral (30s)</span>
-                      ) : (
-                        <span>🎙️ Start Pitch ({pitchDurationSec}s)</span>
-                      )}
+                      <span>🎙️ Start Pitch ({pitchDurationSec}s)</span>
                     </button>
                   )}
                 </div>

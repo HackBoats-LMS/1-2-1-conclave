@@ -288,11 +288,7 @@ export async function startRound(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').send({
-      type: 'broadcast',
-      event: 'round_state_change',
-      payload: { action: 'start' }
-    });
+    await supabase.channel('global_events').httpSend('round_state_change', { action: 'start' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -314,11 +310,7 @@ export async function stopRound(payload: FormData | string) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
 
-    await supabase.channel('global_events').send({
-      type: 'broadcast',
-      event: 'round_state_change',
-      payload: { action: 'stop' }
-    });
+    await supabase.channel('global_events').httpSend('round_state_change', { action: 'stop' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -341,11 +333,7 @@ export async function pauseRound(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').send({
-      type: 'broadcast',
-      event: 'round_state_change',
-      payload: { action: 'pause' }
-    });
+    await supabase.channel('global_events').httpSend('round_state_change', { action: 'pause' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -365,11 +353,7 @@ export async function resetAllRounds() {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
 
-    await supabase.channel('global_events').send({
-      type: 'broadcast',
-      event: 'round_state_change',
-      payload: { action: 'reset' }
-    });
+    await supabase.channel('global_events').httpSend('round_state_change', { action: 'reset' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -686,11 +670,7 @@ export async function endConclave(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').send({
-      type: 'broadcast',
-      event: 'round_state_change',
-      payload: { action: 'end_conclave' }
-    });
+    await supabase.channel('global_events').httpSend('round_state_change', { action: 'end_conclave' });
 
     await setSuccess("ended_conclave");
     revalidatePath("/admin");
