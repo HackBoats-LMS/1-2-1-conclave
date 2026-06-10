@@ -735,6 +735,16 @@ export async function toggleAutoMode(formData: FormData) {
 export async function toggleOpenLogins(formData: FormData) {
   await requireAdmin();
   const isOpenLogins = formData.get("isOpenLogins") === "true";
+  const password = formData.get("password") as string;
+  
+  try {
+    verifyDeletePassword(password);
+  } catch (e: any) {
+    console.error("Incorrect Admin Pin:", e);
+    await setError("Incorrect Admin Pin. Action denied.");
+    revalidatePath("/admin");
+    return;
+  }
   
   try {
     const state = await prisma.gameState.findFirst();

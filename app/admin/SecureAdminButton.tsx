@@ -11,6 +11,7 @@ interface SecureAdminButtonProps {
   className: string;
   promptText: string;
   formClassName?: string;
+  children?: React.ReactNode;
 }
 
 export function SecureAdminButton({ 
@@ -19,7 +20,8 @@ export function SecureAdminButton({
   loadingText, 
   className, 
   promptText,
-  formClassName = "inline-block w-full sm:w-auto"
+  formClassName = "inline-block w-full sm:w-auto",
+  children
 }: SecureAdminButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -57,6 +59,7 @@ export function SecureAdminButton({
   return (
     <>
       <form ref={formRef} action={action} onSubmit={handleSubmit} className={formClassName}>
+        {children}
         <SubmitButton loadingText={loadingText} className={className}>
           {label}
         </SubmitButton>
