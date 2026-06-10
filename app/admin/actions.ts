@@ -900,53 +900,6 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
       }
     }
 
-    const totalRounds = bestRoundAssignments.length;
-    const slotGrouping = calculateSlotGrouping(totalRounds);
-    const totalSlots = slotGrouping.length;
-
-    const slotData: { id: string; slotNumber: number }[] = [];
-    const roundData: { id: string; slotId: string; roundNumber: number; status: string; durationMinutes: number }[] = [];
-    const tableData: { id: string; roundId: string; tableNumber: number }[] = [];
-    const assignmentData: { userId: string; tableId: string; isCaptain: boolean }[] = [];
-
-    let globalRoundIdx = 0;
-    for (let s = 0; s < totalSlots; s++) {
-      const slotId = genId();
-      slotData.push({ id: slotId, slotNumber: s + 1 });
-
-      const roundsInSlot = slotGrouping[s];
-      for (let r = 0; r < roundsInSlot; r++) {
-        const roundId = genId();
-        roundData.push({ 
-          id: roundId, 
-          slotId, 
-          roundNumber: globalRoundIdx + 1, 
-          status: "PENDING",
-          durationMinutes: defaultDuration
-        });
-
-        const roundTables = bestRoundAssignments[globalRoundIdx];
-        for (let t = 0; t < C; t++) {
-          const tableId = genId();
-          tableData.push({ id: tableId, roundId, tableNumber: t + 1 });
-
-          assignmentData.push({ userId: roundTables[t].captainId, tableId, isCaptain: true });
-
-          for (const memberId of roundTables[t].memberIds) {
-            assignmentData.push({ userId: memberId, tableId, isCaptain: false });
-          }
-        }
-        globalRoundIdx++;
-      }
-    }
-
-    const payload = { slotData, roundData, tableData, assignmentData };
-    return await saveAutoAssignments(payload);
-  } catch (error: any) {
-    console.error("Error generating assignments:", error);
-    return { success: false, error: error.message };
-  }
-}
 
 export async function updateAllRoundsDuration(formData: FormData) {
   await requireAdmin();
