@@ -88,15 +88,6 @@ export default async function LoginPage({
           </button>
         </form>
 
-        {/* Security Warning Notice */}
-        <div className="bg-[#FAF8F4] border border-[#0D2421]/15 p-4 rounded-xl text-left space-y-1">
-          <span className="text-[10px] font-black text-red-600 uppercase tracking-widest block">
-            ⚠️ ACCESS RESTRICTION
-          </span>
-          <p className="text-[11px] font-semibold text-[#0D2421]/75 leading-relaxed">
-            Your Google email must be whitelisted in the database by the Conclave Admin before access can be granted.
-          </p>
-        </div>
 
       </div>
     </div>
