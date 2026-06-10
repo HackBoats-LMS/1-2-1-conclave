@@ -393,14 +393,14 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
         </div>
 
         <SubmitButton 
-          loadingText="🎲 Generating in Browser (Do Not Close)..."
+          loadingText=" Generating in Browser (Do Not Close)..."
           className={`w-full py-3.5 border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs transition-all ${
             captainCount > 0 && memberCount > 0 && !isGenerating
               ? 'bg-[#0D2421] text-[#BEF03C] hover:bg-[#163733] shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer'
               : 'bg-[#FAF8F4] text-[#0D2421]/40 border-[#0D2421]/30 cursor-not-allowed shadow-none'
           }`}
         >
-          🎲 Auto-Generate Round Assignments
+           Auto-Generate Round Assignments
         </SubmitButton>
       </form>
     </div>
