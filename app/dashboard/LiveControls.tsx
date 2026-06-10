@@ -1,20 +1,24 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { autoStopExpiredRound } from "./actions";
 
 export function LiveControls({ 
   updatedAtTime, 
   durationMinutes = 15,
   status,
-  serverNow
+  serverNow,
+  roundId
 }: { 
   updatedAtTime: number; 
   durationMinutes?: number; 
   status?: string;
   serverNow?: number;
+  roundId?: string;
 }) {
   const [timeLeft, setTimeLeft] = useState(`${durationMinutes.toString().padStart(2, '0')}:00`);
   const [isEnded, setIsEnded] = useState(false);
+  const hasTriggeredStopRef = useRef(false);
   const [clientServerOffset] = useState(() => serverNow ? serverNow - Date.now() : 0);
 
   // Removed all polling from live round to guarantee zero lag or infinite render loops.
@@ -38,6 +42,10 @@ export function LiveControls({
       if (remaining <= 0) {
         setTimeLeft("00:00");
         setIsEnded(true);
+        if (roundId && !hasTriggeredStopRef.current && status === "IN_PROGRESS") {
+          hasTriggeredStopRef.current = true;
+          autoStopExpiredRound(roundId).catch(console.error);
+        }
       } else {
         const m = Math.floor(remaining / 60000);
         const s = Math.floor((remaining % 60000) / 1000);

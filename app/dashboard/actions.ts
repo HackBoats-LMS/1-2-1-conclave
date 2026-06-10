@@ -64,3 +64,44 @@ export async function sendReferral(formData: FormData) {
     return { error: error.message || "Failed to send referral. Please try again." };
   }
 }
+
+export async function autoStopExpiredRound(roundId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { error: "Unauthorized" };
+
+    const round = await prisma.round.findUnique({ where: { id: roundId } });
+    if (!round || round.status === "COMPLETED" || !round.startTime) return { success: true };
+
+    const totalDurationMs = (round.durationMinutes || 15) * 60 * 1000;
+    let elapsedMs = 0;
+
+    if (round.status.startsWith("PAUSED_")) {
+      const elapsedSec = parseInt(round.status.split("_")[1]);
+      elapsedMs = (isNaN(elapsedSec) ? 0 : elapsedSec) * 1000;
+    } else {
+      elapsedMs = Date.now() - new Date(round.startTime).getTime();
+    }
+
+    // Only allow auto-stop if the time has actually expired, allowing a 1 second buffer
+    if (elapsedMs + 1000 >= totalDurationMs) {
+      await prisma.round.update({
+        where: { id: roundId },
+        data: { status: "COMPLETED", endedAt: new Date() }
+      });
+      
+      const state = await prisma.gameState.findFirst();
+      if (state?.currentRoundId === roundId) {
+        await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+      }
+
+      await supabase.channel('global_events').httpSend('round_state_change', { action: 'stop' });
+      return { success: true };
+    }
+    
+    return { success: false, error: "Time not yet expired" };
+  } catch (error: any) {
+    console.error("Auto stop error:", error);
+    return { error: error.message };
+  }
+}
