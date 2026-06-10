@@ -302,7 +302,15 @@ export async function startRound(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'start' });
+    // Fire-and-forget: don't let broadcast failure block round launch
+    try {
+      await Promise.race([
+        supabase.channel('global_events').httpSend('round_state_change', { action: 'start' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Broadcast timeout')), 3000))
+      ]);
+    } catch (broadcastErr) {
+      console.warn("Supabase broadcast failed (non-critical):", broadcastErr);
+    }
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -324,7 +332,12 @@ export async function stopRound(payload: FormData | string) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'stop' });
+    try {
+      await Promise.race([
+        supabase.channel('global_events').httpSend('round_state_change', { action: 'stop' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Broadcast timeout')), 3000))
+      ]);
+    } catch (_) {}
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -347,7 +360,12 @@ export async function pauseRound(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'pause' });
+    try {
+      await Promise.race([
+        supabase.channel('global_events').httpSend('round_state_change', { action: 'pause' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Broadcast timeout')), 3000))
+      ]);
+    } catch (_) {}
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -367,7 +385,12 @@ export async function resetAllRounds() {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'reset' });
+    try {
+      await Promise.race([
+        supabase.channel('global_events').httpSend('round_state_change', { action: 'reset' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Broadcast timeout')), 3000))
+      ]);
+    } catch (_) {}
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -784,7 +807,12 @@ export async function endConclave(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'end_conclave' });
+    try {
+      await Promise.race([
+        supabase.channel('global_events').httpSend('round_state_change', { action: 'end_conclave' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Broadcast timeout')), 3000))
+      ]);
+    } catch (_) {}
 
     await setSuccess("ended_conclave");
     revalidatePath("/admin");
