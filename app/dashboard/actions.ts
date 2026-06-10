@@ -104,4 +104,4 @@ export async function autoStopExpiredRound(roundId: string) {
     console.error("Auto stop error:", error);
     return { error: error.message };
   }
-}
+}

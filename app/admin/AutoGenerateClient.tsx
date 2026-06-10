@@ -402,7 +402,7 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
               : 'bg-[#FAF8F4] text-[#0D2421]/40 border-[#0D2421]/30 cursor-not-allowed shadow-none'
           }`}
         >
-          🎲 Auto-Generate Round Assignments
+           Auto-Generate Round Assignments
         </SubmitButton>
       </form>
     </div>
