@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { User } from "@prisma/client";
 import { cookies } from "next/headers";
 import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, endConclave } from "./actions";
-import { AdminAutoShiftingManager } from "./AdminAutoShiftingManager";
 import { EndConclaveButton } from "./EndConclaveButton";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
@@ -228,9 +227,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     const memberIdSet = new Set<string>(memberUsers.map((u: User) => u.id));
     const memberEmailMap = new Map<string, string>(memberUsers.map((u: User) => [u.id, u.email as string] as [string, string]));
 
+    const captainUsers = users.filter((u: User) => u.role === "CAPTAIN");
+    const captainIdSet = new Set<string>(captainUsers.map((u: User) => u.id));
+    const captainEmailMap = new Map<string, string>(captainUsers.map((u: User) => [u.id, u.email as string] as [string, string]));
+
     // Build meeting matrix from assignments
     const met = new Map<string, Set<string>>();
     for (const id of memberIdSet) met.set(id, new Set());
+    for (const id of captainIdSet) met.set(id, new Set());
 
     // Track which members appear in at least one assignment
     const assignedMembers = new Set<string>();
@@ -241,10 +245,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       }
     }
 
-    // Group assignments by round+table to find who met whom
+    // Group assignments by round+table to find who met whom (both members and captains)
     const tableGroups = new Map<string, string[]>();
     for (const assignment of allAssignments) {
-      if (assignment.isCaptain || !memberIdSet.has(assignment.userId)) continue;
       const key = `${assignment.table.roundId}|${assignment.tableId}`;
       if (!tableGroups.has(key)) tableGroups.set(key, []);
       tableGroups.get(key)!.push(assignment.userId);
@@ -259,25 +262,52 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       }
     }
 
-    const totalPairs = memberUsers.length * (memberUsers.length - 1) / 2;
+    // total possible unique pairs: M*(M-1)/2 (member-member) + M*C (member-captain)
+    const totalPairs = (memberUsers.length * (memberUsers.length - 1) / 2) + (memberUsers.length * captainCount);
     const metPairsSet = new Set<string>();
-    for (const [id, partners] of met) {
-      for (const partner of partners) {
-        const key = id < partner ? `${id}|${partner}` : `${partner}|${id}`;
-        metPairsSet.add(key);
+
+    const memberArr: string[] = Array.from(memberIdSet);
+    for (let i = 0; i < memberArr.length; i++) {
+      const m1 = memberArr[i];
+      // member-member
+      for (let j = i + 1; j < memberArr.length; j++) {
+        const m2 = memberArr[j];
+        if (met.get(m1)?.has(m2)) {
+          metPairsSet.add(`${m1}|${m2}`);
+        }
+      }
+      // member-captain
+      for (const c of captainIdSet) {
+        if (met.get(m1)?.has(c)) {
+          metPairsSet.add(`${m1}|${c}`);
+        }
       }
     }
     const metPairs = metPairsSet.size;
 
     // Find unmet pairs (limit to 200 for display)
     const unmetPairs: { member1Email: string; member2Email: string }[] = [];
-    const memberArr: string[] = Array.from(memberIdSet);
+    
+    // Member-member unmet pairs
     for (let i = 0; i < memberArr.length && unmetPairs.length < 200; i++) {
       for (let j = i + 1; j < memberArr.length && unmetPairs.length < 200; j++) {
         if (!met.get(memberArr[i])?.has(memberArr[j])) {
           unmetPairs.push({
             member1Email: memberEmailMap.get(memberArr[i]) || memberArr[i],
             member2Email: memberEmailMap.get(memberArr[j]) || memberArr[j],
+          });
+        }
+      }
+    }
+
+    // Member-captain unmet pairs
+    for (let i = 0; i < memberArr.length && unmetPairs.length < 200; i++) {
+      for (const c of captainIdSet) {
+        if (unmetPairs.length >= 200) break;
+        if (!met.get(memberArr[i])?.has(c)) {
+          unmetPairs.push({
+            member1Email: memberEmailMap.get(memberArr[i]) || memberArr[i],
+            member2Email: `Captain: ${captainEmailMap.get(c) || c}`,
           });
         }
       }
@@ -652,6 +682,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 durationMinutes={round.durationMinutes || 15} 
                                 status={round.status} 
                                 onTimeUp={gameState?.isAutoMode ? stopRound.bind(null, round.id) : undefined}
+                                serverNow={Date.now()}
                               />
                             )}
 
@@ -844,20 +875,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           </div>
         </div>
       </div>
-      
-      {/* Invisible auto-shifting manager (only ticks if auto mode is ON and no round is active) */}
-      <AdminAutoShiftingManager 
-        isAutoMode={!!gameState?.isAutoMode}
-        lastCompletedRoundEndedAt={lastCompletedRoundEndedAt}
-        shiftDurationMinutes={gameState?.shiftDuration || 3}
-        nextRoundId={nextRoundId}
-        onStartRound={async (roundId) => {
-          "use server";
-          const fd = new FormData();
-          fd.append("roundId", roundId);
-          await startRound(fd);
-        }}
-      />
     </div>
   );
 }

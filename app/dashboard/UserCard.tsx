@@ -2,13 +2,13 @@
 
 import React, { useState, useTransition, useEffect, useRef } from "react";
 import { sendReferral } from "./actions";
-import { supabase } from "@/lib/supabaseClient";
 
 interface UserCardProps {
   tu: any; // tableAssignment record with user details
+  activeSpeakerTimer: { userId: string; type: string; targetEndTime: number } | null;
 }
 
-export function UserCard({ tu }: UserCardProps) {
+export function UserCard({ tu, activeSpeakerTimer }: UserCardProps) {
   const user = tu.user;
   const [isPending, startTransition] = useTransition();
   const [note, setNote] = useState("");
@@ -17,79 +17,56 @@ export function UserCard({ tu }: UserCardProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [requireNoteLocally, setRequireNoteLocally] = useState(false);
   
-  const [activeTimer, setActiveTimer] = useState<{ type: string, timeLeft: number } | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const localIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const cacheKey = `conclave_draft_${tu.table.roundId}_to_${user.id}`;
+
+  // Hydration-safe initial load
   useEffect(() => {
-    if (!tu.table?.roundId || !tu.table?.tableNumber) return;
-    
-    const channelName = `room_${tu.table.roundId}_table_${tu.table.tableNumber}`;
-    const channel = supabase.channel(channelName);
-    
-    let targetEndTime: number | null = null;
-    
-    // Shared function to initialize or adopt a timer
-    const activateTimer = (payloadUserId: string, payloadType: string, payloadTargetEndTime: number) => {
-      if (payloadUserId === user.id) {
-        // Only update if we aren't already tracking this exact target end time (to avoid resetting intervals needlessly)
-        if (targetEndTime === payloadTargetEndTime) return;
-        
-        targetEndTime = payloadTargetEndTime;
-        const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
-        
-        if (remaining > 0) {
-          setActiveTimer({ type: payloadType, timeLeft: remaining });
-          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-          
-          localIntervalRef.current = setInterval(() => {
-            if (!targetEndTime) return;
-            const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
-            if (currentRemaining <= 0) {
-              setActiveTimer(null);
-              if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-              targetEndTime = null;
-            } else {
-              setActiveTimer(prev => prev ? { ...prev, timeLeft: currentRemaining } : null);
-            }
-          }, 250); // Polling every 250ms
-        } else {
-          setActiveTimer(null);
-          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-          targetEndTime = null;
-        }
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) setNote(saved);
+    }
+  }, [cacheKey]);
+
+  // Persist draft on edit
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (note) {
+        localStorage.setItem(cacheKey, note);
       } else {
-        setActiveTimer(null);
-        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-        targetEndTime = null;
+        localStorage.removeItem(cacheKey);
       }
-    };
-    
-    channel.on('broadcast', { event: 'timer_start' }, ({ payload }) => {
-      // For timer_start, we calculate the initial target based on local time
-      const initialTarget = Date.now() + payload.durationSec * 1000;
-      activateTimer(payload.userId, payload.type, initialTarget);
-    });
+    }
+  }, [note, cacheKey]);
 
-    channel.on('broadcast', { event: 'timer_sync' }, ({ payload }) => {
-      // For timer_sync, the Captain passes the actual wall-clock target time
-      activateTimer(payload.userId, payload.type, payload.targetEndTime);
-    });
+  useEffect(() => {
+    if (activeSpeakerTimer && activeSpeakerTimer.userId === user.id) {
+      const updateTimer = () => {
+        const remaining = Math.max(0, Math.ceil((activeSpeakerTimer.targetEndTime - Date.now()) / 1000));
+        if (remaining <= 0) {
+          setTimeLeft(null);
+          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+        } else {
+          setTimeLeft(remaining);
+        }
+      };
 
-    channel.on('broadcast', { event: 'timer_stop' }, ({ payload }) => {
-      if (!payload.userId || payload.userId === user.id) {
-        setActiveTimer(null);
-        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-        targetEndTime = null;
-      }
-    });
-
-    channel.subscribe();
+      updateTimer();
+      if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+      localIntervalRef.current = setInterval(updateTimer, 250);
+    } else {
+      setTimeLeft(null);
+      if (localIntervalRef.current) clearInterval(localIntervalRef.current);
+    }
 
     return () => {
       if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-      supabase.removeChannel(channel);
     };
-  }, [user.id, tu.table?.roundId, tu.table?.tableNumber]);
+  }, [activeSpeakerTimer, user.id]);
+
+  const activeTimer = timeLeft !== null && activeSpeakerTimer ? { type: activeSpeakerTimer.type, timeLeft } : null;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -108,6 +85,10 @@ export function UserCard({ tu }: UserCardProps) {
           setRequireNoteLocally(true); // Force the user to type a note now
           setShowAnimation(false);
           return;
+        }
+
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(cacheKey);
         }
 
         // Wait a bit for the plane to finish flying, then show the checkmark

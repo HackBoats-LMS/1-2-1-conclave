@@ -61,12 +61,33 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const briefingEndTimeRef = useRef<number | null>(null);
   const tickCountRef = useRef(0);
   const [isChannelConnected, setIsChannelConnected] = useState(false);
+  const activeSpeakerIdRef = useRef<string | null>(null);
+  const speakerTimerTypeRef = useRef<"PITCH" | "REFERRAL" | null>(null);
 
   useEffect(() => {
     // Initialize realtime broadcast channel for table members
     const channelName = `room_${round.id}_table_${tableNumber}`;
     const channel = supabase.channel(channelName);
     
+    channel.on('broadcast', { event: 'sync_request' }, () => {
+      const activeId = activeSpeakerIdRef.current;
+      const endTime = speakerEndTimeRef.current;
+      const type = speakerTimerTypeRef.current;
+      if (activeId && endTime && type) {
+        channel.send({
+          type: 'broadcast',
+          event: 'timer_sync',
+          payload: {
+            userId: activeId,
+            durationSec: Math.max(0, Math.ceil((endTime - Date.now()) / 1000)),
+            type: type,
+            targetEndTime: endTime,
+            timestamp: Date.now()
+          }
+        });
+      }
+    });
+
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         setIsChannelConnected(true);
@@ -157,6 +178,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       const currentId = activeSpeakerId;
       const currentType = speakerTimerType;
       speakerEndTimeRef.current = null;
+      activeSpeakerIdRef.current = null;
+      speakerTimerTypeRef.current = null;
 
       // Mark user as completed when their timer ends
       if (currentId && currentType === "PITCH") {
@@ -222,21 +245,6 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       if (!speakerEndTimeRef.current) return;
       const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
       setSpeakerTimeLeft(remaining);
-
-      // Broadcast heartbeat sync every 1 second (4 * 250ms)
-      tickCountRef.current += 1;
-      if (tickCountRef.current % 4 === 0 && isChannelConnected && activeSpeakerId && speakerTimerType) {
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'timer_sync',
-          payload: {
-            userId: activeSpeakerId,
-            durationSec: remaining,
-            type: speakerTimerType,
-            targetEndTime: speakerEndTimeRef.current
-          }
-        });
-      }
     }, 250);
 
     return () => {
@@ -390,6 +398,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
     // Set wall-clock end time
     speakerEndTimeRef.current = Date.now() + durationSec * 1000;
+    activeSpeakerIdRef.current = participantId;
+    speakerTimerTypeRef.current = type;
 
     setActiveSpeakerId(participantId);
     setSpeakerDuration(durationSec);
@@ -423,6 +433,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
     speakerEndTimeRef.current = null;
+    activeSpeakerIdRef.current = null;
+    speakerTimerTypeRef.current = null;
     if (activeSpeakerId) {
       if (speakerTimerType === "PITCH") {
         setPitchedUsers(prev => ({ ...prev, [activeSpeakerId]: true }));
@@ -1088,16 +1100,27 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {tableUsers.map((tu: any) => (
-            <UserCard key={tu.user.id} tu={{ ...tu, table: { roundId: round.id, tableNumber } }} />
-          ))}
-          {tableUsers.length === 0 && (
-            <div className="col-span-full py-10 text-center text-xs font-bold text-[#0D2421]/40 uppercase tracking-wider">
-              No members at this table to send referrals to.
+        {(() => {
+          const activeSpeakerTimerProps = activeSpeakerId && speakerTimerType && speakerEndTimeRef.current
+            ? { userId: activeSpeakerId, type: speakerTimerType, targetEndTime: speakerEndTimeRef.current }
+            : null;
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {tableUsers.map((tu: any) => (
+                <UserCard 
+                  key={tu.user.id} 
+                  tu={{ ...tu, table: { roundId: round.id, tableNumber } }} 
+                  activeSpeakerTimer={activeSpeakerTimerProps}
+                />
+              ))}
+              {tableUsers.length === 0 && (
+                <div className="col-span-full py-10 text-center text-xs font-bold text-[#0D2421]/40 uppercase tracking-wider">
+                  No members at this table to send referrals to.
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
       </div>
 
     </div>
