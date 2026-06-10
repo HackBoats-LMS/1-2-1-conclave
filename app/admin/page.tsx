@@ -681,7 +681,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 startedAt={round.startTime} 
                                 durationMinutes={round.durationMinutes || 15} 
                                 status={round.status} 
-                                onTimeUp={gameState?.isAutoMode ? stopRound.bind(null, round.id) : undefined}
+                                onTimeUp={stopRound.bind(null, round.id)}
                                 serverNow={Date.now()}
                               />
                             )}

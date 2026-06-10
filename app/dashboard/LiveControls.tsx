@@ -126,7 +126,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
           }
         }
       } catch (_e) {}
-    }, 30000);
+    }, 3000);
 
     return () => {
       clearInterval(interval);
