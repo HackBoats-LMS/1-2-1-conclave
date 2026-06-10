@@ -160,6 +160,14 @@ export async function updateUserRole(formData: FormData) {
   revalidatePath("/admin");
 }
 
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
+}
+
 export async function removeAllUsers(formData: FormData) {
   await requireAdmin();
   const password = formData.get("password") as string;
@@ -191,33 +199,39 @@ export async function removeAllUsers(formData: FormData) {
 
       // 3. Insert Archived Users
       if (usersToArchive.length > 0) {
-        await prisma.archivedUser.createMany({
-          data: usersToArchive.map(u => ({
-            eventId: archivedEvent.id,
-            originalUserId: u.id,
-            name: u.name,
-            email: u.email,
-            businessName: u.businessName,
-            businessCategory: u.businessCategory,
-            contactNumber: u.contactNumber,
-            role: u.role,
-          }))
-        });
+        const usersChunks = chunkArray(usersToArchive, 2000);
+        for (const chunk of usersChunks) {
+          await prisma.archivedUser.createMany({
+            data: chunk.map(u => ({
+              eventId: archivedEvent.id,
+              originalUserId: u.id,
+              name: u.name,
+              email: u.email,
+              businessName: u.businessName,
+              businessCategory: u.businessCategory,
+              contactNumber: u.contactNumber,
+              role: u.role,
+            }))
+          });
+        }
       }
 
       // 4. Insert Archived Referrals
       if (referralsToArchive.length > 0) {
-        await prisma.archivedReferral.createMany({
-          data: referralsToArchive.map(r => ({
-            eventId: archivedEvent.id,
-            fromName: r.fromUser?.name || "Unknown",
-            fromEmail: r.fromUser?.email || "unknown@email.com",
-            toName: r.toUser?.name || "Unknown",
-            toEmail: r.toUser?.email || "unknown@email.com",
-            note: r.note,
-            createdAt: r.createdAt
-          }))
-        });
+        const referralsChunks = chunkArray(referralsToArchive, 2000);
+        for (const chunk of referralsChunks) {
+          await prisma.archivedReferral.createMany({
+            data: chunk.map(r => ({
+              eventId: archivedEvent.id,
+              fromName: r.fromUser?.name || "Unknown",
+              fromEmail: r.fromUser?.email || "unknown@email.com",
+              toName: r.toUser?.name || "Unknown",
+              toEmail: r.toUser?.email || "unknown@email.com",
+              note: r.note,
+              createdAt: r.createdAt
+            }))
+          });
+        }
       }
     }
 
@@ -548,6 +562,7 @@ export async function clearAssignments(formData: FormData) {
     // Order matters: children first due to FK constraints
     await prisma.tableAssignment.deleteMany({});
     await prisma.table.deleteMany({});
+    await prisma.referral.deleteMany({ where: { roundId: { not: null } } });
     await prisma.round.deleteMany({});
     await prisma.slot.deleteMany({});
 
@@ -589,33 +604,50 @@ export async function fetchUsersForGeneration() {
   }
 }
 
-export async function saveAutoAssignments(payload: any) {
+export async function clearOldAssignments() {
   await requireAdmin();
   try {
-    const { slotData, roundData, tableData, assignmentData } = payload;
-    
-    // Wipe old data
     await prisma.tableAssignment.deleteMany({});
     await prisma.table.deleteMany({});
+    await prisma.referral.deleteMany({ where: { roundId: { not: null } } });
     await prisma.round.deleteMany({});
     await prisma.slot.deleteMany({});
-
     const state = await prisma.gameState.findFirst();
     if (state) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
-
-    // Batch create
-    await prisma.slot.createMany({ data: slotData });
-    await prisma.round.createMany({ data: roundData });
-    await prisma.table.createMany({ data: tableData });
-    await prisma.tableAssignment.createMany({ data: assignmentData, skipDuplicates: true });
-
-    revalidatePath("/admin");
-    revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Save assignments failed:", error);
+    console.error("Error clearing old assignments:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function saveRoundStructure(payload: any) {
+  await requireAdmin();
+  try {
+    const { slotData, roundData, tableData } = payload;
+    await prisma.$transaction(async (tx) => {
+      if (slotData?.length) await tx.slot.createMany({ data: slotData });
+      if (roundData?.length) await tx.round.createMany({ data: roundData });
+      if (tableData?.length) await tx.table.createMany({ data: tableData });
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error saving round structure:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function saveAssignmentsChunk(assignmentData: any[]) {
+  await requireAdmin();
+  try {
+    if (assignmentData?.length) {
+      await prisma.tableAssignment.createMany({ data: assignmentData, skipDuplicates: true });
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error saving assignments chunk:", error);
     return { success: false, error: error.message };
   }
 }
@@ -695,6 +727,32 @@ export async function toggleAutoMode(formData: FormData) {
     revalidatePath("/admin");
   } catch (e: any) {
     console.error("Failed to toggle auto mode:", e);
+    await setError("Failed to toggle mode.");
+    revalidatePath("/admin");
+  }
+}
+
+export async function toggleOpenLogins(formData: FormData) {
+  await requireAdmin();
+  const isOpenLogins = formData.get("isOpenLogins") === "true";
+  
+  try {
+    const state = await prisma.gameState.findFirst();
+    if (state) {
+      await prisma.gameState.update({
+        where: { id: state.id },
+        data: { isOpenLogins }
+      });
+    } else {
+      await prisma.gameState.create({
+        data: { isOpenLogins }
+      });
+    }
+    
+    await setSuccess("toggled_mode");
+    revalidatePath("/admin");
+  } catch (e: any) {
+    console.error("Failed to toggle open logins:", e);
     await setError("Failed to toggle mode.");
     revalidatePath("/admin");
   }
