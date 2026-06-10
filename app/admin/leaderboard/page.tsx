@@ -22,16 +22,15 @@ export default async function LeaderboardPage() {
   });
 
   const rankedUsers = usersWithReferrals.map(user => {
-    const uniqueRecipients = new Set(user.sentReferrals.map(r => r.toUserId));
     return {
       id: user.id,
       name: user.name,
       businessCategory: user.businessCategory,
-      uniqueCount: uniqueRecipients.size
+      count: user.sentReferrals.length
     };
   });
 
-  rankedUsers.sort((a, b) => b.uniqueCount - a.uniqueCount);
+  rankedUsers.sort((a, b) => b.count - a.count);
   const topSenders = rankedUsers.slice(0, 10);
 
   const gameState = await prisma.gameState.findFirst();
@@ -233,7 +232,7 @@ export default async function LeaderboardPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 overflow-hidden p-2 content-start -m-2">
               {topSenders.map((user: any, index: number) => {
-                const count = user.uniqueCount;
+                const count = user.count;
                 
                 const isTop1 = index === 0;
                 const isTop3 = index < 3;
