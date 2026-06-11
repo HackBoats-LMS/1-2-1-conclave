@@ -26,14 +26,11 @@ export async function sendReferral(formData: FormData) {
   }
 
   const existingReferral = await prisma.referral.findFirst({
-    where: {
-      fromUserId: session.user.id,
-      toUserId,
-    },
+    where: { fromUserId: session.user.id, toUserId },
   });
 
-  if (existingReferral) {
-    return { error: "You have already sent a referral to this participant." };
+  if (existingReferral && !note.trim()) {
+    return { error: "A note is required for additional referrals to this participant." };
   }
 
   await prisma.referral.create({

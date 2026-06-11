@@ -5,17 +5,18 @@ import { sendReferral } from "./actions";
 import { supabase } from "@/lib/supabaseClient";
 
 interface UserCardProps {
-  tu: any; // tableAssignment record with user details
+  tu: any;
+  alreadyReferred?: boolean;
 }
 
-export function UserCard({ tu }: UserCardProps) {
+export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
   const user = tu.user;
   const [isPending, startTransition] = useTransition();
   const [note, setNote] = useState("");
   const [showAnimation, setShowAnimation] = useState(false);
   const [showCheck, setShowCheck] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [requireNoteLocally, setRequireNoteLocally] = useState(false);
+  const [requireNoteLocally, setRequireNoteLocally] = useState(alreadyReferred);
   
   const [activeTimer, setActiveTimer] = useState<{ type: string, timeLeft: number } | null>(null);
   const localIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -105,11 +106,12 @@ export function UserCard({ tu }: UserCardProps) {
         
         if (result?.error) {
           setErrorMsg(result.error);
-          setRequireNoteLocally(true); // Force the user to type a note now
+          setRequireNoteLocally(true);
           setShowAnimation(false);
           return;
         }
 
+        setRequireNoteLocally(true); // all subsequent referrals need a note
         // Wait a bit for the plane to finish flying, then show the checkmark
         setTimeout(() => {
           setShowCheck(true);

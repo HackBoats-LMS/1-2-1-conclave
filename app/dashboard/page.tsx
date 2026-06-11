@@ -366,6 +366,13 @@ export default async function UserDashboard() {
     orderBy: { isCaptain: 'desc' }
   });
 
+  const sentReferralUserIds = new Set(
+    (await prisma.referral.findMany({
+      where: { fromUserId: session.user.id as string, toUserId: { in: tableUsers.map(t => t.userId) } },
+      select: { toUserId: true },
+    })).map(r => r.toUserId)
+  );
+
   if (isCaptain) {
     return (
       <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col">
@@ -536,7 +543,7 @@ export default async function UserDashboard() {
         {/* Members Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {tableUsers.map((tu: any) => (
-            <UserCard key={tu.user.id} tu={{ ...tu, table: myAssignment.table }} />
+            <UserCard key={tu.user.id} tu={{ ...tu, table: myAssignment.table }} alreadyReferred={sentReferralUserIds.has(tu.userId)} />
           ))}
           {tableUsers.length === 0 && (
             <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-white space-y-4">
