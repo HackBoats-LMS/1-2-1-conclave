@@ -30,7 +30,7 @@ export default function CaptainLoginPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/onboarding" });
+            await signIn("google", { redirectTo: "/dashboard" });
           }}
           className="pt-2"
         >

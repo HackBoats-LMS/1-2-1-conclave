@@ -17,6 +17,13 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     maxAge: 24 * 60 * 60, // 24 hours
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // Allow relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allow same-origin URLs
+      if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
     async signIn({ user }) {
       if (!user.email) return false;
       
@@ -70,5 +77,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   pages: {
     signIn: '/login',
     error: '/login?error=AccessDenied',
-  }
+  },
+  trustHost: true,
 });

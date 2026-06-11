@@ -27,9 +27,8 @@ export default async function UserDashboard() {
   const userRole = (session.user as any).role;
   const isAdmin = userRole === "ADMIN";
   const isCaptain = userRole === "CAPTAIN";
-  if (!isProfileComplete && !isAdmin) {
-    redirect("/onboarding");
-  }
+  if (isAdmin) redirect("/admin");
+  if (!isProfileComplete) redirect("/onboarding");
 
   const [gameState, totalRounds, completedRounds] = await Promise.all([
     prisma.gameState.findFirst(),

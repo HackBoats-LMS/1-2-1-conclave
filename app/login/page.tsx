@@ -58,7 +58,7 @@ export default async function LoginPage({
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/onboarding" });
+            await signIn("google", { redirectTo: "/dashboard" });
           }}
           className="pt-2"
         >
