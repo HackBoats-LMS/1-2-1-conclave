@@ -47,7 +47,7 @@ export default async function UserDashboard() {
       orderBy: { createdAt: 'desc' }
     });
 
-    const userName = session.user.name || session.user.email.split("@")[0];
+    const userName = session.user.name || session.user.email?.split("@")[0] || "User";
 
     return (
       <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col items-center justify-center">
