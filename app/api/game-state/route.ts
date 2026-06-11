@@ -37,6 +37,12 @@ export async function GET() {
       })
     : null;
 
+  const rounds = await prisma.round.findMany({ select: { status: true } });
+  const allRoundsCompleted =
+    rounds.length > 0 &&
+    rounds.every((r) => r.status === "COMPLETED") &&
+    !gameState?.currentRoundId;
+
   return NextResponse.json({
     isRoundActive: !!activeRound,
     activeRound,
@@ -44,5 +50,6 @@ export async function GET() {
     shiftDuration: gameState?.shiftDuration || 3,
     isAutoMode: !!gameState?.isAutoMode,
     nextRoundId: nextPendingRound?.id || null,
+    allRoundsCompleted,
   });
 }

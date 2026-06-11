@@ -9,6 +9,7 @@ interface GameState {
   shiftDuration: number;
   isAutoMode: boolean;
   nextRoundId: string | null;
+  allRoundsCompleted: boolean;
 }
 
 export function BigShiftingTimerClient({
@@ -37,6 +38,7 @@ export function BigShiftingTimerClient({
 
   const hasTriggeredRef = useRef(false);
   const prevRoundActiveRef = useRef(initialRoundActive);
+  const [liveAllRoundsCompleted, setLiveAllRoundsCompleted] = useState(!!allRoundsCompleted);
 
   // Poll /api/game-state every 2s — source of truth
   useEffect(() => {
@@ -54,9 +56,10 @@ export function BigShiftingTimerClient({
         setLiveDuration(data.shiftDuration);
         setLiveAutoMode(data.isAutoMode);
         setLiveNextRoundId(data.nextRoundId);
+        setLiveAllRoundsCompleted(data.allRoundsCompleted);
 
-        // Round just became inactive — start the shifting timer from now
-        if (wasActive && !isNowActive) {
+        // Round just became inactive — only start shifting timer if rounds remain
+        if (wasActive && !isNowActive && !data.allRoundsCompleted) {
           hasTriggeredRef.current = false;
           setLiveEndedAtMs(Date.now());
         }
@@ -76,7 +79,7 @@ export function BigShiftingTimerClient({
 
   // Shifting countdown
   useEffect(() => {
-    if (!liveEndedAtMs || liveRoundActive || allRoundsCompleted) {
+    if (!liveEndedAtMs || liveRoundActive || liveAllRoundsCompleted) {
       setTimeLeft(null);
       return;
     }
