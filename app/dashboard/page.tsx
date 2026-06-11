@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { LiveControls, AutoRefresh } from "./LiveControls";
 import { UserCard } from "./UserCard";
 import { CaptainActiveRound } from "./CaptainActiveRound";
@@ -12,19 +11,18 @@ export const dynamic = 'force-dynamic';
 
 export default async function UserDashboard() {
   const session = await auth();
-  if (!session?.user?.email) redirect("/login");
+  if (!session?.user?.id) redirect("/login");
 
-  // Verify approval / whitelist status
-  if (!(session.user as any).isApproved) {
-    redirect("/login?error=AccessDenied");
-  }
+  // Fresh DB lookup — don't rely on stale JWT fields
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id as string },
+    select: { isApproved: true, onboardingCompleted: true, role: true },
+  });
 
-  // Ensure they finished onboarding
-  const cookieStore = await cookies();
-  const hasOnboardedCookie = cookieStore.get("conclave_onboarded")?.value === session.user.id;
-  const isProfileComplete = (session.user as any).onboardingCompleted || hasOnboardedCookie;
-  
-  const userRole = (session.user as any).role;
+  if (!dbUser || !dbUser.isApproved) redirect("/login?error=AccessDenied");
+
+  const isProfileComplete = dbUser.onboardingCompleted;
+  const userRole = dbUser.role;
   const isAdmin = userRole === "ADMIN";
   const isCaptain = userRole === "CAPTAIN";
   if (isAdmin) redirect("/admin");

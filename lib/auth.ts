@@ -27,28 +27,17 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
       
-      // Check if user exists and is approved by admin (case-insensitive)
-      const normalizedEmail = user.email.toLowerCase();
       const dbUser = await prisma.user.findFirst({
-        where: { 
-          email: {
-            equals: normalizedEmail,
-            mode: "insensitive"
-          }
-        },
+        where: { email: { equals: user.email.toLowerCase(), mode: "insensitive" } },
       });
 
-      if (!dbUser || !dbUser.isApproved) {
-        // Return false to deny access
-        return false; 
-      }
+      if (!dbUser || !dbUser.isApproved) return false;
       return true;
     },
     async jwt({ token, user, trigger, session }) {
-      // user is only available the first time jwt callback is called (on sign in)
       if (user) {
         token.id = user.id;
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id }});
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
         if (dbUser) {
           token.role = dbUser.role;
           token.isApproved = dbUser.isApproved;
@@ -76,7 +65,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   },
   pages: {
     signIn: '/login',
-    error: '/login?error=AccessDenied',
+    error: '/login',
   },
   trustHost: true,
 });
