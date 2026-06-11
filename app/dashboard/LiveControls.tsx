@@ -122,7 +122,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
           }
         }
         
-        if (initialRoundId && currentStatus !== undefined) {
+        if (initialRoundId) {
           const res2 = await fetch(`${supabaseUrl}/rest/v1/Round?select=status&id=eq.${initialRoundId}`, {
             headers: {
               'apikey': anonKey,
