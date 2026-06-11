@@ -614,7 +614,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         </div>
           
         {/* Quick Stage manual jump override tabs */}
-        <div className="bg-[#0D2421] p-1.5 rounded-2xl border-2 border-[#0D2421] grid grid-cols-4 gap-1.5 shadow-[4px_4px_0px_#0D2421]">
+        <div className="bg-[#0D2421] p-1.5 rounded-2xl border-2 border-[#0D2421] grid grid-cols-2 sm:grid-cols-4 gap-1.5 shadow-[4px_4px_0px_#0D2421]">
           {[1, 2, 3, 4].map((phNum) => {
             const isUnlocked = phNum <= maxUnlockedPhase;
             return (
@@ -927,7 +927,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
           {allParticipants.map((p) => {
             const isSpeaker = activeSpeakerId === p.id;
             const hasCompleted = currentPhase === 4 
@@ -1088,7 +1088,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
           {tableUsers.map((tu: any) => (
             <UserCard key={tu.user.id} tu={{ ...tu, table: { roundId: round.id, tableNumber } }} />
           ))}

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 
 interface OnboardingExportButtonProps {
   users: any[];
@@ -82,9 +83,7 @@ export function OnboardingExportButton({ users, mode = "single" }: OnboardingExp
           href="/api/export/directory"
           className="flex-1 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-[10px] uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
+          <ArrowDownTrayIcon className="w-4 h-4" />
           Excel
         </a>
         <button 
@@ -92,9 +91,7 @@ export function OnboardingExportButton({ users, mode = "single" }: OnboardingExp
           disabled={isExporting}
           className="flex-1 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-[10px] uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
+          <ArrowDownTrayIcon className="w-4 h-4" />
           {isExporting ? "Exporting..." : "PDF"}
         </button>
       </>
@@ -107,9 +104,7 @@ export function OnboardingExportButton({ users, mode = "single" }: OnboardingExp
       disabled={isExporting}
       className="flex items-center justify-center gap-2 px-4 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed w-full sm:w-auto"
     >
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-      </svg>
+      <ArrowDownTrayIcon className="w-4 h-4" />
       {isExporting ? "Exporting..." : "Download Directory PDF"}
     </button>
   );

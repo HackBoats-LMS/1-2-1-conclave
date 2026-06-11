@@ -1,4 +1,6 @@
 import { signIn } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { UsersIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 export default async function LoginPage({
   searchParams,
@@ -6,7 +8,10 @@ export default async function LoginPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const resolvedParams = await searchParams;
-  const error = resolvedParams?.error;
+  const rawError = resolvedParams?.error;
+  const gameState = await prisma.gameState.findFirst({ select: { isOpenLogins: true } });
+  // Suppress the access-denied error if open login is currently enabled
+  const error = gameState?.isOpenLogins ? undefined : rawError;
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] font-sans selection:bg-[#BEF03C]/40 flex items-center justify-center p-6 relative overflow-hidden">
@@ -24,9 +29,7 @@ export default async function LoginPage({
         
         {/* Brand Logo Icon */}
         <div className="w-14 h-14 mx-auto rounded-2xl bg-[#0D2421] border border-[#0D2421] flex items-center justify-center text-[#BEF03C] shadow-[3px_3px_0px_#0D2421]">
-          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
+          <UsersIcon className="w-7 h-7" />
         </div>
 
         <div className="space-y-2">
@@ -39,9 +42,7 @@ export default async function LoginPage({
         {error && (
           <div className="bg-red-50 border-2 border-red-600 p-5 rounded-2xl shadow-[4px_4px_0px_#C21A1A] text-left space-y-2 relative overflow-hidden transition-all duration-300">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+              <ExclamationTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0" />
               <span className="text-xs font-black text-red-600 uppercase tracking-wider">
                 ACCESS RESTRICTED
               </span>

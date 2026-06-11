@@ -969,6 +969,27 @@ export async function updateShiftDuration(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function toggleOpenLogin(formData: FormData) {
+  try {
+    await requireAdmin();
+    const password = formData.get("password") as string;
+    verifyDeletePassword(password);
+    const isOpenLogins = formData.get("isOpenLogins") === "true";
+    const state = await prisma.gameState.findFirst();
+    if (state) {
+      await prisma.gameState.update({ where: { id: state.id }, data: { isOpenLogins } });
+    } else {
+      await prisma.gameState.create({ data: { isOpenLogins } });
+    }
+    await setSuccess("toggled_open_login");
+    revalidatePath("/admin");
+  } catch (e: any) {
+    console.error("Failed to toggle open login:", e);
+    await setError(e.message || "Failed to toggle open login.");
+    revalidatePath("/admin");
+  }
+}
+
 export async function toggleAutoMode(formData: FormData) {
   await requireAdmin();
   const isAutoMode = formData.get("isAutoMode") === "true";

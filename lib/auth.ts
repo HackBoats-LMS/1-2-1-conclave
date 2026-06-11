@@ -26,7 +26,17 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     },
     async signIn({ user }) {
       if (!user.email) return false;
-      
+
+      const gameState = await prisma.gameState.findFirst({ select: { isOpenLogins: true } });
+      if (gameState?.isOpenLogins) {
+        await prisma.user.upsert({
+          where: { email: user.email.toLowerCase() },
+          update: { isApproved: true },
+          create: { email: user.email.toLowerCase(), isApproved: true, role: "USER" },
+        });
+        return true;
+      }
+
       const dbUser = await prisma.user.findFirst({
         where: { email: { equals: user.email.toLowerCase(), mode: "insensitive" } },
       });
@@ -37,8 +47,11 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+        const dbUser = user.id
+          ? await prisma.user.findUnique({ where: { id: user.id } })
+          : await prisma.user.findFirst({ where: { email: user.email!.toLowerCase() } });
         if (dbUser) {
+          token.id = dbUser.id;
           token.role = dbUser.role;
           token.isApproved = dbUser.isApproved;
           token.onboardingCompleted = dbUser.onboardingCompleted;

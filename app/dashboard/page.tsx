@@ -6,6 +6,7 @@ import { UserCard } from "./UserCard";
 import { CaptainActiveRound } from "./CaptainActiveRound";
 import { DownloadMyReferralsButton } from "./DownloadMyReferralsButton";
 import { SelfSpeakerTimer } from "./SelfSpeakerTimer";
+import { ExclamationTriangleIcon, UsersIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
 
 export const dynamic = 'force-dynamic';
 
@@ -344,9 +345,7 @@ export default async function UserDashboard() {
 
         <div className="bg-white border-2 border-[#0D2421] p-8 md:p-12 rounded-[2rem] shadow-[8px_8px_0px_#0D2421] text-center max-w-lg w-full relative z-10 space-y-6">
           <div className="w-14 h-14 bg-amber-500 border-2 border-[#0D2421] rounded-2xl flex items-center justify-center mx-auto text-white shadow-[3px_3px_0px_#0D2421]">
-            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+            <ExclamationTriangleIcon className="w-7 h-7" />
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-black uppercase tracking-tight">No Table Assignment</h1>
@@ -383,26 +382,25 @@ export default async function UserDashboard() {
 
         <div className="max-w-6xl mx-auto w-full relative z-10 space-y-12">
           {/* Header Block */}
-          <header className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] gap-6">
-            <div className="space-y-3">
+          <header className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border-2 border-[#0D2421] p-5 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] gap-4">
+            <div className="space-y-3 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="relative flex h-3.5 w-3.5">
+                <span className="relative flex h-3.5 w-3.5 flex-shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-[#0D2421]"></span>
                 </span>
-                <h1 className="text-3xl font-black uppercase tracking-tight">
+                <h1 className="text-xl md:text-3xl font-black uppercase tracking-tight">
                   Round {round?.roundNumber} is Live
                 </h1>
                 <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-xl border-2 border-amber-700 text-[10px] font-black uppercase shadow-[2px_2px_0px_#0D2421]">
                   👑 TABLE CAPTAIN
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-black uppercase tracking-wider text-[#0D2421]/60">
-                <span className="bg-[#FAF8F4] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wider text-[#0D2421]/60">
+                <span className="bg-[#FAF8F4] px-3 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
                   Table: {myAssignment.table.tableNumber}
                 </span>
-                <span className="hidden sm:inline text-[#0D2421]/30 font-bold">•</span>
-                <span className="bg-[#FAF8F4] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
+                <span className="bg-[#FAF8F4] px-3 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
                   {tableUsers.length + 1} Table Members
                 </span>
               </div>
@@ -450,14 +448,14 @@ export default async function UserDashboard() {
       <div className="max-w-6xl mx-auto w-full relative z-10 space-y-12">
 
         {/* Header Block */}
-        <header className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] gap-6">
-          <div className="space-y-3">
+        <header className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border-2 border-[#0D2421] p-5 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] gap-4">
+          <div className="space-y-3 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="relative flex h-3.5 w-3.5">
+              <span className="relative flex h-3.5 w-3.5 flex-shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-[#0D2421]"></span>
               </span>
-              <h1 className="text-3xl font-black uppercase tracking-tight">
+              <h1 className="text-xl md:text-3xl font-black uppercase tracking-tight">
                 Round {round?.roundNumber} is Live
               </h1>
               {isCaptain && (
@@ -466,21 +464,17 @@ export default async function UserDashboard() {
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-black uppercase tracking-wider text-[#0D2421]/60">
-              <span className="bg-[#FAF8F4] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wider text-[#0D2421]/60">
+              <span className="bg-[#FAF8F4] px-3 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
                 Table: {myAssignment.table.tableNumber}
               </span>
-              <span className="hidden sm:inline text-[#0D2421]/30 font-bold">•</span>
-              <span className="bg-[#FAF8F4] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
+              <span className="bg-[#FAF8F4] px-3 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[2.5px_2.5px_0px_#0D2421]">
                 {tableUsers.length + 1} Table Members
               </span>
               {myAssignment.isCaptain && (
-                <>
-                  <span className="hidden sm:inline text-[#0D2421]/30 font-bold">•</span>
-                  <span className="inline-flex items-center gap-1.5 bg-[#BEF03C] text-[#0D2421] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_#0D2421] transition-all">
-                    👑 Captain
-                  </span>
-                </>
+                <span className="inline-flex items-center gap-1.5 bg-[#BEF03C] text-[#0D2421] px-3 py-1.5 rounded-xl border-2 border-[#0D2421] text-[10px] font-black uppercase shadow-[3px_3px_0px_#0D2421]">
+                  👑 Captain
+                </span>
               )}
             </div>
           </div>
@@ -541,16 +535,14 @@ export default async function UserDashboard() {
         )}
 
         {/* Members Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
           {tableUsers.map((tu: any) => (
             <UserCard key={tu.user.id} tu={{ ...tu, table: myAssignment.table }} alreadyReferred={sentReferralUserIds.has(tu.userId)} />
           ))}
           {tableUsers.length === 0 && (
             <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-white space-y-4">
               <div className="w-16 h-16 bg-[#FAF8F4] border border-[#0D2421]/35 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-8 h-8 text-[#0D2421]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+                <UsersIcon className="w-8 h-8 text-[#0D2421]/40" />
               </div>
               <div className="space-y-1">
                 <p className="font-black text-sm uppercase text-[#0D2421]/70">No other members assigned to this table yet</p>

@@ -1,12 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { User } from "@prisma/client";
 import { cookies } from "next/headers";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, endConclave } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, toggleOpenLogin, endConclave } from "./actions";
 import { AdminAutoShiftingManager } from "./AdminAutoShiftingManager";
 import { EndConclaveButton } from "./EndConclaveButton";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
-import { DeleteUserButton } from "./DeleteUserButton";
 import { SecureAdminButton } from "./SecureAdminButton";
 import { MemberUploadForm } from "./MemberUploadForm";
 import { CaptainUploadForm } from "./CaptainUploadForm";
@@ -15,19 +13,15 @@ import { ReferralsExportButtons } from "./ReferralsExportButtons";
 import { RefreshButton } from "./RefreshButton";
 import { ClientTimer } from "./ClientTimer";
 import { AutoGenerateClient } from "./AutoGenerateClient";
-import { UserSearchFilter } from "./UserSearchFilter";
+import { UserTable } from "./UserTable";
 import { OnboardingExportButton } from "./OnboardingExportButton";
 import { ClearMembersWarningButton } from "./ClearMembersWarningButton";
-
-import { EditUserRoleButton } from "./EditUserRoleButton";
-
-
 import { AdminLiveReferralsClient } from "./AdminLiveReferralsClient";
+import { ArrowTrendingUpIcon, ArrowDownTrayIcon, ArchiveBoxIcon, ExclamationTriangleIcon, RectangleStackIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const resolvedParams = await searchParams;
+export default async function AdminDashboard() {
   const cookieStore = await cookies();
   
   // Read success/error from cookies (set by server actions, auto-expire in 5s)
@@ -70,6 +64,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     successMessage = "Successfully updated the shifting duration!";
   } else if (successAction === "toggled_mode") {
     successMessage = "Successfully switched mode!";
+  } else if (successAction === "toggled_open_login") {
+    successMessage = "Open Login setting updated!";
   }
 
   let errorMessage = "";
@@ -88,17 +84,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     prisma.user.findMany({ orderBy: { email: 'asc' } })
   ]);
 
-  const searchQuery = (resolvedParams?.search as string)?.toLowerCase() || "";
-  const users = allUsers.filter(u => {
-    if (!searchQuery) return true;
-    return (
-      u.email?.toLowerCase().includes(searchQuery) ||
-      u.name?.toLowerCase().includes(searchQuery) ||
-      u.businessName?.toLowerCase().includes(searchQuery) ||
-      u.businessCategory?.toLowerCase().includes(searchQuery) ||
-      u.group?.toLowerCase().includes(searchQuery)
-    );
-  });
+  const users = allUsers;
 
   // ── Calculate Stats ──
   const allOrderedRounds = slots.flatMap(s => s.rounds);
@@ -123,12 +109,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   if (slots.length > 0 && slots[0].rounds.length > 0) {
     currentDuration = slots[0].rounds[0].durationMinutes || 15;
   }
-  const totalUsers = users.length;
-  const approvedUsers = users.filter((u: User) => u.isApproved).length;
-  const pendingOnboarding = users.filter((u: User) => u.isApproved && !u.onboardingCompleted).length;
-  const completedOnboarding = approvedUsers - pendingOnboarding;
-  const captainCount = users.filter((u: User) => u.role === "CAPTAIN").length;
-  const memberCount = users.filter((u: User) => u.role === "USER" && u.isApproved).length;
+  const captainCount = allUsers.filter(u => u.role === "CAPTAIN").length;
+  const memberCount = allUsers.filter(u => u.role === "USER" && u.isApproved).length;
+  const totalUsers = memberCount + captainCount;
+  const nonAdminApproved = allUsers.filter(u => u.isApproved && u.role !== "ADMIN").length;
+  const pendingOnboarding = allUsers.filter(u => u.isApproved && !u.onboardingCompleted && u.role !== "ADMIN").length;
+  const completedOnboarding = nonAdminApproved - pendingOnboarding;
   const hasAssignments = slots.length > 0;
 
   // ── Build Assignment Preview Data (only if assignments exist) ──
@@ -224,9 +210,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       }));
 
     // ── Coverage Analytics (computed in-memory from DB data) ──
-    const memberUsers: User[] = users.filter((u: User) => u.role === "USER" && u.isApproved);
-    const memberIdSet = new Set<string>(memberUsers.map((u: User) => u.id));
-    const memberEmailMap = new Map<string, string>(memberUsers.map((u: User) => [u.id, u.email as string] as [string, string]));
+    const memberUsers = allUsers.filter(u => u.role === "USER" && u.isApproved);
+    const memberIdSet = new Set<string>(memberUsers.map(u => u.id));
+    const memberEmailMap = new Map<string, string>(memberUsers.map(u => [u.id, u.email as string] as [string, string]));
 
     // Build meeting matrix from assignments
     const met = new Map<string, Set<string>>();
@@ -336,14 +322,31 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               />
             </div>
 
-            <div className="flex gap-2 mt-2">
-              <a href="/admin/leaderboard" target="_blank" className="bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                Live Leaderboard
+            <div className="flex flex-wrap gap-2 mt-2 justify-end">
+              <SecureAdminButton
+                action={toggleOpenLogin}
+                label={gameState?.isOpenLogins ? '🔓 Open Login: ON' : '🔒 Open Login: OFF'}
+                loadingText="Switching..."
+                promptText="Enter Admin PIN to toggle Open Login:"
+                extraFields={{ isOpenLogins: gameState?.isOpenLogins ? "false" : "true" }}
+                className={`h-9 px-4 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center gap-1.5 ${
+                  gameState?.isOpenLogins ? 'bg-emerald-400 text-[#0D2421]' : 'bg-slate-200 text-slate-500'
+                }`}
+              />
+              <a href="/admin/leaderboard" target="_blank" className="bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
+                <ArrowTrendingUpIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Live Leaderboard</span>
+                <span className="sm:hidden">Leaderboard</span>
               </a>
-              <a href="/admin/archive" className="bg-white hover:bg-slate-50 text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                Archive Center
+              <a href="/admin/referrals-download" target="_blank" className="bg-white hover:bg-slate-50 text-[#0D2421] border-2 border-[#0D2421] px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
+                <ArrowDownTrayIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Referrals Download</span>
+                <span className="sm:hidden">Referrals</span>
+              </a>
+              <a href="/admin/archive" className="bg-white hover:bg-slate-50 text-[#0D2421] border-2 border-[#0D2421] px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
+                <ArchiveBoxIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Archive Center</span>
+                <span className="sm:hidden">Archive</span>
               </a>
             </div>
           </div>
@@ -356,9 +359,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         {errorMessage && (
           <div className="bg-red-100 border-2 border-[#0D2421] p-4 rounded-2xl shadow-[4px_4px_0px_#0D2421] flex items-center justify-between gap-3 relative z-20">
             <div className="flex items-center gap-3">
-              <svg className="w-6 h-6 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+              <ExclamationTriangleIcon className="w-6 h-6 text-red-600 flex-shrink-0" />
               <span className="font-black text-xs uppercase tracking-wide text-left text-red-700">{errorMessage}</span>
             </div>
             <a 
@@ -462,7 +463,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               <span className="text-[10px] font-black tracking-widest text-[#0D2421]/40 uppercase block">02 / CREDENTIAL HEALTH</span>
               <div className="space-y-1">
                 <h3 className="font-black text-lg uppercase">Platform Access</h3>
-                <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Members, captains, and admin accounts</p>
+                <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Members and captains</p>
               </div>
               <div className="grid grid-cols-3 gap-3 pt-2">
                 <div className="bg-[#FAF8F4] p-3 rounded-2xl border-2 border-[#0D2421] text-center">
@@ -504,11 +505,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           <div className="lg:col-span-8 space-y-10">
             <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
               
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b-2 border-[#0D2421]">
-                <div className="space-y-1">
-                  <h2 className="text-2xl font-black uppercase text-[#0D2421]">Session Rotations</h2>
-                  <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Launch rounds and control active countdowns</p>
-                </div>
+              <div className="pb-6 border-b-2 border-[#0D2421]">
+                <h2 className="text-2xl font-black uppercase text-[#0D2421]">Session Rotations</h2>
+                <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Launch rounds and control active countdowns</p>
               </div>
 
               {/* Controls Grid */}
@@ -573,7 +572,6 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 h-full items-end">
-                      {/* Left: Auto Mode Toggle */}
                       <form action={toggleAutoMode}>
                         <input type="hidden" name="isAutoMode" value={gameState?.isAutoMode ? "false" : "true"} />
                         <SubmitButton loadingText="Switching" className={`w-full h-10 px-3 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
@@ -583,14 +581,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         </SubmitButton>
                       </form>
 
-                      {/* Right: Reset Progress */}
                       <form action={resetAllRounds}>
                         <SubmitButton loadingText="Resetting" className="w-full h-10 px-3 bg-white hover:bg-slate-50 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center">
                           Reset Progress
                         </SubmitButton>
                       </form>
 
-                      {/* Bottom: End Conclave */}
                       <div className="col-span-2 w-full">
                         <EndConclaveButton action={endConclave} />
                       </div>
@@ -706,9 +702,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 {slots.length === 0 && (
                   <div className="text-center py-16 px-6 border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-[#FAF8F4] space-y-4">
                     <div className="w-16 h-16 bg-white border border-[#0D2421]/20 rounded-full flex items-center justify-center mx-auto shadow-sm">
-                      <svg className="w-8 h-8 text-[#0D2421]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
+                      <RectangleStackIcon className="w-8 h-8 text-[#0D2421]/40" />
                     </div>
                     <div className="space-y-1">
                       <p className="font-black text-sm uppercase text-[#0D2421]/70">No assignments generated yet</p>
@@ -767,9 +761,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                     <option value="ADMIN">Platform Admin</option>
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#0D2421]">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                    </svg>
+                    <ChevronDownIcon className="w-4 h-4" />
                   </div>
                 </div>
               </div>
@@ -779,69 +771,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             </div>
           </form>
 
-          {/* User Search Bar */}
-          <UserSearchFilter />
-
-          {/* Members Table */}
-          <div className="overflow-x-auto border-2 border-[#0D2421] rounded-[2rem] bg-white shadow-[4px_4px_0px_#0D2421] overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#FAF8F4] border-b-2 border-[#0D2421]">
-                  <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider">Name / Email</th>
-                  <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider">Business Details</th>
-                  <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-center">Login Whitelist</th>
-                  <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-center">Auth Level</th>
-                  <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-right">
-                    Total: {users.length}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#0D2421]/15 text-xs">
-                {users.map((user: User) => (
-                  <tr key={user.id} className="hover:bg-[#FAF8F4]/30 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="font-black text-sm text-[#0D2421]">{user.name || 'N/A'}</div>
-                      <div className="text-[#0D2421]/60 font-semibold">{user.email}</div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="font-black text-sm text-[#0D2421]">{user.businessName || '-'}</div>
-                      <div className="text-slate-400 font-bold uppercase text-[10px] tracking-wide">{user.businessCategory || '-'}</div>
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-xl border border-[#0D2421] font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
-                        user.isApproved ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-amber-100 text-[#0D2421]'
-                      }`}>
-                        {user.isApproved ? 'Approved' : 'Pending'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl border border-[#0D2421] font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
-                        user.role === 'ADMIN' 
-                          ? 'bg-[#0D2421] text-[#BEF03C]' 
-                          : user.role === 'CAPTAIN'
-                            ? 'bg-amber-400 text-[#0D2421]'
-                            : 'bg-white text-[#0D2421]'
-                      }`}>
-                        {user.role === 'CAPTAIN' && '👑 '}
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <EditUserRoleButton userId={user.id} currentRole={user.role} />
-                        <DeleteUserButton userId={user.id} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#0D2421]/40 font-bold uppercase tracking-wider">No registered users in database</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <UserTable users={users} />
         </div>
       </div>
       

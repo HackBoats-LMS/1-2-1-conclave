@@ -132,7 +132,7 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
   };
 
   return (
-    <div className={`bg-white border-2 rounded-[2rem] overflow-hidden transition-all flex flex-col justify-between relative min-h-[420px] ${
+    <div className={`bg-white border-2 rounded-[2rem] overflow-hidden transition-all flex flex-col justify-between relative ${
       activeTimer 
         ? 'border-[#BEF03C] shadow-[8px_8px_0px_#BEF03C] -translate-y-1 -translate-x-1 ring-4 ring-[#BEF03C]/20' 
         : 'border-[#0D2421] shadow-[6px_6px_0px_#0D2421] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_#0D2421]'
@@ -217,7 +217,7 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
       )}
 
       {/* Card Content */}
-      <div className="p-8 space-y-6 flex-1 flex flex-col justify-between">
+      <div className="p-5 md:p-8 space-y-5 md:space-y-6 flex-1 flex flex-col justify-between">
         <div className="space-y-4">
           <div className="flex items-center space-x-4">
             <div className={`w-14 h-14 ${tu.isCaptain ? 'bg-amber-400' : 'bg-[#BEF03C]'} border-2 border-[#0D2421] text-[#0D2421] rounded-2xl flex items-center justify-center font-black text-2xl shadow-[2px_2px_0px_#0D2421] flex-shrink-0 relative`}>

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { CheckIcon, ExclamationTriangleIcon, ArrowDownTrayIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 interface AssignmentUser {
   id: string;
   email: string;
@@ -208,13 +209,9 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
                 : 'bg-amber-400 text-[#0D2421]'
             }`}>
               {isPerfectCoverage ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckIcon className="w-5 h-5" />
               ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+                <ExclamationTriangleIcon className="w-5 h-5" />
               )}
             </div>
             <div>
@@ -324,9 +321,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
               href="/api/export/assignments"
               className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
+              <ArrowDownTrayIcon className="w-4 h-4" />
               Assignments (Excel)
             </a>
             <button
@@ -334,9 +329,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
               disabled={isExporting}
               className="flex-1 py-3 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
+              <ArrowDownTrayIcon className="w-4 h-4" />
               Assignments (PDF)
             </button>
           </div>
@@ -345,9 +338,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
               href="/api/export/referrals"
               className="flex-1 py-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
+              <ArrowDownTrayIcon className="w-4 h-4" />
               Referrals (Excel)
             </a>
             <button
@@ -355,9 +346,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
               disabled={isExporting}
               className="flex-1 py-3 bg-[#0D2421] text-[#BEF03C] border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase text-center shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
+              <ArrowDownTrayIcon className="w-4 h-4" />
               Referrals (PDF)
             </button>
           </div>
@@ -390,9 +379,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
                   <span className="font-black text-sm uppercase">Slot {slot.slotNumber}</span>
                   <span className="text-[10px] font-bold text-[#0D2421]/40 uppercase">{slot.rounds.length} rounds</span>
                 </div>
-                <svg className={`w-5 h-5 text-[#0D2421]/40 transition-transform ${expandedSlots.has(slot.slotNumber) ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDownIcon className={`w-5 h-5 text-[#0D2421]/40 transition-transform ${expandedSlots.has(slot.slotNumber) ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Slot Content */}
@@ -414,9 +401,7 @@ export function AssignmentPreview({ slots, analytics }: AssignmentPreviewProps) 
                             <span className="font-black text-xs uppercase">Round {round.roundNumber}</span>
                             <span className="text-[10px] font-bold text-[#0D2421]/40 uppercase">{round.tables.length} tables</span>
                           </div>
-                          <svg className={`w-4 h-4 text-[#0D2421]/30 transition-transform ${expandedRounds.has(roundKey) ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
+                          <ChevronDownIcon className={`w-4 h-4 text-[#0D2421]/30 transition-transform ${expandedRounds.has(roundKey) ? 'rotate-180' : ''}`} />
                         </button>
 
                         {/* Round Tables */}

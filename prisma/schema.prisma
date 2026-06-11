@@ -122,6 +122,7 @@ model GameState {
   currentRoundId String?
   shiftDuration  Int     @default(3)
   isAutoMode     Boolean @default(false)
+  isOpenLogins   Boolean @default(false)
 }
 
 model ArchivedEvent {

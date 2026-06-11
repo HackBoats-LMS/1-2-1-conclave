@@ -11,6 +11,7 @@ interface SecureAdminButtonProps {
   className: string;
   promptText: string;
   formClassName?: string;
+  extraFields?: Record<string, string>;
 }
 
 export function SecureAdminButton({ 
@@ -19,7 +20,8 @@ export function SecureAdminButton({
   loadingText, 
   className, 
   promptText,
-  formClassName = "inline-block w-full sm:w-auto"
+  formClassName = "inline-block w-full sm:w-auto",
+  extraFields,
 }: SecureAdminButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -57,6 +59,9 @@ export function SecureAdminButton({
   return (
     <>
       <form ref={formRef} action={action} onSubmit={handleSubmit} className={formClassName}>
+        {extraFields && Object.entries(extraFields).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
         <SubmitButton loadingText={loadingText} className={className}>
           {label}
         </SubmitButton>

@@ -6,6 +6,7 @@ import autoTable from "jspdf-autotable";
 import * as xlsx from "xlsx";
 import { SecureAdminButton } from "./SecureAdminButton";
 import { deleteArchivedEvent } from "./actions";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface ArchivedEvent {
   id: string;
@@ -187,7 +188,7 @@ export function AdminArchiveSection({ events }: { events: ArchivedEvent[] }) {
         
         <div className="w-full md:w-72 relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[#0D2421]/40">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <MagnifyingGlassIcon className="w-4 h-4" />
           </div>
           <input
             type="text"
@@ -274,7 +275,7 @@ export function AdminArchiveSection({ events }: { events: ArchivedEvent[] }) {
                 {expandedEventId === evt.id && (
                   <div className="flex-1 relative max-w-sm">
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[#0D2421]/40">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                      <MagnifyingGlassIcon className="w-4 h-4" />
                     </div>
                     <input
                       type="text"
