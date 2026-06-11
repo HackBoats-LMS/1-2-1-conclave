@@ -2,16 +2,14 @@
 
 import { useEffect, useState, useRef } from "react";
 
-export function AdminLiveReferralsClient({ initialTotal }: { initialTotal: number }) {
-  const [prevInitial, setPrevInitial] = useState(initialTotal);
+export function LiveReferralsTotalBadge({ initialTotal }: { initialTotal: number }) {
   const [total, setTotal] = useState(initialTotal);
   const totalRef = useRef(initialTotal);
 
-  if (initialTotal !== prevInitial) {
-    setPrevInitial(initialTotal);
+  useEffect(() => {
     setTotal(initialTotal);
     totalRef.current = initialTotal;
-  }
+  }, [initialTotal]);
 
   useEffect(() => {
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -46,8 +44,9 @@ export function AdminLiveReferralsClient({ initialTotal }: { initialTotal: numbe
   }, []);
 
   return (
-    <div className="text-6xl font-black tracking-tight text-[#0D2421] py-4 bg-[#BEF03C]/10 border-2 border-dashed border-[#0D2421]/20 text-center rounded-2xl transition-all duration-300">
-      {total}
+    <div className="flex flex-col items-center bg-[#BEF03C] border-2 border-[#0D2421] px-5 py-3 rounded-2xl shadow-[3px_3px_0px_#0D2421]">
+      <span className="text-3xl font-black leading-none">{total}</span>
+      <span className="text-[8px] font-black uppercase tracking-widest text-[#0D2421]/60 mt-0.5">Total Referrals</span>
     </div>
   );
 }

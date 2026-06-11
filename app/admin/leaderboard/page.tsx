@@ -1,8 +1,9 @@
 import React from "react";
 import { prisma } from "@/lib/prisma";
-import { LiveLeaderboardClient } from "./LiveLeaderboardClient";
 import { LeaderboardTimerClient } from "./LeaderboardTimerClient";
 import { BigShiftingTimerClient } from "./BigShiftingTimerClient";
+import { LiveTotalCount } from "./LiveTotalCount";
+import { LiveLeaderboardClient } from "./LiveLeaderboardClient";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,15 @@ export default async function LeaderboardPage() {
 
   const allRoundsCompleted = rounds.length > 0 && rounds.every(r => r.status === "COMPLETED") && !gameState?.currentRoundId;
 
+  // Fetch next pending round for auto-start
+  const nextPendingRound = gameState?.isAutoMode
+    ? await prisma.round.findFirst({
+        where: { status: "PENDING" },
+        orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
+        select: { id: true },
+      })
+    : null;
+
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col h-screen max-h-screen">
       <BigShiftingTimerClient 
@@ -92,15 +102,16 @@ export default async function LeaderboardPage() {
         isRoundActive={!!activeRound}
         durationMinutes={gameState?.shiftDuration || 3}
         allRoundsCompleted={allRoundsCompleted}
+        isAutoMode={!!gameState?.isAutoMode}
+        nextRoundId={nextPendingRound?.id || null}
       />
+      <LiveLeaderboardClient />
 
       {/* Blueprint Dot Grid Background */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
       
-      <LiveLeaderboardClient />
-      
       <style dangerouslySetInnerHTML={{ __html: `footer { display: none !important; }` }} />
-      
+
       <div className="max-w-[1500px] mx-auto w-full relative z-10 flex flex-col h-full overflow-hidden">
         {/* HEADER SECTION */}
         <header className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border-2 border-[#0D2421] p-4 md:p-5 rounded-3xl shadow-[4px_4px_0px_#0D2421] gap-4 mb-4 shrink-0">
@@ -161,15 +172,7 @@ export default async function LeaderboardPage() {
                 <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest text-[#0D2421]/70 bg-white/50 px-5 py-2 rounded-2xl border-2 border-[#0D2421] shadow-[3px_3px_0px_#0D2421] inline-block mb-4 text-center">
                   Total Connections Made
                 </h2>
-                <div className={`${
-                  totalReferrals.toString().length >= 4 
-                    ? "text-6xl md:text-7xl lg:text-[7rem]" 
-                    : totalReferrals.toString().length === 3 
-                      ? "text-7xl md:text-8xl lg:text-[9rem]"
-                      : "text-8xl md:text-[10rem] lg:text-[12rem]"
-                } font-black tracking-tighter leading-none tabular-nums text-[#0D2421] drop-shadow-[4px_4px_0px_rgba(255,255,255,0.7)] transition-all text-center`}>
-                  {totalReferrals}
-                </div>
+                <LiveTotalCount initialTotal={totalReferrals} />
               </div>
 
               {/* BOTTOM: SCROLLABLE ROUND BREAKDOWN */}

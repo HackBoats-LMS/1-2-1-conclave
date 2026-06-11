@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 interface LeaderboardTimerClientProps {
   roundNumber: number;
@@ -12,6 +12,9 @@ interface LeaderboardTimerClientProps {
 export function LeaderboardTimerClient({ roundNumber, startedAt, durationMinutes, status }: LeaderboardTimerClientProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [prevStatus, setPrevStatus] = useState(status);
+  const statusRef = useRef(status);
+
+  useEffect(() => { statusRef.current = status; }, [status]);
 
   if (status !== prevStatus) {
     setPrevStatus(status);
@@ -26,16 +29,17 @@ export function LeaderboardTimerClient({ roundNumber, startedAt, durationMinutes
     }
 
     const calculateTimeLeft = () => {
+      const currentStatus = statusRef.current;
       const startTime = new Date(startedAt).getTime();
       const endTime = startTime + (durationMinutes * 60 * 1000);
-      
-      if (status.startsWith('PAUSED_')) {
-        const elapsedSec = parseInt(status.split('_')[1]);
+
+      if (currentStatus.startsWith('PAUSED_')) {
+        const elapsedSec = parseInt(currentStatus.split('_')[1]);
         if (!isNaN(elapsedSec)) {
           return Math.max(0, (durationMinutes * 60 * 1000) - (elapsedSec * 1000));
         }
       }
-      
+
       const now = new Date().getTime();
       return Math.max(0, endTime - now);
     };
@@ -45,7 +49,8 @@ export function LeaderboardTimerClient({ roundNumber, startedAt, durationMinutes
 
     if (status === 'IN_PROGRESS') {
       const interval = setInterval(() => {
-        setTimeLeft(calculateTimeLeft());
+        const remaining = calculateTimeLeft();
+        setTimeLeft(remaining);
       }, 1000);
       return () => clearInterval(interval);
     }

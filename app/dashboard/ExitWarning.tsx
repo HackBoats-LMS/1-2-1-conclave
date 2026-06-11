@@ -28,12 +28,19 @@ export function ExitWarning() {
       }
     };
 
+    // Native browser alert for tab close / window close / refresh via browser button
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+
     window.addEventListener("popstate", handlePopState);
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
 

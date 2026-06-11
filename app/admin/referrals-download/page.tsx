@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { AdminReferralsDownloadClient } from "./AdminReferralsDownloadClient";
 import { UserSearchFilter } from "../UserSearchFilter";
 import { Suspense } from "react";
+import { LiveReferralsTotalBadge } from "./LiveReferralsTotalBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -73,10 +74,7 @@ export default async function AdminReferralsDownloadPage({ searchParams }: { sea
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            <div className="flex flex-col items-center bg-[#BEF03C] border-2 border-[#0D2421] px-5 py-3 rounded-2xl shadow-[3px_3px_0px_#0D2421]">
-              <span className="text-3xl font-black leading-none">{totalReferrals}</span>
-              <span className="text-[8px] font-black uppercase tracking-widest text-[#0D2421]/60 mt-0.5">Total Referrals</span>
-            </div>
+            <LiveReferralsTotalBadge initialTotal={totalReferrals} />
             <div className="flex flex-col items-center bg-[#FAF8F4] border-2 border-[#0D2421] px-5 py-3 rounded-2xl shadow-[3px_3px_0px_#0D2421]">
               <span className="text-3xl font-black leading-none">{users.length}</span>
               <span className="text-[8px] font-black uppercase tracking-widest text-[#0D2421]/60 mt-0.5">Participants</span>

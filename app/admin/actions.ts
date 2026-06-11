@@ -5,7 +5,32 @@ import { cookies } from "next/headers";
 import * as xlsx from 'xlsx';
 import { auth } from "@/lib/auth";
 import crypto from 'crypto';
-import { supabase } from "@/lib/supabaseClient";
+
+// Server-side broadcast via Supabase REST API
+async function broadcast(event: string, payload: object = {}) {
+  const channels = ["big_shift_timer", "global_events", "leaderboard_page_refresh"];
+  try {
+    await Promise.all(
+      channels.map((channel) =>
+        fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/realtime/v1/api/broadcast`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+              "x-api-key": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify({
+              messages: [{ topic: `realtime:${channel}`, event, payload }],
+            }),
+          }
+        )
+      )
+    );
+  } catch (_) {}
+}
 
 async function requireAdmin() {
   const session = await auth();
@@ -288,7 +313,7 @@ export async function startRound(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'start' });
+    await broadcast('round_state_change', { action: 'start' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -310,7 +335,7 @@ export async function stopRound(payload: FormData | string) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'stop' });
+    await broadcast('round_state_change', { action: 'stop' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -333,7 +358,7 @@ export async function pauseRound(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'pause' });
+    await broadcast('round_state_change', { action: 'pause' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -353,7 +378,7 @@ export async function resetAllRounds() {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'reset' });
+    await broadcast('round_state_change', { action: 'reset' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -1032,7 +1057,7 @@ export async function endConclave(formData: FormData) {
       });
     }
 
-    await supabase.channel('global_events').httpSend('round_state_change', { action: 'end_conclave' });
+    await broadcast('round_state_change', { action: 'end_conclave' });
 
     await setSuccess("ended_conclave");
     revalidatePath("/admin");

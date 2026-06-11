@@ -1,51 +1,110 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { startRound } from "../actions";
 
-export function BigShiftingTimerClient({ lastRoundEndedAt, durationMinutes = 3, isRoundActive, allRoundsCompleted }: { lastRoundEndedAt: Date | string | null, durationMinutes?: number, isRoundActive: boolean, allRoundsCompleted?: boolean }) {
+interface GameState {
+  isRoundActive: boolean;
+  lastRoundEndedAt: string | null;
+  shiftDuration: number;
+  isAutoMode: boolean;
+  nextRoundId: string | null;
+}
+
+export function BigShiftingTimerClient({
+  lastRoundEndedAt: initialLastRoundEndedAt,
+  durationMinutes: initialDurationMinutes = 3,
+  isRoundActive: initialRoundActive,
+  allRoundsCompleted,
+  isAutoMode: initialAutoMode = false,
+  nextRoundId: initialNextRoundId = null,
+}: {
+  lastRoundEndedAt: Date | string | null;
+  durationMinutes?: number;
+  isRoundActive: boolean;
+  allRoundsCompleted?: boolean;
+  isAutoMode?: boolean;
+  nextRoundId?: string | null;
+}) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [liveRoundActive, setLiveRoundActive] = useState(initialRoundActive);
+  const [liveEndedAtMs, setLiveEndedAtMs] = useState<number | null>(
+    initialLastRoundEndedAt ? new Date(initialLastRoundEndedAt).getTime() : null
+  );
+  const [liveDuration, setLiveDuration] = useState(initialDurationMinutes);
+  const [liveAutoMode, setLiveAutoMode] = useState(initialAutoMode);
+  const [liveNextRoundId, setLiveNextRoundId] = useState(initialNextRoundId);
 
-  // Convert server-serialized date string to timestamp for reliable comparison
-  const endedAtMs = lastRoundEndedAt ? new Date(lastRoundEndedAt).getTime() : null;
-  const prevEndedAtMsRef = useRef(endedAtMs);
-  const prevIsRoundActiveRef = useRef(isRoundActive);
+  const hasTriggeredRef = useRef(false);
+  const prevRoundActiveRef = useRef(initialRoundActive);
 
-  // Detect prop changes (replaces the old broken getTime() comparison)
-  if (endedAtMs !== prevEndedAtMsRef.current || isRoundActive !== prevIsRoundActiveRef.current) {
-    prevEndedAtMsRef.current = endedAtMs;
-    prevIsRoundActiveRef.current = isRoundActive;
-    // If round just became active or all rounds done, clear the timer immediately
-    if (!endedAtMs || isRoundActive || allRoundsCompleted) {
-      setTimeLeft(null);
-    }
-  }
-
+  // Poll /api/game-state every 2s — source of truth
   useEffect(() => {
-    if (!endedAtMs || isRoundActive || allRoundsCompleted) {
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/game-state", { cache: "no-store" });
+        if (!res.ok) return;
+        const data: GameState = await res.json();
+
+        const wasActive = prevRoundActiveRef.current;
+        const isNowActive = data.isRoundActive;
+        prevRoundActiveRef.current = isNowActive;
+
+        setLiveRoundActive(isNowActive);
+        setLiveDuration(data.shiftDuration);
+        setLiveAutoMode(data.isAutoMode);
+        setLiveNextRoundId(data.nextRoundId);
+
+        // Round just became inactive — start the shifting timer from now
+        if (wasActive && !isNowActive) {
+          hasTriggeredRef.current = false;
+          setLiveEndedAtMs(Date.now());
+        }
+
+        // Round became active again — reset everything
+        if (!wasActive && isNowActive) {
+          setLiveEndedAtMs(null);
+          setTimeLeft(null);
+        }
+      } catch (_) {}
+    };
+
+    poll(); // immediate first call
+    const interval = setInterval(poll, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Shifting countdown
+  useEffect(() => {
+    if (!liveEndedAtMs || liveRoundActive || allRoundsCompleted) {
       setTimeLeft(null);
       return;
     }
 
-    // Target time is when the last round ended + shift duration
-    const targetTime = endedAtMs + durationMinutes * 60 * 1000;
+    const targetTime = liveEndedAtMs + liveDuration * 60 * 1000;
 
-    const updateTimer = () => {
-      const now = Date.now();
-      const remaining = targetTime - now;
+    const tick = () => {
+      const remaining = targetTime - Date.now();
       if (remaining > 0) {
         setTimeLeft(remaining);
       } else {
         setTimeLeft(0);
+        if (liveAutoMode && liveNextRoundId && !hasTriggeredRef.current && remaining >= -5000) {
+          hasTriggeredRef.current = true;
+          const fd = new FormData();
+          fd.append("roundId", liveNextRoundId);
+          startRound(fd);
+        }
       }
     };
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [endedAtMs, durationMinutes, isRoundActive, allRoundsCompleted]);
+  }, [liveEndedAtMs, liveDuration, liveRoundActive, allRoundsCompleted, liveAutoMode, liveNextRoundId]);
 
-  // Hide the popup if time is up, or if round is active
-  if (timeLeft === null || timeLeft === 0 || isRoundActive) return null;
+  if (timeLeft === null || liveRoundActive) return null;
+  if (timeLeft === 0) return null;
 
   const m = Math.floor(timeLeft / 1000 / 60);
   const s = Math.floor((timeLeft / 1000) % 60);

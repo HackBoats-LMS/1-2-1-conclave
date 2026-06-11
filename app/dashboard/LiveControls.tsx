@@ -74,12 +74,15 @@ export function AutoRefresh({ initialRoundId, currentStatus, userId, initialRefe
     if (!supabaseUrl || !anonKey) return;
 
     // Listen to global_events for zero-lag syncing when the admin clicks pause/resume
+    let cleanup: (() => void) | null = null;
     import('@/lib/supabaseClient').then(({ supabase }) => {
-      const channel = supabase.channel("global_events");
-      channel.on("broadcast", { event: "round_state_change" }, () => {
-        router.refresh();
-      });
-      channel.subscribe();
+      const channel = supabase
+        .channel("global_events")
+        .on("broadcast", { event: "round_state_change" }, () => {
+          router.refresh();
+        })
+        .subscribe();
+      cleanup = () => { supabase.removeChannel(channel); };
     });
 
     // Fallback polling just in case WebSockets fail
@@ -134,7 +137,10 @@ export function AutoRefresh({ initialRoundId, currentStatus, userId, initialRefe
         }
       } catch (_e) {}
     }, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      cleanup?.();
+      clearInterval(interval);
+    };
   }, [router, initialRoundId, currentStatus, userId, initialReferralCount]);
   return null;
 }

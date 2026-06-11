@@ -4,29 +4,27 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+// Refreshes page on round_state_change so activeRound/leaderboard data stays current.
+// Uses a dedicated channel name to avoid colliding with LiveTotalCount's "global_events".
 export function LiveLeaderboardClient() {
   const router = useRouter();
 
   useEffect(() => {
-    // Subscribe to the global events channel
-    const channel = supabase.channel("global_events");
-
-    channel.on("broadcast", { event: "new_referral" }, () => {
-      // Whenever a new referral is broadcasted, tell Next.js to re-fetch the Server Component data
-      router.refresh();
-    });
-
-    channel.on("broadcast", { event: "round_state_change" }, () => {
-      // Refresh to update the shifting timer or active round status instantly
-      router.refresh();
-    });
-
-    channel.subscribe();
+    const channel = supabase
+      .channel("leaderboard_page_refresh")
+      .on("broadcast", { event: "round_state_change" }, ({ payload }: { payload: Record<string, string> }) => {
+        // Only refresh on start so the new round's timer/data appears.
+        // Do NOT refresh on stop — that would reset BigShiftingTimerClient's local state.
+        if (payload?.action === "start") {
+          router.refresh();
+        }
+      })
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [router]);
 
-  return null; // This component is invisible, it just handles the Realtime data sync
+  return null;
 }
