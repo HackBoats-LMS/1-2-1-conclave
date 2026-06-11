@@ -51,5 +51,27 @@ export async function GET() {
     isAutoMode: !!gameState?.isAutoMode,
     nextRoundId: nextPendingRound?.id || null,
     allRoundsCompleted,
+    topSenders: await prisma.user.findMany({
+      where: { role: { in: ["USER", "CAPTAIN"] } },
+      include: { _count: { select: { sentReferrals: true } } },
+      orderBy: { sentReferrals: { _count: "desc" } },
+      take: 10,
+    }),
+    referralUsers: await prisma.user.findMany({
+      where: { role: { in: ["USER", "CAPTAIN"] }, onboardingCompleted: true },
+      select: {
+        id: true, name: true, email: true, businessName: true,
+        businessCategory: true, role: true,
+        receivedReferrals: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            fromUser: {
+              select: { name: true, email: true, businessName: true, businessCategory: true, contactNumber: true },
+            },
+          },
+        },
+      },
+      orderBy: { receivedReferrals: { _count: "desc" } },
+    }),
   });
 }
