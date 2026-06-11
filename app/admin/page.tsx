@@ -17,6 +17,7 @@ import { UserTable } from "./UserTable";
 import { OnboardingExportButton } from "./OnboardingExportButton";
 import { ClearMembersWarningButton } from "./ClearMembersWarningButton";
 import { AdminLiveReferralsClient } from "./AdminLiveReferralsClient";
+import { LogoutButton } from "../components/LogoutButton";
 import { ArrowTrendingUpIcon, ArrowDownTrayIcon, ArchiveBoxIcon, ExclamationTriangleIcon, RectangleStackIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 
 export const dynamic = 'force-dynamic';
@@ -292,61 +293,65 @@ export default async function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-6 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col">
+    <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 md:p-10 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col">
       {/* Blueprint Dot Grid Background */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
       <div className="max-w-7xl mx-auto w-full relative z-10 space-y-10">
         
         {/* Header Block */}
-        <header className="flex flex-col md:flex-row md:justify-between md:items-center bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#0D2421] text-[#BEF03C] border border-[#0D2421] rounded-full text-[10px] font-black tracking-widest uppercase shadow-[1.5px_1.5px_0px_#0D2421]">
-              ADMIN MODULE / ORCHESTRATION LOBBY
+        <header className="bg-white border-2 border-[#0D2421] p-5 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-5">
+          {/* Top row: title + hackboats + logout */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2 min-w-0">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#0D2421] text-[#BEF03C] border border-[#0D2421] rounded-full text-[10px] font-black tracking-widest uppercase shadow-[1.5px_1.5px_0px_#0D2421] whitespace-nowrap">
+                <span className="hidden sm:inline">ADMIN MODULE / ORCHESTRATION LOBBY</span>
+                <span className="sm:hidden">ADMIN MODULE</span>
+              </div>
+              <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-tight">
+                Admin Control Console
+              </h1>
+              <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wider hidden sm:block">
+                Upload members & captains, auto-generate assignments, and control live rounds.
+              </p>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight pt-1">
-              Admin Control Console
-            </h1>
-            <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wider">
-              Upload members & captains, auto-generate assignments, and control live rounds.
-            </p>
+            <div className="flex-shrink-0 flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <img 
+                  src="/hb-logo.png" 
+                  alt="HackBoats Logo" 
+                  className="h-6 md:h-9 object-contain hover:scale-105 transition-transform duration-300"
+                  draggable={false}
+                />
+                <LogoutButton />
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-black text-[#0D2421]/50 uppercase tracking-widest mt-1">Powered by</span>
-              <img 
-                src="/hb-logo.png" 
-                alt="HackBoats Logo" 
-                className="h-8 md:h-10 object-contain hover:scale-105 transition-transform duration-300"
-                draggable={false}
-              />
-            </div>
 
-            <div className="flex flex-wrap gap-2 mt-2 justify-end">
+          {/* Bottom row: nav buttons */}
+          <div className="pt-3 border-t border-[#0D2421]/10">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
               <SecureAdminButton
                 action={toggleOpenLogin}
                 label={gameState?.isOpenLogins ? '🔓 Open Login: ON' : '🔒 Open Login: OFF'}
                 loadingText="Switching..."
                 promptText="Enter Admin PIN to toggle Open Login:"
                 extraFields={{ isOpenLogins: gameState?.isOpenLogins ? "false" : "true" }}
-                className={`h-9 px-4 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`h-9 px-3 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   gameState?.isOpenLogins ? 'bg-emerald-400 text-[#0D2421]' : 'bg-slate-200 text-slate-500'
                 }`}
               />
-              <a href="/admin/leaderboard" target="_blank" className="bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
-                <ArrowTrendingUpIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Live Leaderboard</span>
-                <span className="sm:hidden">Leaderboard</span>
+              <a href="/admin/leaderboard" target="_blank" className="h-9 px-3 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all flex items-center justify-center gap-2">
+                <ArrowTrendingUpIcon className="w-4 h-4 flex-shrink-0" />
+                <span>Leaderboard</span>
               </a>
-              <a href="/admin/referrals-download" target="_blank" className="bg-white hover:bg-slate-50 text-[#0D2421] border-2 border-[#0D2421] px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
-                <ArrowDownTrayIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Referrals Download</span>
-                <span className="sm:hidden">Referrals</span>
+              <a href="/admin/referrals-download" target="_blank" className="h-9 px-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all flex items-center justify-center gap-2">
+                <ArrowDownTrayIcon className="w-4 h-4 flex-shrink-0" />
+                <span>Referrals</span>
               </a>
-              <a href="/admin/archive" className="bg-white hover:bg-slate-50 text-[#0D2421] border-2 border-[#0D2421] px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
-                <ArchiveBoxIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Archive Center</span>
-                <span className="sm:hidden">Archive</span>
+              <a href="/admin/archive" className="h-9 px-3 bg-white text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all flex items-center justify-center gap-2">
+                <ArchiveBoxIcon className="w-4 h-4 flex-shrink-0" />
+                <span>Archive</span>
               </a>
             </div>
           </div>
