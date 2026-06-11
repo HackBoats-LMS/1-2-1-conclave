@@ -57,8 +57,8 @@ export default async function Home() {
 
           <div className="flex items-center gap-4">
             {isLoggedIn && (
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 bg-[#0D2421]/5 text-[#0D2421] rounded-lg border border-[#0D2421] uppercase">
+              <div className="hidden sm:flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 bg-[#0D2421]/5 text-[#0D2421] rounded-lg border border-[#0D2421] uppercase">
                   {isCaptain && <span>👑</span>}
                   {session.user?.name?.split(" ")[0]}
                 </span>
