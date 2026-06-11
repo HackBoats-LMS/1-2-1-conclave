@@ -149,15 +149,11 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
           }
         }
         
-        let pairs = 0;
-        const counted = new Set<string>();
-        for (const [id, partners] of met) {
-          for (const partner of partners) {
-            if (captainIds.includes(id) && captainIds.includes(partner)) continue;
-            const key = id < partner ? `${id}|${partner}` : `${partner}|${id}`;
-            if (!counted.has(key)) { counted.add(key); pairs++; }
-          }
+        let totalSize = 0;
+        for (const partners of met.values()) {
+          totalSize += partners.size;
         }
+        const pairs = totalSize / 2;
         return { pairs, met, score: pairs - groupPenalty };
       };
 
@@ -176,15 +172,11 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
         const pool = [...memberIds];
 
         while (matrix.length < MAX_ROUNDS) {
-          let metCount = 0;
-          const counted = new Set<string>();
-          for (const [id, partners] of currentMet) {
-            for (const partner of partners) {
-              if (captainIds.includes(id) && captainIds.includes(partner)) continue;
-              const key = id < partner ? `${id}|${partner}` : `${partner}|${id}`;
-              if (!counted.has(key)) { counted.add(key); metCount++; }
-            }
+          let totalSize = 0;
+          for (const partners of currentMet.values()) {
+            totalSize += partners.size;
           }
+          const metCount = totalSize / 2;
           if (metCount >= totalPossiblePairs) break;
 
           let bestRound: string[][] = Array.from({ length: C }, () => []);

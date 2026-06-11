@@ -424,7 +424,7 @@ export async function uploadWhitelistExcel(formData: FormData) {
       where: { email: { in: uploadedEmails } },
       select: { email: true }
     });
-    const existingEmails = new Set(existingUsers.map(u => u.email!.toLowerCase()));
+    const existingEmails = new Set(existingUsers.map(u => u.email?.toLowerCase()).filter(Boolean) as string[]);
 
     const toCreate = usersData.filter(u => !existingEmails.has(u.email.toLowerCase()));
     const toUpdate = usersData.filter(u => existingEmails.has(u.email.toLowerCase()));
@@ -502,7 +502,7 @@ export async function uploadCaptainExcel(formData: FormData) {
       where: { email: { in: uploadedEmails } },
       select: { email: true }
     });
-    const existingEmails = new Set(existingUsers.map(u => u.email!.toLowerCase()));
+    const existingEmails = new Set(existingUsers.map(u => u.email?.toLowerCase()).filter(Boolean) as string[]);
 
     const toCreate = usersData.filter(u => !existingEmails.has(u.email.toLowerCase()));
     const toUpdate = usersData.filter(u => existingEmails.has(u.email.toLowerCase()));
@@ -620,6 +620,301 @@ export async function saveAutoAssignments(payload: any) {
   }
 }
 
+// Helper functions for matching
+function genId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function calculateSlotGrouping(totalRounds: number): number[] {
+  if (totalRounds <= 4) return [totalRounds];
+  if (totalRounds % 4 === 0) return Array(totalRounds / 4).fill(4);
+  if (totalRounds % 3 === 0) return Array(totalRounds / 3).fill(3);
+  
+  const slotsOf4 = Math.floor(totalRounds / 4);
+  const remainder = totalRounds % 4;
+  
+  if (remainder === 0) return Array(slotsOf4).fill(4);
+  if (remainder === 1 && slotsOf4 > 0) {
+    return Array(Math.ceil(totalRounds / 3)).fill(0).map((_, i) => {
+      const remaining = totalRounds - i * 3;
+      return Math.min(remaining, 3);
+    }).filter(n => n > 0);
+  }
+  if (remainder === 2) {
+    if (totalRounds === 6) return [3, 3];
+    const result = Array(slotsOf4).fill(4);
+    result.push(2);
+    return result;
+  }
+  if (remainder === 3) {
+    const result = Array(slotsOf4).fill(4);
+    result.push(3);
+    return result;
+  }
+  
+  const slots: number[] = [];
+  let left = totalRounds;
+  while (left > 0) {
+    const chunk = Math.min(left, 4);
+    slots.push(chunk);
+    left -= chunk;
+  }
+  return slots;
+}
+
+export async function generateAutoAssignments(maxRounds: number, defaultDuration: number) {
+  await requireAdmin();
+  try {
+    const { captains, members, error: fetchError } = await fetchUsersForGeneration();
+    if (fetchError) throw new Error(fetchError);
+    
+    const C = captains.length;
+    const M = members.length;
+    if (C === 0) throw new Error("No captains found. Upload captain emails first.");
+    if (M === 0) throw new Error("No members found. Upload member emails first.");
+    if (M < C) throw new Error(`Need at least ${C} members for ${C} captains (tables). Currently have ${M}.`);
+
+    const membersPerTable = Math.floor(M / C);
+    const extraTables = M % C;
+
+    const memberIds = members.map(m => m.id);
+    const captainIds = captains.map(c => c.id);
+    
+    const userGroups = new Map<string, string | null>();
+    members.forEach(m => userGroups.set(m.id, m.group));
+    captains.forEach(c => userGroups.set(c.id, c.group));
+
+    const totalPossiblePairs = (M * (M - 1) / 2) + (M * C);
+
+    let bestRoundAssignments: { captainId: string; memberIds: string[] }[][] = [];
+    let bestRoundCount = Infinity;
+    let bestCoverage = -1;
+
+    const evaluateCoverage = (matrix: string[][][]) => {
+      const met = new Map<string, Set<string>>();
+      for (const id of memberIds) met.set(id, new Set());
+      for (const id of captainIds) met.set(id, new Set());
+
+      let groupPenalty = 0;
+      for (const round of matrix) {
+        for (let t = 0; t < C; t++) {
+          const allAtTable = [...round[t], captainIds[t]];
+          for (let i = 0; i < allAtTable.length; i++) {
+            for (let j = i + 1; j < allAtTable.length; j++) {
+              met.get(allAtTable[i])!.add(allAtTable[j]);
+              met.get(allAtTable[j])!.add(allAtTable[i]);
+              
+              const g1 = userGroups.get(allAtTable[i]);
+              const g2 = userGroups.get(allAtTable[j]);
+              if (g1 && g2 && g1 === g2) groupPenalty += 10;
+            }
+          }
+        }
+      }
+      
+      let totalSize = 0;
+      for (const partners of met.values()) {
+        totalSize += partners.size;
+      }
+      const pairs = totalSize / 2;
+      return { pairs, met, score: pairs - groupPenalty };
+    };
+
+    for (let sim = 0; sim < 30; sim++) {
+      const matrix: string[][][] = [];
+      const currentMet = new Map<string, Set<string>>();
+      for (const id of memberIds) currentMet.set(id, new Set());
+      for (const id of captainIds) currentMet.set(id, new Set());
+      
+      const pool = [...memberIds];
+
+      while (matrix.length < maxRounds) {
+        let totalSize = 0;
+        for (const partners of currentMet.values()) {
+          totalSize += partners.size;
+        }
+        const metCount = totalSize / 2;
+        if (metCount >= totalPossiblePairs) break;
+
+        let bestRound: string[][] = Array.from({ length: C }, () => []);
+        let maxNewPairs = -Infinity;
+
+        for (let attempt = 0; attempt < 50; attempt++) {
+          const tables: string[][] = Array.from({ length: C }, () => []);
+          const tableSizes = Array.from({ length: C }, (_, i) => i >= C - extraTables ? membersPerTable + 1 : membersPerTable);
+          shuffle(pool);
+          const sorted = [...pool].sort((a, b) => currentMet.get(a)!.size - currentMet.get(b)!.size);
+
+          for (const memberId of sorted) {
+            let bestTable = -1, bestScore = -1, bestCurrentSize = Infinity;
+            const tableIndices = Array.from({ length: C }, (_, i) => i);
+            shuffle(tableIndices);
+
+            for (const t of tableIndices) {
+              if (tables[t].length >= tableSizes[t]) continue;
+              let newMeetings = 0;
+              let groupPenalty = 0;
+              const myMet = currentMet.get(memberId)!;
+              const myGroup = userGroups.get(memberId);
+              
+              for (const existing of tables[t]) {
+                if (!myMet.has(existing)) newMeetings++;
+                if (myGroup && myGroup === userGroups.get(existing)) groupPenalty += 10;
+              }
+              if (!myMet.has(captainIds[t])) newMeetings++;
+              if (myGroup && myGroup === userGroups.get(captainIds[t])) groupPenalty += 10;
+              
+              const tableScore = newMeetings - groupPenalty;
+              
+              if (bestTable === -1 || tableScore > bestScore || (tableScore === bestScore && tables[t].length < bestCurrentSize)) {
+                bestTable = t; bestScore = tableScore; bestCurrentSize = tables[t].length;
+              }
+            }
+            if (bestTable >= 0) tables[bestTable].push(memberId);
+          }
+
+          const evalTableScoreLocal = (tableMembers: string[], capId: string) => {
+            let score = 0;
+            const len = tableMembers.length;
+            for (let i = 0; i < len; i++) {
+              const m1 = tableMembers[i];
+              const m1Met = currentMet.get(m1)!;
+              const g1 = userGroups.get(m1);
+              for (let j = i + 1; j < len; j++) {
+                const m2 = tableMembers[j];
+                if (!m1Met.has(m2)) score++;
+                if (g1 && g1 === userGroups.get(m2)) score -= 10;
+              }
+              if (!m1Met.has(capId)) score++;
+              if (g1 && g1 === userGroups.get(capId)) score -= 10;
+            }
+            return score;
+          };
+
+          for (let step = 0; step < 10000; step++) {
+            const t1 = Math.floor(Math.random() * C);
+            const t2 = Math.floor(Math.random() * C);
+            if (t1 === t2) continue;
+            if (tables[t1].length === 0 || tables[t2].length === 0) continue;
+
+            const m1Idx = Math.floor(Math.random() * tables[t1].length);
+            const m2Idx = Math.floor(Math.random() * tables[t2].length);
+            const m1 = tables[t1][m1Idx];
+            const m2 = tables[t2][m2Idx];
+
+            const scoreBefore = evalTableScoreLocal(tables[t1], captainIds[t1]) + evalTableScoreLocal(tables[t2], captainIds[t2]);
+
+            tables[t1][m1Idx] = m2;
+            tables[t2][m2Idx] = m1;
+            const scoreAfter = evalTableScoreLocal(tables[t1], captainIds[t1]) + evalTableScoreLocal(tables[t2], captainIds[t2]);
+
+            if (scoreAfter <= scoreBefore) {
+              tables[t1][m1Idx] = m1;
+              tables[t2][m2Idx] = m2;
+            }
+          }
+
+          const finalTestMatrix = [...matrix, tables];
+          const finalEval = evaluateCoverage(finalTestMatrix);
+          
+          const newScoreAdded = finalEval.score - (evaluateCoverage(matrix).score);
+          if (newScoreAdded > maxNewPairs) {
+            maxNewPairs = newScoreAdded;
+            bestRound = tables.map(t => [...t]);
+          }
+          if (metCount + (finalEval.pairs - metCount) >= totalPossiblePairs && finalEval.score > 0) break;
+        }
+
+        matrix.push(bestRound);
+        for (let t = 0; t < C; t++) {
+          const allAtTable = [...bestRound[t], captainIds[t]];
+          for (let i = 0; i < allAtTable.length; i++) {
+            for (let j = i + 1; j < allAtTable.length; j++) {
+              currentMet.get(allAtTable[i])!.add(allAtTable[j]);
+              currentMet.get(allAtTable[j])!.add(allAtTable[i]);
+            }
+          }
+        }
+      }
+
+      const finalEval = evaluateCoverage(matrix);
+      const isBetter = (finalEval.pairs === totalPossiblePairs && matrix.length < bestRoundCount) ||
+                       (finalEval.score > bestCoverage && bestCoverage < totalPossiblePairs);
+      
+      if (bestCoverage === -1 || isBetter) {
+        bestCoverage = finalEval.score;
+        bestRoundCount = matrix.length;
+        bestRoundAssignments = matrix.map(roundTables => 
+          roundTables.map((memberList, tableIdx) => ({
+            captainId: captainIds[tableIdx],
+            memberIds: [...memberList],
+          }))
+        );
+      }
+    }
+
+    const totalRounds = bestRoundAssignments.length;
+    const slotGrouping = calculateSlotGrouping(totalRounds);
+    const totalSlots = slotGrouping.length;
+
+    const slotData: { id: string; slotNumber: number }[] = [];
+    const roundData: { id: string; slotId: string; roundNumber: number; status: string; durationMinutes: number }[] = [];
+    const tableData: { id: string; roundId: string; tableNumber: number }[] = [];
+    const assignmentData: { userId: string; tableId: string; isCaptain: boolean }[] = [];
+
+    let globalRoundIdx = 0;
+    for (let s = 0; s < totalSlots; s++) {
+      const slotId = genId();
+      slotData.push({ id: slotId, slotNumber: s + 1 });
+
+      const roundsInSlot = slotGrouping[s];
+      for (let r = 0; r < roundsInSlot; r++) {
+        const roundId = genId();
+        roundData.push({ 
+          id: roundId, 
+          slotId, 
+          roundNumber: globalRoundIdx + 1, 
+          status: "PENDING",
+          durationMinutes: defaultDuration
+        });
+
+        const roundTables = bestRoundAssignments[globalRoundIdx];
+        for (let t = 0; t < C; t++) {
+          const tableId = genId();
+          tableData.push({ id: tableId, roundId, tableNumber: t + 1 });
+
+          assignmentData.push({ userId: roundTables[t].captainId, tableId, isCaptain: true });
+
+          for (const memberId of roundTables[t].memberIds) {
+            assignmentData.push({ userId: memberId, tableId, isCaptain: false });
+          }
+        }
+        globalRoundIdx++;
+      }
+    }
+
+    const payload = { slotData, roundData, tableData, assignmentData };
+    return await saveAutoAssignments(payload);
+  } catch (error: any) {
+    console.error("Error generating assignments:", error);
+    return { success: false, error: error.message };
+  }
+}
 
 export async function updateAllRoundsDuration(formData: FormData) {
   await requireAdmin();
