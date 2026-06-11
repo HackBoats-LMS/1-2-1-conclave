@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { fetchUsersForGeneration, clearOldAssignments, saveRoundStructure, saveAssignmentsChunk } from "./actions";
+import { fetchUsersForGeneration, saveAutoAssignments } from "./actions";
 import { SubmitButton } from "../components/SubmitButton";
 
 // Zero-latency yield to keep animations smooth
@@ -16,10 +16,12 @@ const yieldToMain = () => new Promise(resolve => {
   }
 });
 
+// Move crypto logic for browser compatibility
 function genId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
+  // Fallback for older browsers
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -77,10 +79,10 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [maxRounds, setMaxRounds] = useState<number | string>(10);
-  const [statusText, setStatusText] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem("conclave_max_rounds");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved) setMaxRounds(parseInt(saved, 10));
   }, []);
 
@@ -95,12 +97,11 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
   async function handleGenerate(formData: FormData) {
     setIsGenerating(true);
     setError(null);
-    setStatusText("Fetching users...");
-    
     try {
       const MAX_ROUNDS = parseInt(formData.get("maxRounds")?.toString() || "12", 10);
       const DEFAULT_DURATION = parseInt(formData.get("defaultDuration")?.toString() || "15", 10);
 
+      // 1. Fetch users from server
       const { captains, members, error: fetchError } = await fetchUsersForGeneration();
       if (fetchError) throw new Error(fetchError);
       
@@ -156,10 +157,13 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
         return { pairs, met, score: pairs - groupPenalty };
       };
 
-      setStatusText("Calculating optimal math in browser...");
+      // Force browser to paint loading state before heavy lifting
       await yieldToMain();
 
-      for (let sim = 0; sim < 30; sim++) {
+      // REDUCED SIMULATIONS from 10 to 3 to heavily boost speed
+      for (let sim = 0; sim < 3; sim++) {
+        // Yield at the start of each simulation
+        await yieldToMain();
         const matrix: string[][][] = [];
         const currentMet = new Map<string, Set<string>>();
         for (const id of memberIds) currentMet.set(id, new Set());
@@ -178,7 +182,11 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
           let bestRound: string[][] = Array.from({ length: C }, () => []);
           let maxNewPairs = -Infinity;
 
-          for (let attempt = 0; attempt < 50; attempt++) {
+          // REDUCED ATTEMPTS from 20 to 10 to heavily boost speed
+          for (let attempt = 0; attempt < 10; attempt++) {
+            // Yield every 2 attempts to keep the loading spinner perfectly smooth
+            if (attempt % 2 === 0) await yieldToMain();
+
             const tables: string[][] = Array.from({ length: C }, () => []);
             const tableSizes = Array.from({ length: C }, (_, i) => i >= C - extraTables ? membersPerTable + 1 : membersPerTable);
             shuffle(pool);
@@ -212,26 +220,27 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
               if (bestTable >= 0) tables[bestTable].push(memberId);
             }
 
-            const evalTableScoreLocal = (tableMembers: string[], capId: string) => {
-              let score = 0;
-              const len = tableMembers.length;
-              for (let i = 0; i < len; i++) {
-                const m1 = tableMembers[i];
-                const m1Met = currentMet.get(m1)!;
-                const g1 = userGroups.get(m1);
-                for (let j = i + 1; j < len; j++) {
+          // High-performance evaluator without array allocations (Garbage Collection optimization)
+          const evalTableScoreLocal = (tableMembers: string[], capId: string) => {
+             let score = 0;
+             const len = tableMembers.length;
+             for (let i = 0; i < len; i++) {
+               const m1 = tableMembers[i];
+               const m1Met = currentMet.get(m1)!;
+               const g1 = userGroups.get(m1);
+               for (let j = i + 1; j < len; j++) {
                   const m2 = tableMembers[j];
                   if (!m1Met.has(m2)) score++;
                   if (g1 && g1 === userGroups.get(m2)) score -= 10;
-                }
-                if (!m1Met.has(capId)) score++;
-                if (g1 && g1 === userGroups.get(capId)) score -= 10;
-              }
-              return score;
-            };
+               }
+               if (!m1Met.has(capId)) score++;
+               if (g1 && g1 === userGroups.get(capId)) score -= 10;
+             }
+             return score;
+          };
 
-            for (let step = 0; step < 10000; step++) {
-              if (step % 2000 === 0) await yieldToMain();
+          // REDUCED SWAPS from 2000 to 800 to heavily boost speed
+          for (let step = 0; step < 800; step++) {
               const t1 = Math.floor(Math.random() * C);
               const t2 = Math.floor(Math.random() * C);
               if (t1 === t2) continue;
@@ -248,7 +257,9 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
               tables[t2][m2Idx] = m1;
               const scoreAfter = evalTableScoreLocal(tables[t1], captainIds[t1]) + evalTableScoreLocal(tables[t2], captainIds[t2]);
 
-              if (scoreAfter <= scoreBefore) {
+              if (scoreAfter > scoreBefore) {
+                // Keep swap
+              } else {
                 tables[t1][m1Idx] = m1;
                 tables[t2][m2Idx] = m2;
               }
@@ -264,6 +275,9 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
             }
             if (metCount + (finalEval.pairs - metCount) >= totalPossiblePairs && finalEval.score > 0) break;
           }
+
+          // Yield to the browser main thread to prevent "Page Unresponsive" warnings
+          await yieldToMain();
 
           matrix.push(bestRound);
           for (let t = 0; t < C; t++) {
@@ -291,14 +305,13 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
             }))
           );
         }
-        await yieldToMain();
       }
 
-      setStatusText("Formatting data...");
       const totalRounds = bestRoundAssignments.length;
       const slotGrouping = calculateSlotGrouping(totalRounds);
       const totalSlots = slotGrouping.length;
 
+      // Prepare payload
       const slotData: { id: string; slotNumber: number }[] = [];
       const roundData: { id: string; slotId: string; roundNumber: number; status: string; durationMinutes: number }[] = [];
       const tableData: { id: string; roundId: string; tableNumber: number }[] = [];
@@ -335,26 +348,12 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
         }
       }
 
-      // API CHUNKING LOGIC
-      setStatusText("Wiping old database assignments...");
-      const clearResult = await clearOldAssignments();
-      if (!clearResult.success) throw new Error(clearResult.error);
-
-      setStatusText("Saving round structure...");
-      const structResult = await saveRoundStructure({ slotData, roundData, tableData });
-      if (!structResult.success) throw new Error(structResult.error);
-
-      setStatusText("Chunking assignment records...");
-      const CHUNK_SIZE = 1500;
-      for (let i = 0; i < assignmentData.length; i += CHUNK_SIZE) {
-        setStatusText(`Uploading assignments chunk ${Math.floor(i / CHUNK_SIZE) + 1}...`);
-        const chunk = assignmentData.slice(i, i + CHUNK_SIZE);
-        const chunkResult = await saveAssignmentsChunk(chunk);
-        if (!chunkResult.success) throw new Error(chunkResult.error);
-        await yieldToMain();
-      }
-
-      setStatusText("Finished! Refreshing...");
+      // Send to server
+      const payload = { slotData, roundData, tableData, assignmentData };
+      const result = await saveAutoAssignments(payload);
+      if (result.error) throw new Error(result.error);
+      
+      // Refresh in-place (no scroll jump) — server already revalidated
       router.refresh();
       
     } catch (e: any) {
@@ -362,7 +361,6 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
       setError(e.message || "An unexpected error occurred during generation");
     } finally {
       setIsGenerating(false);
-      setStatusText("");
     }
   }
 
@@ -395,7 +393,7 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
         </div>
 
         <SubmitButton 
-          loadingText={statusText || "🎲 Generating in Browser (Do Not Close)..."}
+          loadingText="🎲 Generating in Browser (Do Not Close)..."
           className={`w-full py-3.5 border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs transition-all ${
             captainCount > 0 && memberCount > 0 && !isGenerating
               ? 'bg-[#0D2421] text-[#BEF03C] hover:bg-[#163733] shadow-[3px_3px_0px_#BEF03C] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer'

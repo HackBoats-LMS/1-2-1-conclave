@@ -3,9 +3,10 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { LiveControls, AutoRefresh } from "./LiveControls";
+import { UserCard } from "./UserCard";
 import { CaptainActiveRound } from "./CaptainActiveRound";
 import { DownloadMyReferralsButton } from "./DownloadMyReferralsButton";
-import { TableRoomOrchestrator } from "./TableRoomOrchestrator";
+import { SelfSpeakerTimer } from "./SelfSpeakerTimer";
 
 export const dynamic = 'force-dynamic';
 
@@ -153,27 +154,6 @@ export default async function UserDashboard() {
         orderBy: [{ slot: { slotNumber: 'desc' } }, { roundNumber: 'desc' }]
       })
     ]);
-
-    if (gameState?.isAutoMode && lastCompletedRound?.endedAt && nextRound) {
-      const shiftDurationMinutes = gameState.shiftDuration || 3;
-      const endTime = new Date(lastCompletedRound.endedAt).getTime() + (shiftDurationMinutes * 60 * 1000);
-      if (Date.now() >= endTime) {
-        await prisma.round.update({
-          where: { id: nextRound.id },
-          data: { 
-            status: "IN_PROGRESS", 
-            startTime: new Date(),
-          }
-        });
-        await prisma.gameState.update({
-          where: { id: gameState.id },
-          data: { currentRoundId: nextRound.id }
-        });
-        const { supabase } = await import("@/lib/supabaseClient");
-        await supabase.channel('global_events').httpSend('round_state_change', { action: 'start' });
-        redirect("/dashboard");
-      }
-    }
 
 
 
@@ -428,8 +408,6 @@ export default async function UserDashboard() {
                 updatedAtTime={round?.startTime?.getTime() || 0} 
                 durationMinutes={round?.durationMinutes}
                 status={round?.status}
-                serverNow={Date.now()}
-                roundId={round?.id}
               />
             </div>
           </header>
@@ -508,8 +486,6 @@ export default async function UserDashboard() {
               updatedAtTime={round?.startTime?.getTime() || 0} 
               durationMinutes={round?.durationMinutes}
               status={round?.status}
-              serverNow={Date.now()}
-              roundId={round?.id}
             />
           </div>
         </header>
@@ -551,15 +527,34 @@ export default async function UserDashboard() {
           </div>
         )}
 
-        {/* Table Room Orchestrator */}
-        <TableRoomOrchestrator 
-          tableUsers={tableUsers} 
-          myAssignmentTable={{
-            roundId: round?.id as string,
-            tableNumber: myAssignment.table.tableNumber
-          }} 
-          userId={session.user.id as string} 
-        />
+        {/* My Own Speaking Timer (Visible only when I am speaking) */}
+        {!myAssignment.isCaptain && (
+          <SelfSpeakerTimer 
+            roundId={round?.id as string} 
+            tableNumber={myAssignment.table.tableNumber} 
+            userId={session.user.id as string} 
+          />
+        )}
+
+        {/* Members Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {tableUsers.map((tu: any) => (
+            <UserCard key={tu.user.id} tu={{ ...tu, table: myAssignment.table }} />
+          ))}
+          {tableUsers.length === 0 && (
+            <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-white space-y-4">
+              <div className="w-16 h-16 bg-[#FAF8F4] border border-[#0D2421]/35 rounded-full flex items-center justify-center mx-auto">
+                <svg className="w-8 h-8 text-[#0D2421]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div className="space-y-1">
+                <p className="font-black text-sm uppercase text-[#0D2421]/70">No other members assigned to this table yet</p>
+                <p className="text-xs font-semibold text-[#0D2421]/50 uppercase tracking-wider">Please wait for partners to log in or ask the admin to allocate table coordinates.</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

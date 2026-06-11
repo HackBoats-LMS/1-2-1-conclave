@@ -20,12 +20,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async signIn({ user }) {
       if (!user.email) return false;
       
+      // Check if user exists and is approved by admin (case-insensitive)
       const normalizedEmail = user.email.toLowerCase();
-      
-      const gameState = await prisma.gameState.findFirst();
-      const isOpenLogins = gameState?.isOpenLogins || false;
-
-      let dbUser = await prisma.user.findFirst({
+      const dbUser = await prisma.user.findFirst({
         where: { 
           email: {
             equals: normalizedEmail,
@@ -34,28 +31,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         },
       });
 
-      if (isOpenLogins) {
-        if (dbUser) {
-          if (!dbUser.isApproved) {
-            await prisma.user.update({
-              where: { id: dbUser.id },
-              data: { isApproved: true }
-            });
-          }
-        } else {
-          await prisma.user.create({
-            data: {
-              email: normalizedEmail,
-              name: user.name,
-              image: user.image,
-              isApproved: true
-            }
-          });
-        }
-        return true;
-      }
-
-      // Open Logins is OFF: strictly enforce predefined and approved lists
       if (!dbUser || !dbUser.isApproved) {
         // Return false to deny access
         return false; 
@@ -65,27 +40,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       // user is only available the first time jwt callback is called (on sign in)
       if (user) {
-        let dbUser = await prisma.user.findUnique({ where: { id: user.id }});
-        
-        if (!dbUser && user.email) {
-          // Fallback to finding by email if id doesn't match
-          dbUser = await prisma.user.findFirst({
-            where: {
-              email: {
-                equals: user.email,
-                mode: "insensitive"
-              }
-            }
-          });
-        }
-
+        token.id = user.id;
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id }});
         if (dbUser) {
-          token.id = dbUser.id;
           token.role = dbUser.role;
           token.isApproved = dbUser.isApproved;
           token.onboardingCompleted = dbUser.onboardingCompleted;
-        } else {
-          token.id = user.id;
         }
       }
       

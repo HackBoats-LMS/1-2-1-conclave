@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { User } from "@prisma/client";
 import { cookies } from "next/headers";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, toggleOpenLogins, endConclave } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, endConclave } from "./actions";
+import { AdminAutoShiftingManager } from "./AdminAutoShiftingManager";
 import { EndConclaveButton } from "./EndConclaveButton";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
@@ -227,14 +228,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     const memberIdSet = new Set<string>(memberUsers.map((u: User) => u.id));
     const memberEmailMap = new Map<string, string>(memberUsers.map((u: User) => [u.id, u.email as string] as [string, string]));
 
-    const captainUsers = users.filter((u: User) => u.role === "CAPTAIN");
-    const captainIdSet = new Set<string>(captainUsers.map((u: User) => u.id));
-    const captainEmailMap = new Map<string, string>(captainUsers.map((u: User) => [u.id, u.email as string] as [string, string]));
-
     // Build meeting matrix from assignments
     const met = new Map<string, Set<string>>();
     for (const id of memberIdSet) met.set(id, new Set());
-    for (const id of captainIdSet) met.set(id, new Set());
 
     // Track which members appear in at least one assignment
     const assignedMembers = new Set<string>();
@@ -245,9 +241,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       }
     }
 
-    // Group assignments by round+table to find who met whom (both members and captains)
+    // Group assignments by round+table to find who met whom
     const tableGroups = new Map<string, string[]>();
     for (const assignment of allAssignments) {
+      if (assignment.isCaptain || !memberIdSet.has(assignment.userId)) continue;
       const key = `${assignment.table.roundId}|${assignment.tableId}`;
       if (!tableGroups.has(key)) tableGroups.set(key, []);
       tableGroups.get(key)!.push(assignment.userId);
@@ -262,52 +259,25 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       }
     }
 
-    // total possible unique pairs: M*(M-1)/2 (member-member) + M*C (member-captain)
-    const totalPairs = (memberUsers.length * (memberUsers.length - 1) / 2) + (memberUsers.length * captainCount);
+    const totalPairs = memberUsers.length * (memberUsers.length - 1) / 2;
     const metPairsSet = new Set<string>();
-
-    const memberArr: string[] = Array.from(memberIdSet);
-    for (let i = 0; i < memberArr.length; i++) {
-      const m1 = memberArr[i];
-      // member-member
-      for (let j = i + 1; j < memberArr.length; j++) {
-        const m2 = memberArr[j];
-        if (met.get(m1)?.has(m2)) {
-          metPairsSet.add(`${m1}|${m2}`);
-        }
-      }
-      // member-captain
-      for (const c of captainIdSet) {
-        if (met.get(m1)?.has(c)) {
-          metPairsSet.add(`${m1}|${c}`);
-        }
+    for (const [id, partners] of met) {
+      for (const partner of partners) {
+        const key = id < partner ? `${id}|${partner}` : `${partner}|${id}`;
+        metPairsSet.add(key);
       }
     }
     const metPairs = metPairsSet.size;
 
     // Find unmet pairs (limit to 200 for display)
     const unmetPairs: { member1Email: string; member2Email: string }[] = [];
-    
-    // Member-member unmet pairs
+    const memberArr: string[] = Array.from(memberIdSet);
     for (let i = 0; i < memberArr.length && unmetPairs.length < 200; i++) {
       for (let j = i + 1; j < memberArr.length && unmetPairs.length < 200; j++) {
         if (!met.get(memberArr[i])?.has(memberArr[j])) {
           unmetPairs.push({
             member1Email: memberEmailMap.get(memberArr[i]) || memberArr[i],
             member2Email: memberEmailMap.get(memberArr[j]) || memberArr[j],
-          });
-        }
-      }
-    }
-
-    // Member-captain unmet pairs
-    for (let i = 0; i < memberArr.length && unmetPairs.length < 200; i++) {
-      for (const c of captainIdSet) {
-        if (unmetPairs.length >= 200) break;
-        if (!met.get(memberArr[i])?.has(c)) {
-          unmetPairs.push({
-            member1Email: memberEmailMap.get(memberArr[i]) || memberArr[i],
-            member2Email: `Captain: ${captainEmailMap.get(c) || c}`,
           });
         }
       }
@@ -366,15 +336,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               />
             </div>
 
-            <div className="flex gap-2 mt-2 flex-wrap justify-end">
-              <form action={toggleOpenLogins}>
-                <input type="hidden" name="isOpenLogins" value={gameState?.isOpenLogins ? "false" : "true"} />
-                <SubmitButton loadingText="Switching..." className={`border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2 cursor-pointer ${
-                  gameState?.isOpenLogins ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-white text-slate-500'
-                }`}>
-                  {gameState?.isOpenLogins ? '🔓 Open Logins: ON' : '🔒 Open Logins: OFF'}
-                </SubmitButton>
-              </form>
+            <div className="flex gap-2 mt-2">
               <a href="/admin/leaderboard" target="_blank" className="bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] px-4 py-2 rounded-xl text-xs font-black tracking-widest uppercase shadow-[2px_2px_0px_#0D2421] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[0px_0px_0px_#0D2421] transition-all flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                 Live Leaderboard
@@ -689,8 +651,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                                 startedAt={round.startTime} 
                                 durationMinutes={round.durationMinutes || 15} 
                                 status={round.status} 
-                                onTimeUp={stopRound.bind(null, round.id)}
-                                serverNow={Date.now()}
+                                onTimeUp={gameState?.isAutoMode ? stopRound.bind(null, round.id) : undefined}
                               />
                             )}
 
@@ -883,6 +844,20 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           </div>
         </div>
       </div>
+      
+      {/* Invisible auto-shifting manager (only ticks if auto mode is ON and no round is active) */}
+      <AdminAutoShiftingManager 
+        isAutoMode={!!gameState?.isAutoMode}
+        lastCompletedRoundEndedAt={lastCompletedRoundEndedAt}
+        shiftDurationMinutes={gameState?.shiftDuration || 3}
+        nextRoundId={nextRoundId}
+        onStartRound={async (roundId) => {
+          "use server";
+          const fd = new FormData();
+          fd.append("roundId", roundId);
+          await startRound(fd);
+        }}
+      />
     </div>
   );
 }

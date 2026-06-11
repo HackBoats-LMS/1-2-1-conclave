@@ -15,20 +15,9 @@ export async function completeOnboarding(formData: FormData) {
   const contactNumber = formData.get("contactNumber") as string;
   const description = formData.get("description") as string;
 
-  let user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  
-  if (!user && session.user.email) {
-    user = await prisma.user.findFirst({
-      where: {
-        email: {
-          equals: session.user.email,
-          mode: "insensitive"
-        }
-      }
-    });
-  }
-  
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) throw new Error("User not found");
+
   // Save profile details
   const updatedUser = await prisma.user.update({
     where: { id: user.id },

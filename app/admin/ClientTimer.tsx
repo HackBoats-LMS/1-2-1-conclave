@@ -7,14 +7,12 @@ interface ClientTimerProps {
   durationMinutes: number;
   status: string;
   onTimeUp?: () => void;
-  serverNow?: number;
 }
 
-export function ClientTimer({ startedAt, durationMinutes, status, onTimeUp, serverNow }: ClientTimerProps) {
+export function ClientTimer({ startedAt, durationMinutes, status, onTimeUp }: ClientTimerProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [prevStatus, setPrevStatus] = useState(status);
   const hasTriggeredRef = React.useRef(false);
-  const [clientServerOffset] = useState(() => serverNow ? serverNow - Date.now() : 0);
 
   if (status !== prevStatus) {
     setPrevStatus(status);
@@ -40,7 +38,7 @@ export function ClientTimer({ startedAt, durationMinutes, status, onTimeUp, serv
         }
       }
       
-      const now = Date.now() + clientServerOffset;
+      const now = new Date().getTime();
       return Math.max(0, endTime - now);
     };
 

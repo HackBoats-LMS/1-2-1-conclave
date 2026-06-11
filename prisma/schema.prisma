@@ -77,7 +77,6 @@ model Round {
   durationMinutes Int       @default(15)
   slot            Slot      @relation(fields: [slotId], references: [id], onDelete: Cascade)
   tables          Table[]
-  referrals       Referral[]
 
   @@unique([slotId, roundNumber])
 }
@@ -109,16 +108,13 @@ model Referral {
   id         String   @id @default(cuid())
   fromUserId String
   toUserId   String
-  roundId    String?
   note       String?
   createdAt  DateTime @default(now())
   fromUser   User     @relation("SentReferrals", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser     User     @relation("ReceivedReferrals", fields: [toUserId], references: [id], onDelete: Cascade)
-  round      Round?   @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@index([toUserId])
   @@index([fromUserId])
-  @@index([roundId])
 }
 
 model GameState {
@@ -126,7 +122,6 @@ model GameState {
   currentRoundId String?
   shiftDuration  Int     @default(3)
   isAutoMode     Boolean @default(false)
-  isOpenLogins   Boolean @default(false)
 }
 
 model ArchivedEvent {

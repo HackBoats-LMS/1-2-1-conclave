@@ -2,21 +2,8 @@
 
 import React, { useEffect, useState, useRef } from "react";
 
-export function BigShiftingTimerClient({ 
-  lastRoundEndedAt, 
-  durationMinutes = 3, 
-  isRoundActive, 
-  allRoundsCompleted,
-  serverNow
-}: { 
-  lastRoundEndedAt: Date | string | null, 
-  durationMinutes?: number, 
-  isRoundActive: boolean, 
-  allRoundsCompleted?: boolean,
-  serverNow?: number
-}) {
+export function BigShiftingTimerClient({ lastRoundEndedAt, durationMinutes = 3, isRoundActive, allRoundsCompleted }: { lastRoundEndedAt: Date | string | null, durationMinutes?: number, isRoundActive: boolean, allRoundsCompleted?: boolean }) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [clientServerOffset] = useState(() => serverNow ? serverNow - Date.now() : 0);
 
   // Convert server-serialized date string to timestamp for reliable comparison
   const endedAtMs = lastRoundEndedAt ? new Date(lastRoundEndedAt).getTime() : null;
@@ -43,7 +30,7 @@ export function BigShiftingTimerClient({
     const targetTime = endedAtMs + durationMinutes * 60 * 1000;
 
     const updateTimer = () => {
-      const now = Date.now() + clientServerOffset;
+      const now = Date.now();
       const remaining = targetTime - now;
       if (remaining > 0) {
         setTimeLeft(remaining);
