@@ -77,6 +77,7 @@ export function OnboardingClient({ userRole }: { userRole?: string }) {
       </div>
 
       {userRole !== "ADMIN" && (
+        <>
         <div className="space-y-1">
           <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
             Business Description
@@ -89,6 +90,31 @@ export function OnboardingClient({ userRole }: { userRole?: string }) {
             placeholder="Briefly describe what your business does..." 
           />
         </div>
+
+        <div className="space-y-1">
+          <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+            Specific Ask 1 <span className="text-[#0D2421]/40 normal-case font-bold">(optional)</span>
+          </label>
+          <input
+            name="specificAsk1"
+            type="text"
+            className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30"
+            placeholder="e.g. Looking for a logistics partner"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+            Specific Ask 2 <span className="text-[#0D2421]/40 normal-case font-bold">(optional)</span>
+          </label>
+          <input
+            name="specificAsk2"
+            type="text"
+            className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30"
+            placeholder="e.g. Seeking investor introductions"
+          />
+        </div>
+        </>
       )}
 
       <SubmitButton 

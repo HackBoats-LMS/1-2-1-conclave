@@ -16,6 +16,8 @@ model User {
   businessCategory    String?
   contactNumber       String?
   description         String?
+  specificAsk1       String?
+  specificAsk2       String?
   role                String            @default("USER")
   isApproved          Boolean           @default(false)
   onboardingCompleted Boolean           @default(false)

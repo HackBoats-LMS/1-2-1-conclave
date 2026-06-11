@@ -14,6 +14,8 @@ export async function completeOnboarding(formData: FormData) {
   const businessCategory = formData.get("businessCategory") as string;
   const contactNumber = formData.get("contactNumber") as string;
   const description = formData.get("description") as string;
+  const specificAsk1 = formData.get("specificAsk1") as string | null;
+  const specificAsk2 = formData.get("specificAsk2") as string | null;
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) throw new Error("User not found");
@@ -27,6 +29,8 @@ export async function completeOnboarding(formData: FormData) {
       businessCategory,
       contactNumber,
       description,
+      specificAsk1: specificAsk1 || null,
+      specificAsk2: specificAsk2 || null,
       onboardingCompleted: true,
     }
   });

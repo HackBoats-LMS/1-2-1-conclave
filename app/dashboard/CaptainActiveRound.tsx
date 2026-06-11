@@ -257,18 +257,14 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   
   const memberCount = allParticipants.filter(p => !p.isCaptain).length || 8;
 
-  const stage2Start = 60; // 1 min briefing
-  const stage3Start = stage2Start + (memberCount * pitchDurationSec); // 60 + 8*60 = 540s (9 mins elapsed)
-  const stage4Start = stage3Start + (memberCount * 30); // 540 + 8*30 = 780s (13 mins elapsed)
+  const stage2Start = 60;
+  const stage3Start = stage2Start + (memberCount * pitchDurationSec);
   
-  // Calculate computed phases dynamically based on round stage boundaries
   let computedPhase = 1;
-  if (elapsedTime >= stage4Start) {
-    computedPhase = 4; // Last 2 mins: Rotation
-  } else if (elapsedTime >= stage3Start) {
-    computedPhase = 3; // 4 mins: Referral turns
+  if (elapsedTime >= stage3Start) {
+    computedPhase = 3;
   } else if (elapsedTime >= stage2Start) {
-    computedPhase = 2; // After 1st min: Pitches
+    computedPhase = 2;
   }
 
   const currentPhase = manualPhase !== null ? manualPhase : computedPhase;
@@ -339,8 +335,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         }, 800); // 800ms brief transition pause
         return () => clearTimeout(timer);
       } else {
-        // No one left to refer, automatically advance to table rotation (Phase 4)
-        setManualPhase(4);
+        // No one left — all done, leaderboard handles rotation
+        // stay on phase 3
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -522,20 +518,14 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         if (next) {
           startSpeakerTimer(next.id, 30, "REFERRAL");
         } else {
-          // No one left, advance to table transition
-          setManualPhase(4);
+          // No one left, stay on phase 3
         }
       } else {
-        // No active speaker, start the next speaker's referral turn
         const next = allParticipants.find(p => !referredUsers[p.id]);
         if (next) {
           startSpeakerTimer(next.id, 30, "REFERRAL");
-        } else {
-          setManualPhase(4);
         }
       }
-    } else if (currentPhase === 4) {
-      // End of table round
     }
   };
 
@@ -614,8 +604,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         </div>
           
         {/* Quick Stage manual jump override tabs */}
-        <div className="bg-[#0D2421] p-1.5 rounded-2xl border-2 border-[#0D2421] grid grid-cols-2 sm:grid-cols-4 gap-1.5 shadow-[4px_4px_0px_#0D2421]">
-          {[1, 2, 3, 4].map((phNum) => {
+        <div className="bg-[#0D2421] p-1.5 rounded-2xl border-2 border-[#0D2421] grid grid-cols-3 gap-1.5 shadow-[4px_4px_0px_#0D2421]">
+          {[1, 2, 3].map((phNum) => {
             const isUnlocked = phNum <= maxUnlockedPhase;
             return (
               <button
@@ -639,8 +629,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           {/* Wizard Card Container */}
           <div className={`flex-1 border-3 border-[#0D2421] p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] flex flex-col justify-between gap-6 transition-all duration-300 ${
             currentPhase === 1 ? "bg-amber-50" :
-            currentPhase === 2 ? "bg-[#FAF8F4]" :
-            currentPhase === 3 ? "bg-yellow-50" : "bg-red-50"
+            currentPhase === 2 ? "bg-[#FAF8F4]" : "bg-yellow-50"
           }`}>
             
             {/* Step Header */}
@@ -651,11 +640,10 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                   {currentPhase === 1 && "📢 Table Welcoming"}
                   {currentPhase === 2 && "🎙️ Participant Pitches"}
                   {currentPhase === 3 && "📨 Referral Exchange"}
-                  {currentPhase === 4 && "🔄 Table Transition"}
                 </h4>
               </div>
               <span className="px-2 py-0.5 bg-[#0D2421] text-white border border-[#0D2421] rounded text-[8px] font-black uppercase">
-                Step {currentPhase} of 4
+                Step {currentPhase} of 3
               </span>
             </div>
 
@@ -710,11 +698,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                   </div>
                 )}
 
-                {currentPhase === 4 && (
-                  <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                    {"\"Awesome job everyone! Time is up. Please collect your items, say goodbye, and stand by for table rotations from the admin.\""}
-                  </p>
-                )}
+
               </div>
 
               {/* Action items list */}
@@ -782,16 +766,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                     </>
                   )}
 
-                  {currentPhase === 4 && (
-                    <>
-                      <li className="flex items-center gap-2">
-                        <span className="text-amber-500 font-black">✔</span> Instruct attendees to pack materials
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="text-[#0D2421]/50 font-black">○</span> Keep dashboard open for auto-redirect
-                      </li>
-                    </>
-                  )}
+
                 </ul>
               </div>
             </div>
@@ -873,19 +848,10 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                         📨 Starting Referral: {nextToRefer.name}...
                       </div>
                     ) : (
-                      <button 
-                        onClick={handleAutopilotAction}
-                        className="w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
-                      >
-                        🔄 Move to Table Rotation
-                      </button>
+                      <div className="w-full py-4 bg-[#BEF03C]/20 border-2 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-xs tracking-widest text-center shadow-[4px_4px_0px_#0D2421]">
+                        ✅ All Referrals Done — Leaderboard Timer Handles Rotation
+                      </div>
                     )}
-                  </div>
-                )}
-
-                {currentPhase === 4 && (
-                  <div className="w-full py-4 bg-red-100 text-red-700 border-2 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-xs tracking-widest text-center shadow-[4px_4px_0px_#0D2421] animate-pulse">
-                    ⌛ Round Ended - Stand By for Rotation
                   </div>
                 )}
               </div>
@@ -912,15 +878,9 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           </div>
           <div className="bg-[#FAF8F4] border-2 border-[#0D2421] px-4 py-1.5 rounded-xl text-xs font-black shadow-[2.5px_2.5px_0px_#0D2421]">
             <span>
-              {currentPhase === 4 
-                ? "Completed" 
-                : currentPhase === 3 
-                  ? "Referred" 
-                  : "Pitched"}
+              {currentPhase === 3 ? "Referred" : "Pitched"}
               :{" "}
-              {currentPhase === 4
-                ? allParticipants.filter(p => !p.isCaptain && pitchedUsers[p.id] && referredUsers[p.id]).length
-                : Object.values(currentPhase === 3 ? referredUsers : pitchedUsers).filter(Boolean).length}
+              {Object.values(currentPhase === 3 ? referredUsers : pitchedUsers).filter(Boolean).length}
               /{" "}
               {allParticipants.filter((p) => !p.isCaptain).length}
             </span>
@@ -930,11 +890,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
           {allParticipants.map((p) => {
             const isSpeaker = activeSpeakerId === p.id;
-            const hasCompleted = currentPhase === 4 
-              ? (pitchedUsers[p.id] && referredUsers[p.id])
-              : currentPhase === 3 
-                ? referredUsers[p.id] 
-                : pitchedUsers[p.id];
+            const hasCompleted = currentPhase === 3 ? referredUsers[p.id] : pitchedUsers[p.id];
 
             return (
               <div
@@ -993,11 +949,6 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                           onClick={() => {
                             if (currentPhase === 3) {
                               setReferredUsers(prev => ({ ...prev, [p.id]: !prev[p.id] }));
-                            } else if (currentPhase === 4) {
-                              // In Phase 4, toggle both pitch and referral states together
-                              const nextVal = !(pitchedUsers[p.id] && referredUsers[p.id]);
-                              setPitchedUsers(prev => ({ ...prev, [p.id]: nextVal }));
-                              setReferredUsers(prev => ({ ...prev, [p.id]: nextVal }));
                             } else {
                               setPitchedUsers(prev => ({ ...prev, [p.id]: !prev[p.id] }));
                             }
@@ -1028,11 +979,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
                 {/* State-Based Primary Action Button */}
                 <div className="pt-2 border-t border-[#0D2421]/10">
-                  {currentPhase === 4 ? (
-                    <div className="text-[9px] font-black text-[#0D2421]/40 uppercase text-center py-2">
-                      ✓ Round Finished
-                    </div>
-                  ) : isSpeaker ? (
+                  {isSpeaker ? (
                     <button
                       onClick={stopSpeakerTimer}
                       className="w-full py-2 bg-red-400 hover:bg-red-300 text-white border-2 border-[#0D2421] rounded-xl text-[10px] font-black uppercase shadow-[2px_2px_0px_#0D2421] cursor-pointer text-center"

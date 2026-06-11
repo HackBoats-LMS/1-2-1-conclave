@@ -239,6 +239,23 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
               {user.description || "No description provided by this user."}
             </p>
           </div>
+
+          {(user.specificAsk1 || user.specificAsk2) && (
+            <div className="space-y-2">
+              {user.specificAsk1 && (
+                <div className="flex items-start gap-2 bg-[#BEF03C]/20 border border-[#0D2421]/20 rounded-xl px-3 py-2">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-[#0D2421]/50 shrink-0 mt-0.5">Ask 1</span>
+                  <p className="text-xs font-bold text-[#0D2421] leading-snug">{user.specificAsk1}</p>
+                </div>
+              )}
+              {user.specificAsk2 && (
+                <div className="flex items-start gap-2 bg-[#BEF03C]/20 border border-[#0D2421]/20 rounded-xl px-3 py-2">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-[#0D2421]/50 shrink-0 mt-0.5">Ask 2</span>
+                  <p className="text-xs font-bold text-[#0D2421] leading-snug">{user.specificAsk2}</p>
+                </div>
+              )}
+            </div>
+          )}
           {activeTimer && (
             <div className="flex flex-col items-center justify-center py-2 bg-white rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
               <span className="font-black text-[10px] uppercase tracking-widest text-[#0D2421] mb-1">
