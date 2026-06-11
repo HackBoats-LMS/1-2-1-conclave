@@ -25,13 +25,11 @@ export default async function Home() {
 
   const isCaptain = session?.user && (session.user as any).role === "CAPTAIN";
 
-  // Live database stats (batched for Vercel cold-start performance)
-  const [totalReferrals, totalRounds, totalUsers, totalSlots] = await Promise.all([
-    prisma.referral.count(),
-    prisma.round.count(),
-    prisma.user.count({ where: { role: "USER" } }),
-    prisma.slot.count(),
-  ]);
+  // Live database stats
+  const totalReferrals = await prisma.referral.count();
+  const totalRounds = await prisma.round.count();
+  const totalUsers = await prisma.user.count({ where: { role: "USER" } });
+  const totalSlots = await prisma.slot.count();
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] font-sans selection:bg-[#BEF03C]/40 flex flex-col relative overflow-x-hidden">

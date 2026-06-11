@@ -130,13 +130,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const memberCount = users.filter((u: User) => u.role === "USER" && u.isApproved).length;
   const hasAssignments = slots.length > 0;
 
-  // ── Build Assignment Preview Data (only if assignments exist AND no round is active) ──
-  // PERF: Skip this expensive computation during live rounds to avoid Vercel timeout.
-  // The assignment matrix + coverage analytics fetch thousands of rows and run O(n²) loops,
-  // which easily exceeds Vercel's 10s serverless limit with 100+ members.
-  const isRoundActive = !!gameState?.currentRoundId;
+  // ── Build Assignment Preview Data (only if assignments exist) ──
   let previewData = null;
-  if (hasAssignments && !isRoundActive) {
+  if (hasAssignments) {
     // 1. Map existing slots/rounds into memory to avoid heavy database JOINs
     const roundInfoMap = new Map<string, { slotNumber: number; roundNumber: number; status: string }>();
     for (const s of slots) {
