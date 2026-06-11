@@ -92,11 +92,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
       if (isCleanup) return;
       const channel = supabase.channel("global_events");
       channel.on("broadcast", { event: "round_state_change" }, () => {
-        // Add jitter (0-3000ms) to prevent Thundering Herd DDoS on Vercel
-        const jitter = Math.floor(Math.random() * 3000);
-        setTimeout(() => {
-          router.refresh();
-        }, jitter);
+        router.refresh();
       });
       channel.subscribe();
       activeChannel = channel;
@@ -117,7 +113,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
         
         if (data && data.length > 0) {
           if (data[0].currentRoundId !== initialRoundId) {
-            setTimeout(() => router.refresh(), Math.floor(Math.random() * 2000));
+            router.refresh(); 
             return;
           }
         }
@@ -133,7 +129,7 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
           const data2 = await res2.json();
           if (data2 && data2.length > 0) {
             if (data2[0].status !== currentStatus) {
-              setTimeout(() => router.refresh(), Math.floor(Math.random() * 2000));
+              router.refresh();
             }
           }
         }
