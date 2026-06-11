@@ -159,7 +159,7 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
       setStatusText("Calculating optimal math in browser...");
       await yieldToMain();
 
-      for (let sim = 0; sim < 10; sim++) {
+      for (let sim = 0; sim < 30; sim++) {
         const matrix: string[][][] = [];
         const currentMet = new Map<string, Set<string>>();
         for (const id of memberIds) currentMet.set(id, new Set());
@@ -178,7 +178,7 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
           let bestRound: string[][] = Array.from({ length: C }, () => []);
           let maxNewPairs = -Infinity;
 
-          for (let attempt = 0; attempt < 20; attempt++) {
+          for (let attempt = 0; attempt < 50; attempt++) {
             const tables: string[][] = Array.from({ length: C }, () => []);
             const tableSizes = Array.from({ length: C }, (_, i) => i >= C - extraTables ? membersPerTable + 1 : membersPerTable);
             shuffle(pool);
@@ -230,8 +230,8 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
               return score;
             };
 
-            for (let step = 0; step < 2000; step++) {
-              if (step % 400 === 0) await yieldToMain();
+            for (let step = 0; step < 10000; step++) {
+              if (step % 2000 === 0) await yieldToMain();
               const t1 = Math.floor(Math.random() * C);
               const t2 = Math.floor(Math.random() * C);
               if (t1 === t2) continue;
@@ -402,7 +402,7 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
               : 'bg-[#FAF8F4] text-[#0D2421]/40 border-[#0D2421]/30 cursor-not-allowed shadow-none'
           }`}
         >
-           Auto-Generate Round Assignments
+          🎲 Auto-Generate Round Assignments
         </SubmitButton>
       </form>
     </div>
