@@ -65,7 +65,7 @@ export function LiveControls({
   );
 }
 
-export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId: string | null; currentStatus?: string }) {
+export function AutoRefresh({ initialRoundId, currentStatus, userId, initialReferralCount }: { initialRoundId: string | null; currentStatus?: string; userId?: string; initialReferralCount?: number }) {
   const router = useRouter();
   useEffect(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -83,8 +83,23 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
     });
 
     // Fallback polling just in case WebSockets fail
+    let knownReferralCount = initialReferralCount ?? -1;
     const interval = setInterval(async () => {
       try {
+        // Poll for new referrals on the ending page
+        if (userId !== undefined) {
+          const refRes = await fetch(`${supabaseUrl}/rest/v1/Referral?select=id&toUserId=eq.${userId}`, {
+            headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+            cache: 'no-store'
+          });
+          const refData = await refRes.json();
+          if (Array.isArray(refData) && refData.length !== knownReferralCount) {
+            knownReferralCount = refData.length;
+            router.refresh();
+            return;
+          }
+        }
+
         // Ping Supabase PostgREST API directly, bypassing Vercel entirely!
         const res = await fetch(`${supabaseUrl}/rest/v1/GameState?select=currentRoundId&limit=1`, {
           headers: {
@@ -118,8 +133,8 @@ export function AutoRefresh({ initialRoundId, currentStatus }: { initialRoundId:
           }
         }
       } catch (_e) {}
-    }, 30000);
+    }, 10000);
     return () => clearInterval(interval);
-  }, [router, initialRoundId, currentStatus]);
+  }, [router, initialRoundId, currentStatus, userId, initialReferralCount]);
   return null;
 }

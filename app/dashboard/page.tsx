@@ -54,7 +54,7 @@ export default async function UserDashboard() {
         {/* Blueprint Dot Grid */}
         <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
-        <AutoRefresh initialRoundId={gameState?.currentRoundId || null} />
+        <AutoRefresh initialRoundId={gameState?.currentRoundId || null} userId={session.user.id as string} initialReferralCount={receivedReferrals.length} />
 
         <div className="max-w-3xl w-full relative z-10 space-y-8">
           
