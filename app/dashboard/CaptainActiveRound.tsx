@@ -61,33 +61,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const briefingEndTimeRef = useRef<number | null>(null);
   const tickCountRef = useRef(0);
   const [isChannelConnected, setIsChannelConnected] = useState(false);
-  const activeSpeakerIdRef = useRef<string | null>(null);
-  const speakerTimerTypeRef = useRef<"PITCH" | "REFERRAL" | null>(null);
 
   useEffect(() => {
     // Initialize realtime broadcast channel for table members
     const channelName = `room_${round.id}_table_${tableNumber}`;
     const channel = supabase.channel(channelName);
     
-    channel.on('broadcast', { event: 'sync_request' }, () => {
-      const activeId = activeSpeakerIdRef.current;
-      const endTime = speakerEndTimeRef.current;
-      const type = speakerTimerTypeRef.current;
-      if (activeId && endTime && type) {
-        channel.send({
-          type: 'broadcast',
-          event: 'timer_sync',
-          payload: {
-            userId: activeId,
-            durationSec: Math.max(0, Math.ceil((endTime - Date.now()) / 1000)),
-            type: type,
-            targetEndTime: endTime,
-            timestamp: Date.now()
-          }
-        });
-      }
-    });
-
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         setIsChannelConnected(true);
@@ -178,8 +157,6 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       const currentId = activeSpeakerId;
       const currentType = speakerTimerType;
       speakerEndTimeRef.current = null;
-      activeSpeakerIdRef.current = null;
-      speakerTimerTypeRef.current = null;
 
       // Mark user as completed when their timer ends
       if (currentId && currentType === "PITCH") {
@@ -210,7 +187,31 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         } catch (_err) {}
       }
 
-      // Note: Phase 2 and Phase 3 Orchestrator useEffects will handle advancing to the next speaker
+      // Automatically move to the next person to pitch
+      if (currentId && currentType === "PITCH") {
+        const parts = allParticipantsRef.current;
+        const pitched = pitchedUsersRef.current;
+        
+        const currentIndex = parts.findIndex(p => p.id === currentId);
+        let nextSpeaker: Participant | null = null;
+        for (let i = 1; i <= parts.length; i++) {
+          const nextIndex = (currentIndex + i) % parts.length;
+          const candidate = parts[nextIndex];
+          if (candidate.id !== currentId && !pitched[candidate.id]) {
+            nextSpeaker = candidate;
+            break;
+          }
+        }
+
+        if (nextSpeaker) {
+          const nextId = nextSpeaker.id;
+          transitionTimeoutRef.current = setTimeout(() => {
+            startSpeakerTimerRef.current(nextId, pitchDurationSec, "PITCH");
+          }, 800);
+        } else {
+          setManualPhase(3);
+        }
+      }
 
 
       return;
@@ -221,6 +222,21 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       if (!speakerEndTimeRef.current) return;
       const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
       setSpeakerTimeLeft(remaining);
+
+      // Broadcast heartbeat sync every 1 second (4 * 250ms)
+      tickCountRef.current += 1;
+      if (tickCountRef.current % 4 === 0 && isChannelConnected && activeSpeakerId && speakerTimerType) {
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'timer_sync',
+          payload: {
+            userId: activeSpeakerId,
+            durationSec: remaining,
+            type: speakerTimerType,
+            targetEndTime: speakerEndTimeRef.current
+          }
+        });
+      }
     }, 250);
 
     return () => {
@@ -294,21 +310,17 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     }
   }, [briefingTimeLeft]);
 
-  // Pitches Auto-Start / Auto-Advance Orchestrator
+  // Phase 1→2 transition: when Phase 2 starts (either by timer reaching 60s or skip button), auto-start first pitcher
   useEffect(() => {
     if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
 
-    if (currentPhase === 2 && !activeSpeakerId) {
-      const nextSpeaker = allParticipantsRef.current.find(p => !pitchedUsersRef.current[p.id]);
-      if (nextSpeaker) {
-        const nextId = nextSpeaker.id;
-        const timer = setTimeout(() => {
-          startSpeakerTimerRef.current(nextId, pitchDurationSec, "PITCH");
-        }, 800); // 800ms brief transition pause
-        return () => clearTimeout(timer);
-      } else {
-        // No one left to pitch, automatically advance to referrals (Phase 3)
-        setManualPhase(3);
+    if (currentPhase === 2 && !activeSpeakerId && Object.keys(pitchedUsers).length === 0) {
+      const first = allParticipantsRef.current.find(p => !pitchedUsersRef.current[p.id]);
+      if (first) {
+        // Use setTimeout to ensure state updates from above have flushed
+        setTimeout(() => {
+          startSpeakerTimerRef.current(first.id, pitchDurationSec, "PITCH");
+        }, 100);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -378,8 +390,6 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
     // Set wall-clock end time
     speakerEndTimeRef.current = Date.now() + durationSec * 1000;
-    activeSpeakerIdRef.current = participantId;
-    speakerTimerTypeRef.current = type;
 
     setActiveSpeakerId(participantId);
     setSpeakerDuration(durationSec);
@@ -413,8 +423,6 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
     speakerEndTimeRef.current = null;
-    activeSpeakerIdRef.current = null;
-    speakerTimerTypeRef.current = null;
     if (activeSpeakerId) {
       if (speakerTimerType === "PITCH") {
         setPitchedUsers(prev => ({ ...prev, [activeSpeakerId]: true }));
@@ -1080,27 +1088,16 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           </span>
         </div>
 
-        {(() => {
-          const activeSpeakerTimerProps = activeSpeakerId && speakerTimerType && speakerEndTimeRef.current
-            ? { userId: activeSpeakerId, type: speakerTimerType, targetEndTime: speakerEndTimeRef.current }
-            : null;
-          return (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {tableUsers.map((tu: any) => (
-                <UserCard 
-                  key={tu.user.id} 
-                  tu={{ ...tu, table: { roundId: round.id, tableNumber } }} 
-                  activeSpeakerTimer={activeSpeakerTimerProps}
-                />
-              ))}
-              {tableUsers.length === 0 && (
-                <div className="col-span-full py-10 text-center text-xs font-bold text-[#0D2421]/40 uppercase tracking-wider">
-                  No members at this table to send referrals to.
-                </div>
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {tableUsers.map((tu: any) => (
+            <UserCard key={tu.user.id} tu={{ ...tu, table: { roundId: round.id, tableNumber } }} />
+          ))}
+          {tableUsers.length === 0 && (
+            <div className="col-span-full py-10 text-center text-xs font-bold text-[#0D2421]/40 uppercase tracking-wider">
+              No members at this table to send referrals to.
             </div>
-          );
-        })()}
+          )}
+        </div>
       </div>
 
     </div>
