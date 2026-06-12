@@ -44,7 +44,7 @@ export function SelfSpeakerTimer({
             } else {
               setActiveTimer(prev => prev ? { ...prev, timeLeft: currentRemaining } : null);
             }
-          }, 250); // Poll every 250ms for smooth, drift-free countdown
+          }, 250);
         } else {
           console.log(`[SelfSpeakerTimer] Remaining <= 0, clearing timer.`);
           setActiveTimer(null);
