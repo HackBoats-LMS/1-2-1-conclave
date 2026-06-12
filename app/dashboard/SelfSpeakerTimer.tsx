@@ -17,9 +17,6 @@ export function SelfSpeakerTimer({
   useEffect(() => {
     if (!roundId || !tableNumber) return;
 
-    const channelName = `room_${roundId}_table_${tableNumber}`;
-    const channel = supabase.channel(channelName);
-
     let localInterval: NodeJS.Timeout | null = null;
     let targetEndTime: number | null = null;
 
@@ -32,6 +29,7 @@ export function SelfSpeakerTimer({
         const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
         
         if (remaining > 0) {
+          console.log(`[SelfSpeakerTimer] Activating timer for me! Type: ${payloadType}, remaining: ${remaining}`);
           setActiveTimer({ type: payloadType, timeLeft: remaining });
           if (localInterval) clearInterval(localInterval);
           
@@ -39,6 +37,7 @@ export function SelfSpeakerTimer({
             if (!targetEndTime) return;
             const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
             if (currentRemaining <= 0) {
+              console.log(`[SelfSpeakerTimer] Timer finished!`);
               setActiveTimer(null);
               if (localInterval) clearInterval(localInterval);
               targetEndTime = null;
@@ -47,39 +46,48 @@ export function SelfSpeakerTimer({
             }
           }, 250); // Poll every 250ms for smooth, drift-free countdown
         } else {
+          console.log(`[SelfSpeakerTimer] Remaining <= 0, clearing timer.`);
           setActiveTimer(null);
           if (localInterval) clearInterval(localInterval);
           targetEndTime = null;
         }
       } else {
+        console.log(`[SelfSpeakerTimer] Not for me. payloadUserId=${payloadUserId}, my userId=${userId}`);
         setActiveTimer(null);
         if (localInterval) clearInterval(localInterval);
         targetEndTime = null;
       }
     };
 
-    channel.on("broadcast", { event: "timer_start" }, ({ payload }) => {
+    const handleTimerStart = (e: any) => {
+      const payload = e.detail;
       const initialTarget = Date.now() + payload.durationSec * 1000;
       activateTimer(payload.userId, payload.type, initialTarget);
-    });
+    };
 
-    channel.on("broadcast", { event: "timer_sync" }, ({ payload }) => {
+    const handleTimerSync = (e: any) => {
+      const payload = e.detail;
       activateTimer(payload.userId, payload.type, payload.targetEndTime);
-    });
+    };
 
-    channel.on("broadcast", { event: "timer_stop" }, ({ payload }) => {
+    const handleTimerStop = (e: any) => {
+      const payload = e.detail;
       if (!payload.userId || payload.userId === userId) {
         setActiveTimer(null);
         if (localInterval) clearInterval(localInterval);
         targetEndTime = null;
       }
-    });
+    };
 
-    channel.subscribe();
+    window.addEventListener("conclave_timer_start", handleTimerStart);
+    window.addEventListener("conclave_timer_sync", handleTimerSync);
+    window.addEventListener("conclave_timer_stop", handleTimerStop);
 
     return () => {
       if (localInterval) clearInterval(localInterval);
-      supabase.removeChannel(channel);
+      window.removeEventListener("conclave_timer_start", handleTimerStart);
+      window.removeEventListener("conclave_timer_sync", handleTimerSync);
+      window.removeEventListener("conclave_timer_stop", handleTimerStop);
     };
   }, [roundId, tableNumber, userId]);
 

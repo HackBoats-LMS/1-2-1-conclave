@@ -24,9 +24,6 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
   useEffect(() => {
     if (!tu.table?.roundId || !tu.table?.tableNumber) return;
     
-    const channelName = `room_${tu.table.roundId}_table_${tu.table.tableNumber}`;
-    const channel = supabase.channel(channelName);
-    
     let targetEndTime: number | null = null;
     
     // Shared function to initialize or adopt a timer
@@ -65,30 +62,35 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
       }
     };
     
-    channel.on('broadcast', { event: 'timer_start' }, ({ payload }) => {
-      // For timer_start, we calculate the initial target based on local time
+    const handleTimerStart = (e: any) => {
+      const payload = e.detail;
       const initialTarget = Date.now() + payload.durationSec * 1000;
       activateTimer(payload.userId, payload.type, initialTarget);
-    });
+    };
 
-    channel.on('broadcast', { event: 'timer_sync' }, ({ payload }) => {
-      // For timer_sync, the Captain passes the actual wall-clock target time
+    const handleTimerSync = (e: any) => {
+      const payload = e.detail;
       activateTimer(payload.userId, payload.type, payload.targetEndTime);
-    });
+    };
 
-    channel.on('broadcast', { event: 'timer_stop' }, ({ payload }) => {
+    const handleTimerStop = (e: any) => {
+      const payload = e.detail;
       if (!payload.userId || payload.userId === user.id) {
         setActiveTimer(null);
         if (localIntervalRef.current) clearInterval(localIntervalRef.current);
         targetEndTime = null;
       }
-    });
+    };
 
-    channel.subscribe();
+    window.addEventListener("conclave_timer_start", handleTimerStart);
+    window.addEventListener("conclave_timer_sync", handleTimerSync);
+    window.addEventListener("conclave_timer_stop", handleTimerStop);
 
     return () => {
       if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-      supabase.removeChannel(channel);
+      window.removeEventListener("conclave_timer_start", handleTimerStart);
+      window.removeEventListener("conclave_timer_sync", handleTimerSync);
+      window.removeEventListener("conclave_timer_stop", handleTimerStop);
     };
   }, [user.id, tu.table?.roundId, tu.table?.tableNumber]);
 

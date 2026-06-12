@@ -7,6 +7,7 @@ import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
 import { SecureAdminButton } from "./SecureAdminButton";
 import { MemberUploadForm } from "./MemberUploadForm";
+import { AssignmentsUploadForm } from "./AssignmentsUploadForm";
 import { CaptainUploadForm } from "./CaptainUploadForm";
 import { AssignmentPreview } from "./AssignmentPreview";
 import { ReferralsExportButtons } from "./ReferralsExportButtons";
@@ -24,13 +25,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
   const cookieStore = await cookies();
-  
+
   // Read success/error from cookies (set by server actions, auto-expire in 5s)
   let successAction = cookieStore.get('admin_success')?.value || "";
   const errorAction = cookieStore.get('admin_error')?.value || "";
-  
+
   let addedCount: string | undefined;
-  
+
   // Parse compound cookie values like "uploaded_whitelist&added=5"
   if (successAction.includes('&added=')) {
     const parts = successAction.split('&added=');
@@ -45,6 +46,8 @@ export default async function AdminDashboard() {
     successMessage = `Successfully whitelisted ${addedCount} member email(s)!${reassignWarning}`;
   } else if (successAction === "uploaded_captains" && addedCount) {
     successMessage = `Successfully registered ${addedCount} captain(s)!${reassignWarning}`;
+  } else if (successAction === "uploaded_assignments" && addedCount) {
+    successMessage = `Successfully imported ${addedCount} assignments!`;
   } else if (successAction === "generated") {
     successMessage = "Round assignments have been auto-generated! Review the matrix below.";
   } else if (successAction === "cleared_assignments") {
@@ -90,7 +93,7 @@ export default async function AdminDashboard() {
   // ── Calculate Stats ──
   const allOrderedRounds = slots.flatMap(s => s.rounds);
   const activeRound = allOrderedRounds.find(r => r.id === gameState?.currentRoundId);
-  
+
   let lastCompletedRoundEndedAt: Date | null = null;
   let nextRoundId: string | null = null;
   if (!gameState?.currentRoundId && gameState?.isAutoMode) {
@@ -104,7 +107,7 @@ export default async function AdminDashboard() {
       nextRoundId = pendingRound.id;
     }
   }
-  
+
   // Find current global duration
   let currentDuration = 15;
   if (slots.length > 0 && slots[0].rounds.length > 0) {
@@ -160,7 +163,7 @@ export default async function AdminDashboard() {
     for (const assignment of allAssignments) {
       const roundInfo = roundInfoMap.get(assignment.table.roundId);
       if (!roundInfo) continue;
-      
+
       const slotNum = roundInfo.slotNumber;
       const roundNum = roundInfo.roundNumber;
       const roundStatus = roundInfo.status;
@@ -298,7 +301,7 @@ export default async function AdminDashboard() {
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
       <div className="max-w-7xl mx-auto w-full relative z-10 space-y-10">
-        
+
         {/* Header Block */}
         <header className="bg-white border-2 border-[#0D2421] p-5 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-5">
           {/* Top row: title + hackboats + logout */}
@@ -317,9 +320,9 @@ export default async function AdminDashboard() {
             </div>
             <div className="flex-shrink-0 flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
-                <img 
-                  src="/hb-logo.png" 
-                  alt="HackBoats Logo" 
+                <img
+                  src="/hb-logo.png"
+                  alt="HackBoats Logo"
                   className="h-6 md:h-9 object-contain hover:scale-105 transition-transform duration-300"
                   draggable={false}
                 />
@@ -337,9 +340,8 @@ export default async function AdminDashboard() {
                 loadingText="Switching..."
                 promptText="Enter Admin PIN to toggle Open Login:"
                 extraFields={{ isOpenLogins: gameState?.isOpenLogins ? "false" : "true" }}
-                className={`h-9 px-3 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  gameState?.isOpenLogins ? 'bg-emerald-400 text-[#0D2421]' : 'bg-slate-200 text-slate-500'
-                }`}
+                className={`h-9 px-3 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${gameState?.isOpenLogins ? 'bg-emerald-400 text-[#0D2421]' : 'bg-slate-200 text-slate-500'
+                  }`}
               />
               <a href="/admin/leaderboard" target="_blank" className="h-9 px-3 bg-[#BEF03C] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all flex items-center justify-center gap-2">
                 <ArrowTrendingUpIcon className="w-4 h-4 flex-shrink-0" />
@@ -356,7 +358,7 @@ export default async function AdminDashboard() {
             </div>
           </div>
         </header>
-        
+
         {/* Success Alert Banner */}
         {successMessage && <SuccessAlert initialMessage={successMessage} />}
 
@@ -367,7 +369,7 @@ export default async function AdminDashboard() {
               <ExclamationTriangleIcon className="w-6 h-6 text-red-600 flex-shrink-0" />
               <span className="font-black text-xs uppercase tracking-wide text-left text-red-700">{errorMessage}</span>
             </div>
-            <a 
+            <a
               href="/admin"
               className="text-[#0D2421]/60 hover:text-[#0D2421] font-black text-xs uppercase cursor-pointer flex-shrink-0 border-b border-[#0D2421]/30 hover:border-[#0D2421]"
             >
@@ -398,9 +400,10 @@ export default async function AdminDashboard() {
           </div>
 
           {/* Upload Zones */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <MemberUploadForm />
             <CaptainUploadForm />
+            <AssignmentsUploadForm />
           </div>
 
           {/* Generate Button */}
@@ -409,7 +412,7 @@ export default async function AdminDashboard() {
               <AutoGenerateClient captainCount={captainCount} memberCount={memberCount} currentDuration={currentDuration} />
 
               {hasAssignments && (
-                <SecureAdminButton 
+                <SecureAdminButton
                   action={clearAssignments}
                   label="Clear Assignments"
                   loadingText="Clearing..."
@@ -420,7 +423,7 @@ export default async function AdminDashboard() {
               )}
             </div>
 
-           
+
           </div>
         </div>
 
@@ -429,10 +432,10 @@ export default async function AdminDashboard() {
 
         {/* ── STATS + ROUND CONTROLS ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
+
           {/* LEFT COLUMN: Stats */}
           <div className="lg:col-span-4 space-y-10">
-            
+
             {/* Stat: Live Connections */}
             <div className="bg-white border-2 border-[#0D2421] p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-4 relative overflow-hidden">
               <div className="flex justify-between items-center">
@@ -452,7 +455,7 @@ export default async function AdminDashboard() {
               <AdminLiveReferralsClient initialTotal={totalReferrals} />
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <ReferralsExportButtons />
-                <SecureAdminButton 
+                <SecureAdminButton
                   action={clearReferrals}
                   label="Wipe Data"
                   loadingText="Wiping..."
@@ -509,7 +512,7 @@ export default async function AdminDashboard() {
           {/* RIGHT COLUMN: Round Controls */}
           <div className="lg:col-span-8 space-y-10">
             <div className="bg-white border-2 border-[#0D2421] p-6 md:p-8 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-8">
-              
+
               <div className="pb-6 border-b-2 border-[#0D2421]">
                 <h2 className="text-2xl font-black uppercase text-[#0D2421]">Session Rotations</h2>
                 <p className="text-xs font-semibold text-[#0D2421]/60 uppercase tracking-wide">Launch rounds and control active countdowns</p>
@@ -518,25 +521,25 @@ export default async function AdminDashboard() {
               {/* Controls Grid */}
               {slots.length > 0 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  
+
                   {/* Timing Settings Card (Left) */}
                   <div className="bg-[#FAF8F4] border-2 border-[#0D2421] p-5 rounded-2xl shadow-[4px_4px_0px_#0D2421] flex flex-col gap-4">
                     <div className="flex items-center gap-2 pb-2.5 border-b border-[#0D2421]/15">
                       <span className="text-sm">⏱️</span>
                       <span className="text-[10px] font-black uppercase tracking-wider text-[#0D2421]">Timing Configurations</span>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Round Duration Form */}
                       <form action={updateAllRoundsDuration} className="space-y-1.5">
                         <label className="block text-[9px] font-black uppercase tracking-wider text-[#0D2421]/50">Round Duration</label>
                         <div className="flex gap-2">
-                          <input 
+                          <input
                             key={`dur-${currentDuration}`}
-                            type="number" 
-                            name="duration" 
-                            min={1} 
-                            max={120} 
+                            type="number"
+                            name="duration"
+                            min={1}
+                            max={120}
                             defaultValue={currentDuration}
                             required
                             className="w-12 h-10 border-2 border-[#0D2421] bg-white rounded-xl font-bold text-center text-xs focus:outline-none shadow-[2px_2px_0px_#0D2421]"
@@ -551,12 +554,12 @@ export default async function AdminDashboard() {
                       <form action={updateShiftDuration} className="space-y-1.5">
                         <label className="block text-[9px] font-black uppercase tracking-wider text-[#0D2421]/50">Shift Intermission</label>
                         <div className="flex gap-2">
-                          <input 
+                          <input
                             key={`shift-${gameState?.shiftDuration || 3}`}
-                            type="number" 
-                            name="shiftDuration" 
-                            min={1} 
-                            max={60} 
+                            type="number"
+                            name="shiftDuration"
+                            min={1}
+                            max={60}
                             defaultValue={gameState?.shiftDuration || 3}
                             required
                             className="w-12 h-10 border-2 border-[#0D2421] bg-white rounded-xl font-bold text-center text-xs focus:outline-none shadow-[2px_2px_0px_#0D2421]"
@@ -579,9 +582,8 @@ export default async function AdminDashboard() {
                     <div className="grid grid-cols-2 gap-4 h-full items-end">
                       <form action={toggleAutoMode}>
                         <input type="hidden" name="isAutoMode" value={gameState?.isAutoMode ? "false" : "true"} />
-                        <SubmitButton loadingText="Switching" className={`w-full h-10 px-3 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                          gameState?.isAutoMode ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-slate-200 text-slate-500'
-                        }`}>
+                        <SubmitButton loadingText="Switching" className={`w-full h-10 px-3 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${gameState?.isAutoMode ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-slate-200 text-slate-500'
+                          }`}>
                           <span>{gameState?.isAutoMode ? '🤖 Auto Mode: ON' : '✋ Manual Mode'}</span>
                         </SubmitButton>
                       </form>
@@ -605,7 +607,7 @@ export default async function AdminDashboard() {
               <div className="space-y-8">
                 {slots.map((slot) => (
                   <div key={slot.id} className="border-2 border-[#0D2421] rounded-[2rem] overflow-hidden bg-[#FAF8F4] shadow-[4px_4px_0px_#0D2421]">
-                    
+
                     <div className="bg-[#0D2421] px-6 py-4 border-b-2 border-[#0D2421] flex justify-between items-center">
                       <span className="font-black text-sm text-[#BEF03C] tracking-widest uppercase">
                         SLOT COORDINATE: {slot.slotNumber}
@@ -619,17 +621,15 @@ export default async function AdminDashboard() {
                       {slot.rounds.map((round) => {
                         const isActive = gameState?.currentRoundId === round.id;
                         return (
-                          <div 
-                            key={round.id} 
-                            className={`border-2 border-[#0D2421] p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-[3px_3px_0px_#0D2421] transition-all ${
-                              isActive ? 'bg-[#BEF03C]/10 border-[#0D2421]' : 'bg-[#FAF8F4]/30'
-                            }`}
+                          <div
+                            key={round.id}
+                            className={`border-2 border-[#0D2421] p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-[3px_3px_0px_#0D2421] transition-all ${isActive ? 'bg-[#BEF03C]/10 border-[#0D2421]' : 'bg-[#FAF8F4]/30'
+                              }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm border-2 border-[#0D2421] shadow-[1.5px_1.5px_0px_#0D2421] ${
-                                  isActive ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-white text-slate-500'
-                                }`}>
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm border-2 border-[#0D2421] shadow-[1.5px_1.5px_0px_#0D2421] ${isActive ? 'bg-[#BEF03C] text-[#0D2421]' : 'bg-white text-slate-500'
+                                  }`}>
                                   {round.roundNumber}
                                 </div>
                                 <div className="space-y-0.5">
@@ -640,18 +640,17 @@ export default async function AdminDashboard() {
                                 </div>
                               </div>
 
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#0D2421] font-black text-[9px] uppercase shadow-[1px_1px_0px_#0D2421] ${
-                                isActive ? 'bg-red-500 text-white animate-pulse' : round.status === 'COMPLETED' ? 'bg-[#0D2421] text-[#BEF03C]' : 'bg-white text-slate-500'
-                              }`}>
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#0D2421] font-black text-[9px] uppercase shadow-[1px_1px_0px_#0D2421] ${isActive ? 'bg-red-500 text-white animate-pulse' : round.status === 'COMPLETED' ? 'bg-[#0D2421] text-[#BEF03C]' : 'bg-white text-slate-500'
+                                }`}>
                                 {round.status}
                               </span>
                             </div>
 
                             {isActive && round.startTime && (
-                              <ClientTimer 
-                                startedAt={round.startTime} 
-                                durationMinutes={round.durationMinutes || 15} 
-                                status={round.status} 
+                              <ClientTimer
+                                startedAt={round.startTime}
+                                durationMinutes={round.durationMinutes || 15}
+                                status={round.status}
                                 onTimeUp={gameState?.isAutoMode ? stopRound.bind(null, round.id) : undefined}
                               />
                             )}
@@ -684,13 +683,12 @@ export default async function AdminDashboard() {
                               ) : (
                                 <form action={startRound} className="w-full">
                                   <input type="hidden" name="roundId" value={round.id} />
-                                  <SubmitButton 
+                                  <SubmitButton
                                     loadingText="Launching..."
-                                    className={`w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] transition-all ${
-                                      round.status === 'COMPLETED'
-                                          ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
-                                          : 'bg-[#BEF03C] text-[#0D2421] hover:bg-[#A6DF2B] shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer'
-                                    }`}
+                                    className={`w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] transition-all ${round.status === 'COMPLETED'
+                                        ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
+                                        : 'bg-[#BEF03C] text-[#0D2421] hover:bg-[#A6DF2B] shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer'
+                                      }`}
                                   >
                                     {round.status === 'COMPLETED' ? 'Session Finished' : 'Launch Round'}
                                   </SubmitButton>
@@ -703,7 +701,7 @@ export default async function AdminDashboard() {
                     </div>
                   </div>
                 ))}
-                
+
                 {slots.length === 0 && (
                   <div className="text-center py-16 px-6 border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-[#FAF8F4] space-y-4">
                     <div className="w-16 h-16 bg-white border border-[#0D2421]/20 rounded-full flex items-center justify-center mx-auto shadow-sm">
@@ -718,7 +716,7 @@ export default async function AdminDashboard() {
               </div>
             </div>
           </div>
-          
+
         </div>
 
         {/* ── USER MANAGEMENT TABLE ── */}
@@ -744,21 +742,21 @@ export default async function AdminDashboard() {
             <div className="flex flex-col md:flex-row gap-4 items-end">
               <div className="flex-1 w-full space-y-1.5">
                 <label htmlFor="email" className="block text-xs font-black uppercase tracking-wider text-[#0D2421]/60">Google Account Email</label>
-                <input 
-                  type="email" 
-                  id="email" 
-                  name="email" 
-                  required 
-                  placeholder="name@company.com" 
-                  className="w-full bg-white border-2 border-[#0D2421] rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30" 
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  required
+                  placeholder="name@company.com"
+                  className="w-full bg-white border-2 border-[#0D2421] rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30"
                 />
               </div>
               <div className="w-full md:w-56 space-y-1.5">
                 <label htmlFor="role" className="block text-xs font-black uppercase tracking-wider text-[#0D2421]/60">Security Role</label>
                 <div className="relative">
-                  <select 
-                    id="role" 
-                    name="role" 
+                  <select
+                    id="role"
+                    name="role"
                     className="w-full bg-white border-2 border-[#0D2421] rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all appearance-none cursor-pointer"
                   >
                     <option value="USER">Standard Member</option>
@@ -779,9 +777,9 @@ export default async function AdminDashboard() {
           <UserTable users={users} />
         </div>
       </div>
-      
+
       {/* Invisible auto-shifting manager (only ticks if auto mode is ON and no round is active) */}
-      <AdminAutoShiftingManager 
+      <AdminAutoShiftingManager
         isAutoMode={!!gameState?.isAutoMode}
         lastCompletedRoundEndedAt={lastCompletedRoundEndedAt}
         shiftDurationMinutes={gameState?.shiftDuration || 3}

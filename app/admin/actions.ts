@@ -29,7 +29,7 @@ async function broadcast(event: string, payload: object = {}) {
         )
       )
     );
-  } catch (_) {}
+  } catch (_) { }
 }
 
 async function requireAdmin() {
@@ -43,20 +43,20 @@ function verifyDeletePassword(password: string | null) {
   if (!password) {
     throw new Error("Admin Pin is required for deletion");
   }
-  
+
   const hash = crypto.createHash("sha256").update(password).digest("hex");
   const expectedHash = process.env.ADMIN_DELETE_PASSWORD_HASH;
   const expectedPlain = process.env.ADMIN_DELETE_PASSWORD;
-  
+
   // Hashed password default: HACKBOATS
   const defaultHash = "728fce39b4446fc2aaa0f4a42971737f137b3ad20c36099fba20891eacca64f8";
-  
-  const match = expectedHash 
-    ? hash === expectedHash 
-    : expectedPlain 
-      ? password === expectedPlain 
+
+  const match = expectedHash
+    ? hash === expectedHash
+    : expectedPlain
+      ? password === expectedPlain
       : hash === defaultHash;
-      
+
   if (!match) {
     throw new Error("Incorrect Admin Pin. Action denied.");
   }
@@ -136,7 +136,7 @@ export async function deleteArchivedEvent(formData: FormData) {
   await requireAdmin();
   const password = formData.get("password") as string;
   const eventId = formData.get("eventId") as string;
-  
+
   if (!eventId) {
     await setError("Event ID is required");
     revalidatePath("/admin/archive");
@@ -154,7 +154,7 @@ export async function deleteArchivedEvent(formData: FormData) {
     revalidatePath("/admin/archive");
     return;
   }
-  
+
   await setSuccess("deleted_archive");
   revalidatePath("/admin/archive");
 }
@@ -163,7 +163,7 @@ export async function updateUserRole(formData: FormData) {
   await requireAdmin();
   const userId = formData.get("userId") as string;
   const role = formData.get("role") as string;
-  
+
   if (!userId || !role || !["USER", "CAPTAIN", "ADMIN"].includes(role)) {
     await setError("Invalid Role Update");
     revalidatePath("/admin");
@@ -189,7 +189,7 @@ export async function removeAllUsers(formData: FormData) {
   await requireAdmin();
   const password = formData.get("password") as string;
   const eventName = formData.get("eventName") as string;
-  
+
   if (!eventName || eventName.trim() === "") {
     await setError("Event name is required to archive data before clearing.");
     revalidatePath("/admin");
@@ -198,12 +198,12 @@ export async function removeAllUsers(formData: FormData) {
 
   try {
     verifyDeletePassword(password);
-    
+
     // 1. Fetch data to archive
     const usersToArchive = await prisma.user.findMany({
       where: { role: { not: "ADMIN" } }
     });
-    
+
     const referralsToArchive = await prisma.referral.findMany({
       include: { fromUser: true, toUser: true }
     });
@@ -252,7 +252,7 @@ export async function removeAllUsers(formData: FormData) {
     });
     // Referrals will cascade delete, but we can also manually wipe TableAssignments/Slots if needed
     // Usually wiping users wipes assignments and referrals due to cascading.
-    
+
   } catch (e: any) {
     console.error(e);
     await setError(e.message || "Failed to clear members");
@@ -277,7 +277,7 @@ export async function startRound(formData: FormData) {
     const round = await prisma.round.findUnique({
       where: { id: roundId }
     });
-    
+
     const durationMinutesStr = formData.get("durationMinutes");
     let durationMinutes = round?.durationMinutes || 15;
     if (durationMinutesStr && typeof durationMinutesStr === "string") {
@@ -294,13 +294,13 @@ export async function startRound(formData: FormData) {
 
     await prisma.round.update({
       where: { id: roundId },
-      data: { 
-        status: "IN_PROGRESS", 
+      data: {
+        status: "IN_PROGRESS",
         startTime: newStartTime,
         durationMinutes
       }
     });
-    
+
     const state = await prisma.gameState.findFirst();
     if (state) {
       await prisma.gameState.update({
@@ -348,7 +348,7 @@ export async function pauseRound(formData: FormData) {
   await requireAdmin();
   try {
     const roundId = formData.get("roundId") as string;
-    
+
     const round = await prisma.round.findUnique({ where: { id: roundId } });
     if (round?.startTime && round.status === "IN_PROGRESS") {
       const elapsedSec = Math.floor((Date.now() - round.startTime.getTime()) / 1000);
@@ -415,7 +415,7 @@ export async function uploadWhitelistExcel(formData: FormData) {
   try {
     const file = formData.get("file") as File;
     if (!file || !file.size) return;
-    
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const workbook = xlsx.read(buffer, { type: "buffer" });
@@ -424,20 +424,20 @@ export async function uploadWhitelistExcel(formData: FormData) {
 
     const usersData: { email: string; group: string | null }[] = [];
     for (const row of data) {
-      const emailKey = Object.keys(row).find(key => 
+      const emailKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
       );
-      const groupKey = Object.keys(row).find(key => 
+      const groupKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("group") || key.toLowerCase().includes("college") || key.toLowerCase().includes("company") || key.toLowerCase().includes("org")
       );
-      
+
       const rawEmail = emailKey ? row[emailKey] : null;
       if (typeof rawEmail === "string") {
         const email = rawEmail.trim().toLowerCase();
         if (email) {
-          usersData.push({ 
-            email, 
-            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null 
+          usersData.push({
+            email,
+            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null
           });
         }
       }
@@ -493,7 +493,7 @@ export async function uploadCaptainExcel(formData: FormData) {
   try {
     const file = formData.get("file") as File;
     if (!file || !file.size) return;
-    
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const workbook = xlsx.read(buffer, { type: "buffer" });
@@ -502,20 +502,20 @@ export async function uploadCaptainExcel(formData: FormData) {
 
     const usersData: { email: string; group: string | null }[] = [];
     for (const row of data) {
-      const emailKey = Object.keys(row).find(key => 
+      const emailKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
       );
-      const groupKey = Object.keys(row).find(key => 
+      const groupKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("group") || key.toLowerCase().includes("college") || key.toLowerCase().includes("company") || key.toLowerCase().includes("org")
       );
-      
+
       const rawEmail = emailKey ? row[emailKey] : null;
       if (typeof rawEmail === "string") {
         const email = rawEmail.trim().toLowerCase();
         if (email) {
-          usersData.push({ 
-            email, 
-            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null 
+          usersData.push({
+            email,
+            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null
           });
         }
       }
@@ -618,7 +618,7 @@ export async function saveAutoAssignments(payload: any) {
   await requireAdmin();
   try {
     const { slotData, roundData, tableData, assignmentData } = payload;
-    
+
     // Wipe old data
     await prisma.tableAssignment.deleteMany({});
     await prisma.table.deleteMany({});
@@ -645,12 +645,167 @@ export async function saveAutoAssignments(payload: any) {
   }
 }
 
+// ──────────────────────────────────────────────
+// EXCEL UPLOAD: PRE-COMPUTED ASSIGNMENTS
+// ──────────────────────────────────────────────
+
+export async function uploadAssignmentsExcel(formData: FormData) {
+  await requireAdmin();
+  let assignmentsCount = 0;
+  try {
+    const file = formData.get("file") as File;
+    if (!file || !file.size) return;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const workbook = xlsx.read(buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet);
+
+    // Wipe old assignments
+    await prisma.tableAssignment.deleteMany({});
+    await prisma.table.deleteMany({});
+    await prisma.round.deleteMany({});
+    await prisma.slot.deleteMany({});
+
+    const state = await prisma.gameState.findFirst();
+    if (state) {
+      await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+    }
+
+    // Prepare mapped data
+    const rows: { email: string; role: string; slot: number; round: number; table: number }[] = [];
+    
+    for (const row of data) {
+      // Flexible matching for columns
+      const emailKey = Object.keys(row).find(k => k.toLowerCase() === "email" || k.toLowerCase() === "mail");
+      const roleKey = Object.keys(row).find(k => k.toLowerCase() === "role");
+      const slotKey = Object.keys(row).find(k => k.toLowerCase() === "slot");
+      const roundKey = Object.keys(row).find(k => k.toLowerCase() === "round");
+      const tableKey = Object.keys(row).find(k => k.toLowerCase() === "table");
+
+      if (emailKey && slotKey && roundKey && tableKey) {
+        const email = String(row[emailKey]).trim().toLowerCase();
+        const role = roleKey ? String(row[roleKey]).trim().toUpperCase() : "USER";
+        const slot = parseInt(String(row[slotKey]), 10);
+        const round = parseInt(String(row[roundKey]), 10);
+        const table = parseInt(String(row[tableKey]), 10);
+
+        if (email && !isNaN(slot) && !isNaN(round) && !isNaN(table)) {
+          rows.push({ email, role: role === "CAPTAIN" ? "CAPTAIN" : "USER", slot, round, table });
+        }
+      }
+    }
+
+    if (rows.length === 0) throw new Error("No valid assignment rows found. Missing required columns.");
+
+    // 1. Ensure all users exist
+    const emails = [...new Set(rows.map(r => r.email))];
+    const existingUsers = await prisma.user.findMany({
+      where: { email: { in: emails } }
+    });
+    const existingEmails = new Set(existingUsers.map(u => u.email?.toLowerCase()));
+    
+    const missingUsers = rows
+      .filter(r => !existingEmails.has(r.email))
+      // Deduplicate before creation
+      .filter((v, i, a) => a.findIndex(t => t.email === v.email) === i)
+      .map(r => ({
+        email: r.email,
+        role: r.role,
+        isApproved: true
+      }));
+
+    if (missingUsers.length > 0) {
+      await prisma.user.createMany({
+        data: missingUsers,
+        skipDuplicates: true
+      });
+    }
+
+    // Re-fetch all relevant users to get their IDs
+    const allRelevantUsers = await prisma.user.findMany({
+      where: { email: { in: emails } }
+    });
+    const userEmailToId = new Map(allRelevantUsers.map(u => [u.email?.toLowerCase() || "", u.id]));
+
+    // 2. Build hierarchical data (Slots -> Rounds -> Tables -> Assignments)
+    const slotData: { id: string; slotNumber: number }[] = [];
+    const roundData: { id: string; slotId: string; roundNumber: number; status: string; durationMinutes: number }[] = [];
+    const tableData: { id: string; roundId: string; tableNumber: number }[] = [];
+    const assignmentData: { userId: string; tableId: string; isCaptain: boolean }[] = [];
+
+    const slotMap = new Map<number, string>(); // slotNumber -> slotId
+    const roundMap = new Map<string, string>(); // slotNumber_roundNumber -> roundId
+    const tableMap = new Map<string, string>(); // roundId_tableNumber -> tableId
+
+    for (const row of rows) {
+      // Handle Slot
+      if (!slotMap.has(row.slot)) {
+        const slotId = genId();
+        slotMap.set(row.slot, slotId);
+        slotData.push({ id: slotId, slotNumber: row.slot });
+      }
+      const slotId = slotMap.get(row.slot)!;
+
+      // Handle Round
+      const roundKey = `${row.slot}_${row.round}`;
+      if (!roundMap.has(roundKey)) {
+        const roundId = genId();
+        roundMap.set(roundKey, roundId);
+        roundData.push({
+          id: roundId,
+          slotId: slotId,
+          roundNumber: row.round,
+          status: "PENDING",
+          durationMinutes: 15 // default
+        });
+      }
+      const roundId = roundMap.get(roundKey)!;
+
+      // Handle Table
+      const tableKey = `${roundId}_${row.table}`;
+      if (!tableMap.has(tableKey)) {
+        const tableId = genId();
+        tableMap.set(tableKey, tableId);
+        tableData.push({ id: tableId, roundId: roundId, tableNumber: row.table });
+      }
+      const tableId = tableMap.get(tableKey)!;
+
+      // Handle Assignment
+      const userId = userEmailToId.get(row.email);
+      if (userId) {
+        assignmentData.push({
+          userId: userId,
+          tableId: tableId,
+          isCaptain: row.role === "CAPTAIN"
+        });
+        assignmentsCount++;
+      }
+    }
+
+    // 3. Batch Create
+    await prisma.slot.createMany({ data: slotData });
+    await prisma.round.createMany({ data: roundData });
+    await prisma.table.createMany({ data: tableData });
+    await prisma.tableAssignment.createMany({ data: assignmentData, skipDuplicates: true });
+
+  } catch (e: any) {
+    console.error("Upload assignments failed:", e);
+    await setError(e.message || "Failed to upload assignments");
+    revalidatePath("/admin");
+    return;
+  }
+  await setSuccess(`uploaded_assignments&added=${assignmentsCount}`);
+  revalidatePath("/admin");
+}
+
 // Helper functions for matching
 function genId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -669,10 +824,10 @@ function calculateSlotGrouping(totalRounds: number): number[] {
   if (totalRounds <= 4) return [totalRounds];
   if (totalRounds % 4 === 0) return Array(totalRounds / 4).fill(4);
   if (totalRounds % 3 === 0) return Array(totalRounds / 3).fill(3);
-  
+
   const slotsOf4 = Math.floor(totalRounds / 4);
   const remainder = totalRounds % 4;
-  
+
   if (remainder === 0) return Array(slotsOf4).fill(4);
   if (remainder === 1 && slotsOf4 > 0) {
     return Array(Math.ceil(totalRounds / 3)).fill(0).map((_, i) => {
@@ -691,7 +846,7 @@ function calculateSlotGrouping(totalRounds: number): number[] {
     result.push(3);
     return result;
   }
-  
+
   const slots: number[] = [];
   let left = totalRounds;
   while (left > 0) {
@@ -707,7 +862,7 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
   try {
     const { captains, members, error: fetchError } = await fetchUsersForGeneration();
     if (fetchError) throw new Error(fetchError);
-    
+
     const C = captains.length;
     const M = members.length;
     if (C === 0) throw new Error("No captains found. Upload captain emails first.");
@@ -719,7 +874,7 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
 
     const memberIds = members.map(m => m.id);
     const captainIds = captains.map(c => c.id);
-    
+
     const userGroups = new Map<string, string | null>();
     members.forEach(m => userGroups.set(m.id, m.group));
     captains.forEach(c => userGroups.set(c.id, c.group));
@@ -743,7 +898,7 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
             for (let j = i + 1; j < allAtTable.length; j++) {
               met.get(allAtTable[i])!.add(allAtTable[j]);
               met.get(allAtTable[j])!.add(allAtTable[i]);
-              
+
               const g1 = userGroups.get(allAtTable[i]);
               const g2 = userGroups.get(allAtTable[j]);
               if (g1 && g2 && g1 === g2) groupPenalty += 10;
@@ -751,7 +906,7 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
           }
         }
       }
-      
+
       let totalSize = 0;
       for (const partners of met.values()) {
         totalSize += partners.size;
@@ -765,7 +920,7 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
       const currentMet = new Map<string, Set<string>>();
       for (const id of memberIds) currentMet.set(id, new Set());
       for (const id of captainIds) currentMet.set(id, new Set());
-      
+
       const pool = [...memberIds];
 
       while (matrix.length < maxRounds) {
@@ -796,16 +951,16 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
               let groupPenalty = 0;
               const myMet = currentMet.get(memberId)!;
               const myGroup = userGroups.get(memberId);
-              
+
               for (const existing of tables[t]) {
                 if (!myMet.has(existing)) newMeetings++;
                 if (myGroup && myGroup === userGroups.get(existing)) groupPenalty += 10;
               }
               if (!myMet.has(captainIds[t])) newMeetings++;
               if (myGroup && myGroup === userGroups.get(captainIds[t])) groupPenalty += 10;
-              
+
               const tableScore = newMeetings - groupPenalty;
-              
+
               if (bestTable === -1 || tableScore > bestScore || (tableScore === bestScore && tables[t].length < bestCurrentSize)) {
                 bestTable = t; bestScore = tableScore; bestCurrentSize = tables[t].length;
               }
@@ -856,7 +1011,7 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
 
           const finalTestMatrix = [...matrix, tables];
           const finalEval = evaluateCoverage(finalTestMatrix);
-          
+
           const newScoreAdded = finalEval.score - (evaluateCoverage(matrix).score);
           if (newScoreAdded > maxNewPairs) {
             maxNewPairs = newScoreAdded;
@@ -879,12 +1034,12 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
 
       const finalEval = evaluateCoverage(matrix);
       const isBetter = (finalEval.pairs === totalPossiblePairs && matrix.length < bestRoundCount) ||
-                       (finalEval.score > bestCoverage && bestCoverage < totalPossiblePairs);
-      
+        (finalEval.score > bestCoverage && bestCoverage < totalPossiblePairs);
+
       if (bestCoverage === -1 || isBetter) {
         bestCoverage = finalEval.score;
         bestRoundCount = matrix.length;
-        bestRoundAssignments = matrix.map(roundTables => 
+        bestRoundAssignments = matrix.map(roundTables =>
           roundTables.map((memberList, tableIdx) => ({
             captainId: captainIds[tableIdx],
             memberIds: [...memberList],
@@ -910,10 +1065,10 @@ export async function generateAutoAssignments(maxRounds: number, defaultDuration
       const roundsInSlot = slotGrouping[s];
       for (let r = 0; r < roundsInSlot; r++) {
         const roundId = genId();
-        roundData.push({ 
-          id: roundId, 
-          slotId, 
-          roundNumber: globalRoundIdx + 1, 
+        roundData.push({
+          id: roundId,
+          slotId,
+          roundNumber: globalRoundIdx + 1,
           status: "PENDING",
           durationMinutes: defaultDuration
         });
@@ -1018,7 +1173,7 @@ export async function toggleOpenLogin(formData: FormData) {
 export async function toggleAutoMode(formData: FormData) {
   await requireAdmin();
   const isAutoMode = formData.get("isAutoMode") === "true";
-  
+
   try {
     const state = await prisma.gameState.findFirst();
     if (state) {
@@ -1031,7 +1186,7 @@ export async function toggleAutoMode(formData: FormData) {
         data: { isAutoMode }
       });
     }
-    
+
     await setSuccess("toggled_mode");
     revalidatePath("/admin");
   } catch (e: any) {

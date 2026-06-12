@@ -1,17 +1,17 @@
 "use client";
 
 import React, { useState, useRef, useActionState } from "react";
-import { uploadCaptainExcel } from "./actions";
-import { ArrowPathIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { uploadAssignmentsExcel } from "./actions";
+import { ArrowPathIcon, CheckIcon, DocumentArrowUpIcon } from "@heroicons/react/24/outline";
 
-export function CaptainUploadForm() {
+export function AssignmentsUploadForm() {
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [state, formAction, isPending] = useActionState(
     async (prevState: any, formData: FormData) => {
       try {
-        await uploadCaptainExcel(formData);
+        await uploadAssignmentsExcel(formData);
       } catch (err: any) {
         if (err?.message === "NEXT_REDIRECT" || err?.digest?.startsWith("NEXT_REDIRECT")) {
           throw err;
@@ -39,9 +39,9 @@ export function CaptainUploadForm() {
     <div className="bg-[#FAF8F4] border-2 border-[#0D2421] p-6 rounded-2xl shadow-[3px_3px_0px_#0D2421] space-y-4 relative overflow-hidden">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-base">👑</span>
+          <span className="text-base text-purple-600">📄</span>
           <span className="text-[10px] font-black tracking-widest text-[#0D2421] uppercase">
-            IMPORT CAPTAIN EMAILS (.XLSX, .CSV)
+            IMPORT ASSIGNMENTS
           </span>
         </div>
         {fileName && !isPending && (
@@ -54,13 +54,17 @@ export function CaptainUploadForm() {
         )}
       </div>
 
+      <div className="text-[10px] font-bold text-[#0D2421]/60 uppercase tracking-wide">
+        UPLOAD PRE-COMPUTED ASSIGNMENTS (EXCEL/CSV)
+      </div>
+
       <form action={formAction} className="flex flex-col gap-4">
         <div className={`relative border-2 border-dashed rounded-xl bg-white p-4 transition-all flex flex-col items-center justify-center min-h-[100px] ${
           isPending 
             ? "border-[#0D2421]/15 bg-slate-50 cursor-not-allowed" 
             : fileName 
-              ? "border-amber-400 bg-amber-400/5" 
-              : "border-[#0D2421]/30 hover:bg-amber-400/5"
+              ? "border-purple-400 bg-purple-400/5" 
+              : "border-[#0D2421]/30 hover:bg-purple-400/5"
         }`}>
           <input
             type="file"
@@ -77,21 +81,24 @@ export function CaptainUploadForm() {
               <>
                 <ArrowPathIcon className="w-6 h-6 text-[#0D2421] animate-spin" />
                 <span className="text-xs font-black uppercase text-[#0D2421]/40 animate-pulse">
-                  Processing Captain Emails...
+                  Processing Assignments...
                 </span>
               </>
             ) : fileName ? (
               <>
-                <CheckIcon className="w-6 h-6 text-amber-600" />
-                <span className="text-xs font-black uppercase text-amber-700 truncate max-w-[280px]">
+                <CheckIcon className="w-6 h-6 text-purple-600" />
+                <span className="text-xs font-black uppercase text-purple-700 truncate max-w-[280px]">
                   {fileName}
                 </span>
               </>
             ) : (
               <>
-                <span className="text-2xl">👑</span>
+                <DocumentArrowUpIcon className="w-6 h-6 text-[#0D2421]/50" />
                 <span className="text-xs font-black uppercase text-[#0D2421]/75">
-                  Choose Captain Email Spreadsheet
+                  Select Excel File
+                </span>
+                <span className="text-[9px] font-bold text-[#0D2421]/40 uppercase tracking-wider">
+                  COLUMNS: EMAIL, ROLE, SLOT, ROUND, TABLE
                 </span>
               </>
             )}
@@ -104,7 +111,7 @@ export function CaptainUploadForm() {
           className={`w-full py-4 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-2 ${
             isPending || !fileName
               ? "bg-slate-100 text-slate-400 border-slate-300 shadow-none cursor-not-allowed"
-              : "bg-amber-400 text-[#0D2421] hover:bg-amber-500 shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer"
+              : "bg-white text-[#0D2421] hover:bg-slate-50 shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer"
           }`}
         >
           {isPending ? (
@@ -113,19 +120,19 @@ export function CaptainUploadForm() {
               <span>Uploading...</span>
             </>
           ) : (
-            <span>Upload Captains</span>
+            <span>Waiting For File...</span>
           )}
         </button>
       </form>
 
       {isPending && (
         <div className="absolute inset-0 bg-[#FAF8F4]/85 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 text-center border-2 border-[#0D2421] rounded-2xl animate-fadeIn">
-          <div className="w-12 h-12 bg-[#0D2421] border border-[#0D2421] rounded-2xl flex items-center justify-center shadow-[3px_3px_0px_#BEF03C] mb-4">
-            <span className="text-xl">👑</span>
+          <div className="w-12 h-12 bg-[#0D2421] border border-[#0D2421] rounded-2xl flex items-center justify-center shadow-[3px_3px_0px_#A855F7] mb-4">
+            <DocumentArrowUpIcon className="w-6 h-6 text-purple-400" />
           </div>
-          <h4 className="font-black text-sm uppercase tracking-tight text-[#0D2421]">Registering Table Captains</h4>
+          <h4 className="font-black text-sm uppercase tracking-tight text-[#0D2421]">Importing Assignments</h4>
           <p className="text-[10px] font-bold text-[#0D2421]/60 uppercase tracking-widest mt-1">
-            Reading spreadsheet and assigning captain roles...
+            Validating rows and building tables...
           </p>
         </div>
       )}

@@ -43,7 +43,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const [windowWidth, setWindowWidth] = useState(1024);
   const [briefingTimeLeft, setBriefingTimeLeft] = useState<number | null>(null);
   const [briefingStarted, setBriefingStarted] = useState(false);
-  
+
   // Sound mute state stored in local storage
   const [isMuted, setIsMuted] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -55,7 +55,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const speakerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
-  const startSpeakerTimerRef = useRef<(participantId: string, durationSec: number, type: "PITCH" | "REFERRAL") => void>(() => {});
+  const startSpeakerTimerRef = useRef<(participantId: string, durationSec: number, type: "PITCH" | "REFERRAL") => void>(() => { });
   const isMutedRef = useRef(false);
   const speakerEndTimeRef = useRef<number | null>(null);
   const briefingEndTimeRef = useRef<number | null>(null);
@@ -66,7 +66,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     // Initialize realtime broadcast channel for table members
     const channelName = `room_${round.id}_table_${tableNumber}`;
     const channel = supabase.channel(channelName);
-    
+
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         setIsChannelConnected(true);
@@ -93,16 +93,16 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   // Calculate elapsed time since round started
   useEffect(() => {
     if (!round.startTime) return;
-    
+
     if (round.status?.startsWith("PAUSED_")) {
       const pausedElapsed = parseInt(round.status.split("_")[1]);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setElapsedTime(Math.max(0, pausedElapsed || 0));
       return;
     }
-    
+
     const startTimeMs = new Date(round.startTime).getTime();
-    
+
     const updateElapsed = () => {
       const now = new Date().getTime();
       const elapsedSec = Math.floor((now - startTimeMs) / 1000);
@@ -143,7 +143,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     pitchedUsersRef.current = pitchedUsers;
     referredUsersRef.current = referredUsers;
   }, [allParticipants, pitchedUsers, referredUsers]);
-  
+
   const pitchDurationSec = 60; // 60s for all pitches
 
   // Keep muted ref in sync
@@ -152,7 +152,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   // Speaker timer countdown logic — wall-clock based for accuracy
   useEffect(() => {
     if (speakerTimeLeft === null) return;
-    
+
     if (speakerTimeLeft <= 0) {
       const currentId = activeSpeakerId;
       const currentType = speakerTimerType;
@@ -165,12 +165,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       if (currentId && currentType === "REFERRAL") {
         setReferredUsers(prev => ({ ...prev, [currentId]: true }));
       }
-      
+
       // Clear active speaker states
       setSpeakerTimeLeft(null);
       setActiveSpeakerId(null);
       setSpeakerTimerType(null);
-      
+
       // Play success chime if not muted
       if (!isMutedRef.current) {
         try {
@@ -180,18 +180,18 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           oscillator.connect(gainNode);
           gainNode.connect(audioCtx.destination);
           oscillator.type = "sine";
-          oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+          oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
           gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime);
           oscillator.start();
           oscillator.stop(audioCtx.currentTime + 0.35);
-        } catch (_err) {}
+        } catch (_err) { }
       }
 
       // Automatically move to the next person to pitch
       if (currentId && currentType === "PITCH") {
         const parts = allParticipantsRef.current;
         const pitched = pitchedUsersRef.current;
-        
+
         const currentIndex = parts.findIndex(p => p.id === currentId);
         let nextSpeaker: Participant | null = null;
         for (let i = 1; i <= parts.length; i++) {
@@ -226,23 +226,25 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       // Broadcast heartbeat sync every 1 second (4 * 250ms)
       tickCountRef.current += 1;
       if (tickCountRef.current % 4 === 0 && isChannelConnected && activeSpeakerId && speakerTimerType) {
+        const payload = {
+          userId: activeSpeakerId,
+          durationSec: remaining,
+          type: speakerTimerType,
+          targetEndTime: speakerEndTimeRef.current
+        };
         channelRef.current?.send({
           type: 'broadcast',
           event: 'timer_sync',
-          payload: {
-            userId: activeSpeakerId,
-            durationSec: remaining,
-            type: speakerTimerType,
-            targetEndTime: speakerEndTimeRef.current
-          }
+          payload
         });
+        window.dispatchEvent(new CustomEvent('conclave_timer_sync', { detail: payload }));
       }
     }, 250);
 
     return () => {
       if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speakerTimeLeft, activeSpeakerId, speakerTimerType, pitchDurationSec, isChannelConnected]);
 
   // Clean up transitions only on unmount
@@ -254,12 +256,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
   const totalRoundSec = round.durationMinutes * 60; // e.g. 15 mins = 900s
   const remainingRoundSec = Math.max(0, totalRoundSec - elapsedTime);
-  
+
   const memberCount = allParticipants.filter(p => !p.isCaptain).length || 8;
 
   const stage2Start = 60;
   const stage3Start = stage2Start + (memberCount * pitchDurationSec);
-  
+
   let computedPhase = 1;
   if (elapsedTime >= stage3Start) {
     computedPhase = 3;
@@ -319,7 +321,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         }, 100);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPhase, activeSpeakerId, pitchedUsers, round.startTime, round.status, pitchDurationSec]);
 
   // Referrals Auto-Start / Auto-Advance Orchestrator
@@ -339,7 +341,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         // stay on phase 3
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPhase, activeSpeakerId, referredUsers, round.startTime, round.status]);
 
   // Calculate dynamic radius and avatar sizing based on participant count to prevent overlaps
@@ -374,7 +376,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   function startSpeakerTimer(participantId: string, durationSec: number, type: "PITCH" | "REFERRAL") {
     if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
-    
+
     // Mark previous speaker as completed if switching directly
     if (activeSpeakerId && activeSpeakerId !== participantId) {
       if (speakerTimerType === "PITCH") {
@@ -400,16 +402,20 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     }
 
     // Broadcast to UserCards on all screens at this table
+    const payload = {
+      userId: participantId,
+      durationSec,
+      type,
+      timestamp: Date.now()
+    };
     channelRef.current?.send({
       type: 'broadcast',
       event: 'timer_start',
-      payload: {
-        userId: participantId,
-        durationSec,
-        type,
-        timestamp: Date.now()
-      }
+      payload
     });
+    
+    // Also dispatch locally for the captain's own UserCards
+    window.dispatchEvent(new CustomEvent('conclave_timer_start', { detail: payload }));
   }
 
   // Keep the ref always pointing to the latest version of startSpeakerTimer
@@ -431,20 +437,20 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     setSpeakerTimerType(null);
 
     // Broadcast stop
+    const payload = { userId: activeSpeakerId };
     channelRef.current?.send({
       type: 'broadcast',
       event: 'timer_stop',
-      payload: {
-        userId: activeSpeakerId
-      }
+      payload
     });
+    window.dispatchEvent(new CustomEvent('conclave_timer_stop', { detail: payload }));
   };
 
   const addExtraTime = (seconds: number) => {
     if (speakerTimeLeft !== null && activeSpeakerId && speakerTimerType) {
       const newDuration = speakerDuration + seconds;
       setSpeakerDuration(newDuration);
-      
+
       // Update the wall-clock target time
       if (speakerEndTimeRef.current) {
         speakerEndTimeRef.current += seconds * 1000;
@@ -452,16 +458,18 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
         setSpeakerTimeLeft(remaining);
 
         // Broadcast the extension to everyone's devices
+        const payload = {
+          userId: activeSpeakerId,
+          durationSec: remaining,
+          type: speakerTimerType,
+          timestamp: Date.now()
+        };
         channelRef.current?.send({
           type: 'broadcast',
           event: 'timer_start',
-          payload: {
-            userId: activeSpeakerId,
-            durationSec: remaining,
-            type: speakerTimerType,
-            timestamp: Date.now()
-          }
+          payload
         });
+        window.dispatchEvent(new CustomEvent('conclave_timer_start', { detail: payload }));
       }
     }
   };
@@ -550,7 +558,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   return (
     <div className="space-y-8">
       {/* Dynamic Soundwave & Facilitation animations */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes soundwave {
           0%, 100% { transform: scaleY(0.18); }
           50% { transform: scaleY(1); }
@@ -580,14 +589,14 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
       {/* ── CENTRAL WIZARD ── */}
       <div className="flex flex-col space-y-6">
-        
+
         {/* Header row with timer & sound control */}
         <div className="flex flex-wrap justify-between items-center bg-white border-3 border-[#0D2421] p-4 md:p-6 rounded-[1.5rem] shadow-[4px_4px_0px_#0D2421]">
           <div className="space-y-0.5">
             <span className="text-[9px] font-black tracking-widest text-[#0D2421]/50 uppercase block">01 / LIVE ORCHESTRATION</span>
             <h3 className="font-black text-lg uppercase text-[#0D2421]">Round Facilitation</h3>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <button
               onClick={toggleMute}
@@ -602,7 +611,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
             </div>
           </div>
         </div>
-          
+
         {/* Quick Stage manual jump override tabs */}
         <div className="bg-[#0D2421] p-1.5 rounded-2xl border-2 border-[#0D2421] grid grid-cols-3 gap-1.5 shadow-[4px_4px_0px_#0D2421]">
           {[1, 2, 3].map((phNum) => {
@@ -612,13 +621,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                 key={phNum}
                 onClick={() => isUnlocked && setManualPhase(phNum)}
                 disabled={!isUnlocked}
-                className={`py-2 text-[9px] font-black uppercase rounded-lg transition-all text-center ${
-                  currentPhase === phNum 
-                    ? "bg-[#BEF03C] text-[#0D2421]" 
+                className={`py-2 text-[9px] font-black uppercase rounded-lg transition-all text-center ${currentPhase === phNum
+                    ? "bg-[#BEF03C] text-[#0D2421]"
                     : isUnlocked
                       ? "text-white/60 hover:text-white hover:bg-white/10 cursor-pointer"
                       : "text-white/20 cursor-not-allowed"
-                }`}
+                  }`}
               >
                 {isUnlocked ? `Stage ${phNum}` : `🔒 Stage ${phNum}`}
               </button>
@@ -626,248 +634,246 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           })}
         </div>
 
-          {/* Wizard Card Container */}
-          <div className={`flex-1 border-3 border-[#0D2421] p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] flex flex-col justify-between gap-6 transition-all duration-300 ${
-            currentPhase === 1 ? "bg-amber-50" :
+        {/* Wizard Card Container */}
+        <div className={`flex-1 border-3 border-[#0D2421] p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] flex flex-col justify-between gap-6 transition-all duration-300 ${currentPhase === 1 ? "bg-amber-50" :
             currentPhase === 2 ? "bg-[#FAF8F4]" : "bg-yellow-50"
           }`}>
-            
-            {/* Step Header */}
-            <div className="flex justify-between items-center border-b-2 border-dashed border-[#0D2421]/15 pb-4">
-              <div>
-                <span className="text-[9px] font-black tracking-widest text-[#0D2421]/40 uppercase block">Active Facilitation Step</span>
-                <h4 className="font-black text-sm uppercase text-[#0D2421]">
-                  {currentPhase === 1 && "📢 Table Welcoming"}
-                  {currentPhase === 2 && "🎙️ Participant Pitches"}
-                  {currentPhase === 3 && "📨 Referral Exchange"}
-                </h4>
-              </div>
-              <span className="px-2 py-0.5 bg-[#0D2421] text-white border border-[#0D2421] rounded text-[8px] font-black uppercase">
-                Step {currentPhase} of 3
-              </span>
+
+          {/* Step Header */}
+          <div className="flex justify-between items-center border-b-2 border-dashed border-[#0D2421]/15 pb-4">
+            <div>
+              <span className="text-[9px] font-black tracking-widest text-[#0D2421]/40 uppercase block">Active Facilitation Step</span>
+              <h4 className="font-black text-sm uppercase text-[#0D2421]">
+                {currentPhase === 1 && "📢 Table Welcoming"}
+                {currentPhase === 2 && "🎙️ Participant Pitches"}
+                {currentPhase === 3 && "📨 Referral Exchange"}
+              </h4>
             </div>
+            <span className="px-2 py-0.5 bg-[#0D2421] text-white border border-[#0D2421] rounded text-[8px] font-black uppercase">
+              Step {currentPhase} of 3
+            </span>
+          </div>
 
-            {/* Dynamic Content, Scripts and Helpers */}
-            <div className="space-y-4 flex-1">
-              
-              {/* Giant Captain Script Prompt */}
-              <div className="bg-white p-5 rounded-2xl border-2 border-[#0D2421] space-y-2 relative shadow-[3px_3px_0px_#0D2421]">
-                <div className="absolute -top-2.5 left-4 px-2 py-0.5 bg-[#0D2421] text-[#BEF03C] border border-[#0D2421] rounded text-[8px] font-black uppercase tracking-wider">
-                  📢 Script - Read Aloud
-                </div>
-                
-                {currentPhase === 1 && (
-                  <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                    {"Welcome to Table " + tableNumber + "! I am your captain. We have " + round.durationMinutes + " minutes to network. Each of you gets 1 minute to speak, 30 seconds for referral, then we switch tables. Let's begin!"}
-                  </p>
-                )}
+          {/* Dynamic Content, Scripts and Helpers */}
+          <div className="space-y-4 flex-1">
 
-                {currentPhase === 2 && (
-                  <div>
-                    {activeSpeakerId ? (
-                      <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                        {"\"Thank you. Let's listen closely to " + (allParticipants.find(p => p.id === activeSpeakerId)?.name || "the speaker") + "'s pitches and requirements. Keep notes of referrals!\""}
-                      </p>
-                    ) : nextToPitch ? (
-                      <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                        {"\"Next speaker is " + nextToPitch.name + " (" + nextToPitch.businessCategory + "). Share your requirements and target categories. Go!\""}
-                      </p>
-                    ) : (
-                      <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                        {"\"Everyone has pitched! Let's start the referral turn cycles now. Each person gets 30 seconds to share their target connection categories.\""}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {currentPhase === 3 && (
-                  <div>
-                    {activeSpeakerId ? (
-                      <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                        {"\"Thank you. Let's hear " + (allParticipants.find(p => p.id === activeSpeakerId)?.name || "the speaker") + "'s referral requests. Open your dashboard and write down notes for them!\""}
-                      </p>
-                    ) : nextToRefer ? (
-                      <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                        {"\"Next speaker is " + nextToRefer.name + " (" + nextToRefer.businessCategory + "). Share your referral needs in 30 seconds. Go!\""}
-                      </p>
-                    ) : (
-                      <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
-                        {"\"All referral turns are finished! Let's prepare to rotate tables.\""}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-
+            {/* Giant Captain Script Prompt */}
+            <div className="bg-white p-5 rounded-2xl border-2 border-[#0D2421] space-y-2 relative shadow-[3px_3px_0px_#0D2421]">
+              <div className="absolute -top-2.5 left-4 px-2 py-0.5 bg-[#0D2421] text-[#BEF03C] border border-[#0D2421] rounded text-[8px] font-black uppercase tracking-wider">
+                📢 Script - Read Aloud
               </div>
 
-              {/* Action items list */}
-              <div className="space-y-2 mt-4 bg-white/50 p-4 rounded-xl border border-[#0D2421]/10">
-                <span className="text-[9px] font-black uppercase text-[#0D2421]/60 tracking-wider">To-Do Checklist</span>
-                <ul className="space-y-1.5 text-xs text-[#0D2421]/80 font-bold">
-                  {currentPhase === 1 && (
-                    <>
-                      <li className="flex items-center gap-2">
-                        <span className="text-emerald-500 font-black">✔</span> Greet all members around the table
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <span className="text-emerald-500 font-black">✔</span> Ensure they have opened their dashboards
-                      </li>
-                    </>
+              {currentPhase === 1 && (
+                <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
+                  {"Welcome to Table " + tableNumber + "! I am your captain. We have " + round.durationMinutes + " minutes to network. Each of you gets 1 minute to speak, 30 seconds for referral, then we switch tables. Let's begin!"}
+                </p>
+              )}
+
+              {currentPhase === 2 && (
+                <div>
+                  {activeSpeakerId ? (
+                    <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
+                      {"\"Thank you. Let's listen closely to " + (allParticipants.find(p => p.id === activeSpeakerId)?.name || "the speaker") + "'s pitches and requirements. Keep notes of referrals!\""}
+                    </p>
+                  ) : nextToPitch ? (
+                    <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
+                      {"\"Next speaker is " + nextToPitch.name + " (" + nextToPitch.businessCategory + "). Share your requirements and target categories. Go!\""}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
+                      {"\"Everyone has pitched! Let's start the referral turn cycles now. Each person gets 30 seconds to share their target connection categories.\""}
+                    </p>
                   )}
-
-                  {currentPhase === 2 && (
-                    <>
-                      {activeSpeakerId ? (
-                        <>
-                          <li className="flex items-center gap-2 text-[#0D2421]">
-                            <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping flex-shrink-0" />
-                            <span>Currently speaking: {allParticipants.find(p => p.id === activeSpeakerId)?.name}</span>
-                          </li>
-                          <li className="flex items-center gap-2 text-red-500">
-                            <span>🚨</span> Gently cut speakers off when the time expires
-                          </li>
-                        </>
-                      ) : (
-                        <>
-                          <li className="flex items-center gap-2">
-                            <span className="text-emerald-500 font-black">✔</span> Click below to start the next speaker
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-slate-400 font-black">○</span> Spoken: {Object.values(pitchedUsers).filter(Boolean).length} / {allParticipants.length - 1} members
-                          </li>
-                        </>
-                      )}
-                    </>
-                  )}
-
-                  {currentPhase === 3 && (
-                    <>
-                      {activeSpeakerId ? (
-                        <>
-                          <li className="flex items-center gap-2 text-[#0D2421]">
-                            <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping flex-shrink-0" />
-                            <span>Currently speaking (Referrals): {allParticipants.find(p => p.id === activeSpeakerId)?.name}</span>
-                          </li>
-                          <li className="flex items-center gap-2 text-red-500">
-                            <span>🚨</span> Gently cut speakers off when the 30s expires
-                          </li>
-                        </>
-                      ) : (
-                        <>
-                          <li className="flex items-center gap-2">
-                            <span className="text-emerald-500 font-black">✔</span> Referral turns will start and progress automatically
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <span className="text-slate-400 font-black">○</span> Completed: {Object.values(referredUsers).filter(Boolean).length} / {allParticipants.length - 1} members
-                          </li>
-                        </>
-                      )}
-                    </>
-                  )}
-
-
-                </ul>
-              </div>
-            </div>
-
-            {/* Giant Autopilot Action Button Area */}
-            <div className="space-y-4 pt-4 border-t-2 border-dashed border-[#0D2421]/10">
-              
-              {/* Special Speaker adjustments (only shown in Stage 2 or 3 when speaker is active) */}
-              {(currentPhase === 2 || currentPhase === 3) && activeSpeakerId && (
-                <div className="flex gap-2 w-full">
-                  <button
-                    onClick={() => addExtraTime(15)}
-                    className="flex-1 py-3 bg-[#FAF8F4] hover:bg-slate-100 text-[#0D2421] border-2 border-[#0D2421] rounded-2xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer text-center"
-                  >
-                    ➕ Add 15s
-                  </button>
-                  <button
-                    onClick={() => addExtraTime(30)}
-                    className="flex-1 py-3 bg-[#FAF8F4] hover:bg-slate-100 text-[#0D2421] border-2 border-[#0D2421] rounded-2xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer text-center"
-                  >
-                    ➕ Add 30s
-                  </button>
                 </div>
               )}
 
-              {/* Main control action button */}
-              <div>
-                {currentPhase === 1 && (
-                  <div className="flex flex-col gap-3">
-                    {/* Auto-running briefing countdown */}
-                    {briefingTimeLeft !== null && briefingTimeLeft > 0 && (
-                      <div className="w-full py-6 bg-amber-400 text-[#0D2421] border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-center shadow-[5px_5px_0px_#0d2421] space-y-1">
-                        <div className="text-[10px] tracking-widest opacity-70">Captain Briefing Time</div>
-                        <div className="text-4xl tabular-nums">{Math.floor(briefingTimeLeft / 60).toString().padStart(2, '0')}:{(briefingTimeLeft % 60).toString().padStart(2, '0')}</div>
-                        <div className="text-[10px] tracking-widest opacity-60">Auto-advancing to pitches when done</div>
-                      </div>
-                    )}
+              {currentPhase === 3 && (
+                <div>
+                  {activeSpeakerId ? (
+                    <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
+                      {"\"Thank you. Let's hear " + (allParticipants.find(p => p.id === activeSpeakerId)?.name || "the speaker") + "'s referral requests. Open your dashboard and write down notes for them!\""}
+                    </p>
+                  ) : nextToRefer ? (
+                    <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
+                      {"\"Next speaker is " + nextToRefer.name + " (" + nextToRefer.businessCategory + "). Share your referral needs in 30 seconds. Go!\""}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-bold leading-relaxed text-[#0D2421] italic pt-1">
+                      {"\"All referral turns are finished! Let's prepare to rotate tables.\""}
+                    </p>
+                  )}
+                </div>
+              )}
 
-                    {/* Skip briefing button */}
-                    <button 
-                      onClick={handleAutopilotAction}
-                      className="w-full py-4 bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-sm shadow-[4px_4px_0px_#0d2421] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
-                    >
-                      ⏩ Skip Briefing &amp; Start Pitches Now
-                    </button>
-                  </div>
+
+            </div>
+
+            {/* Action items list */}
+            <div className="space-y-2 mt-4 bg-white/50 p-4 rounded-xl border border-[#0D2421]/10">
+              <span className="text-[9px] font-black uppercase text-[#0D2421]/60 tracking-wider">To-Do Checklist</span>
+              <ul className="space-y-1.5 text-xs text-[#0D2421]/80 font-bold">
+                {currentPhase === 1 && (
+                  <>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-500 font-black">✔</span> Greet all members around the table
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-500 font-black">✔</span> Ensure they have opened their dashboards
+                    </li>
+                  </>
                 )}
 
                 {currentPhase === 2 && (
-                  <button 
-                    onClick={handleAutopilotAction}
-                    className={`w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${
-                      activeSpeakerId 
-                        ? "bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
-                        : "bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
-                    }`}
-                  >
+                  <>
                     {activeSpeakerId ? (
-                      <>⏹️ Finish Speaker&apos;s Pitch</>
-                    ) : nextToPitch ? (
-                      <>🎙️ Start Pitch: {nextToPitch.name}</>
+                      <>
+                        <li className="flex items-center gap-2 text-[#0D2421]">
+                          <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping flex-shrink-0" />
+                          <span>Currently speaking: {allParticipants.find(p => p.id === activeSpeakerId)?.name}</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-red-500">
+                          <span>🚨</span> Gently cut speakers off when the time expires
+                        </li>
+                      </>
                     ) : (
-                      <>💬 Start Referral Exchange</>
+                      <>
+                        <li className="flex items-center gap-2">
+                          <span className="text-emerald-500 font-black">✔</span> Click below to start the next speaker
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-slate-400 font-black">○</span> Spoken: {Object.values(pitchedUsers).filter(Boolean).length} / {allParticipants.length - 1} members
+                        </li>
+                      </>
                     )}
-                  </button>
+                  </>
                 )}
 
                 {currentPhase === 3 && (
-                  <div className="w-full">
+                  <>
                     {activeSpeakerId ? (
-                      <button 
-                        onClick={handleAutopilotAction}
-                        className="w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
-                      >
-                        ⏹️ Finish Referral Turn
-                      </button>
-                    ) : nextToRefer ? (
-                      <div className="w-full py-5 bg-[#FAF8F4]/50 border-3 border-dashed border-[#0D2421]/20 rounded-[1.5rem] font-black uppercase text-base text-center text-[#0D2421]/40">
-                        📨 Starting Referral: {nextToRefer.name}...
-                      </div>
+                      <>
+                        <li className="flex items-center gap-2 text-[#0D2421]">
+                          <span className="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping flex-shrink-0" />
+                          <span>Currently speaking (Referrals): {allParticipants.find(p => p.id === activeSpeakerId)?.name}</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-red-500">
+                          <span>🚨</span> Gently cut speakers off when the 30s expires
+                        </li>
+                      </>
                     ) : (
-                      <div className="w-full py-4 bg-[#BEF03C]/20 border-2 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-xs tracking-widest text-center shadow-[4px_4px_0px_#0D2421]">
-                        ✅ All Referrals Done — Leaderboard Timer Handles Rotation
-                      </div>
+                      <>
+                        <li className="flex items-center gap-2">
+                          <span className="text-emerald-500 font-black">✔</span> Referral turns will start and progress automatically
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-slate-400 font-black">○</span> Completed: {Object.values(referredUsers).filter(Boolean).length} / {allParticipants.length - 1} members
+                        </li>
+                      </>
                     )}
-                  </div>
+                  </>
                 )}
-              </div>
 
-              {/* Reset to Auto button if manual stage selected */}
-              {manualPhase !== null && (
-                <button
-                  onClick={() => setManualPhase(null)}
-                  className="w-full py-2 bg-white hover:bg-slate-50 border border-[#0D2421]/30 rounded-xl text-[9px] font-black uppercase text-[#0D2421]/60 tracking-wider transition-all cursor-pointer"
-                >
-                  Reset to Auto-Sync Timeline
-                </button>
-              )}
+
+              </ul>
             </div>
           </div>
+
+          {/* Giant Autopilot Action Button Area */}
+          <div className="space-y-4 pt-4 border-t-2 border-dashed border-[#0D2421]/10">
+
+            {/* Special Speaker adjustments (only shown in Stage 2 or 3 when speaker is active) */}
+            {(currentPhase === 2 || currentPhase === 3) && activeSpeakerId && (
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => addExtraTime(15)}
+                  className="flex-1 py-3 bg-[#FAF8F4] hover:bg-slate-100 text-[#0D2421] border-2 border-[#0D2421] rounded-2xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer text-center"
+                >
+                  ➕ Add 15s
+                </button>
+                <button
+                  onClick={() => addExtraTime(30)}
+                  className="flex-1 py-3 bg-[#FAF8F4] hover:bg-slate-100 text-[#0D2421] border-2 border-[#0D2421] rounded-2xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer text-center"
+                >
+                  ➕ Add 30s
+                </button>
+              </div>
+            )}
+
+            {/* Main control action button */}
+            <div>
+              {currentPhase === 1 && (
+                <div className="flex flex-col gap-3">
+                  {/* Auto-running briefing countdown */}
+                  {briefingTimeLeft !== null && briefingTimeLeft > 0 && (
+                    <div className="w-full py-6 bg-amber-400 text-[#0D2421] border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-center shadow-[5px_5px_0px_#0d2421] space-y-1">
+                      <div className="text-[10px] tracking-widest opacity-70">Captain Briefing Time</div>
+                      <div className="text-4xl tabular-nums">{Math.floor(briefingTimeLeft / 60).toString().padStart(2, '0')}:{(briefingTimeLeft % 60).toString().padStart(2, '0')}</div>
+                      <div className="text-[10px] tracking-widest opacity-60">Auto-advancing to pitches when done</div>
+                    </div>
+                  )}
+
+                  {/* Skip briefing button */}
+                  <button
+                    onClick={handleAutopilotAction}
+                    className="w-full py-4 bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-sm shadow-[4px_4px_0px_#0d2421] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
+                  >
+                    ⏩ Skip Briefing &amp; Start Pitches Now
+                  </button>
+                </div>
+              )}
+
+              {currentPhase === 2 && (
+                <button
+                  onClick={handleAutopilotAction}
+                  className={`w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${activeSpeakerId
+                      ? "bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
+                      : "bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
+                    }`}
+                >
+                  {activeSpeakerId ? (
+                    <>⏹️ Finish Speaker&apos;s Pitch</>
+                  ) : nextToPitch ? (
+                    <>🎙️ Start Pitch: {nextToPitch.name}</>
+                  ) : (
+                    <>💬 Start Referral Exchange</>
+                  )}
+                </button>
+              )}
+
+              {currentPhase === 3 && (
+                <div className="w-full">
+                  {activeSpeakerId ? (
+                    <button
+                      onClick={handleAutopilotAction}
+                      className="w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
+                    >
+                      ⏹️ Finish Referral Turn
+                    </button>
+                  ) : nextToRefer ? (
+                    <div className="w-full py-5 bg-[#FAF8F4]/50 border-3 border-dashed border-[#0D2421]/20 rounded-[1.5rem] font-black uppercase text-base text-center text-[#0D2421]/40">
+                      📨 Starting Referral: {nextToRefer.name}...
+                    </div>
+                  ) : (
+                    <div className="w-full py-4 bg-[#BEF03C]/20 border-2 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-xs tracking-widest text-center shadow-[4px_4px_0px_#0D2421]">
+                      ✅ All Referrals Done — Leaderboard Timer Handles Rotation
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Reset to Auto button if manual stage selected */}
+            {manualPhase !== null && (
+              <button
+                onClick={() => setManualPhase(null)}
+                className="w-full py-2 bg-white hover:bg-slate-50 border border-[#0D2421]/30 rounded-xl text-[9px] font-black uppercase text-[#0D2421]/60 tracking-wider transition-all cursor-pointer"
+              >
+                Reset to Auto-Sync Timeline
+              </button>
+            )}
+          </div>
         </div>
+      </div>
 
       {/* ── SEAT CARDS GRID (Attendees Control Board) ── */}
       <div className="bg-white border-3 border-[#0D2421] p-6 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] space-y-6">
@@ -895,13 +901,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
             return (
               <div
                 key={p.id}
-                className={`border-2 border-[#0D2421] p-4 rounded-2xl flex flex-col justify-between gap-4 transition-all duration-300 relative ${
-                  isSpeaker 
-                    ? "bg-[#BEF03C]/10 border-[#BEF03C] shadow-[4px_4px_0px_#0D2421] scale-[1.02] ring-2 ring-[#0D2421]" 
+                className={`border-2 border-[#0D2421] p-4 rounded-2xl flex flex-col justify-between gap-4 transition-all duration-300 relative ${isSpeaker
+                    ? "bg-[#BEF03C]/10 border-[#BEF03C] shadow-[4px_4px_0px_#0D2421] scale-[1.02] ring-2 ring-[#0D2421]"
                     : hasCompleted
                       ? "bg-[#0D2421]/5 border-[#0D2421]/40 opacity-70"
                       : "bg-white shadow-[4px_4px_0px_#0D2421]"
-                }`}
+                  }`}
               >
                 {/* Status Badges & Action Vector */}
                 <div className="flex justify-between items-start">
@@ -924,7 +929,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                       </span>
                     )}
                   </div>
-                  
+
                   {/* Top Right Vector / Checkbox slot (prevents mixing/overlapping) */}
                   {true && (
                     <div className="flex-shrink-0">
@@ -953,9 +958,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                               setPitchedUsers(prev => ({ ...prev, [p.id]: !prev[p.id] }));
                             }
                           }}
-                          className={`w-5 h-5 rounded-md border-2 border-[#0D2421] flex items-center justify-center font-black text-[10px] cursor-pointer hover:bg-slate-100 shadow-[1px_1px_0px_#0D2421] transition-all active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none ${
-                            hasCompleted ? "bg-[#BEF03C]" : "bg-white"
-                          }`}
+                          className={`w-5 h-5 rounded-md border-2 border-[#0D2421] flex items-center justify-center font-black text-[10px] cursor-pointer hover:bg-slate-100 shadow-[1px_1px_0px_#0D2421] transition-all active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none ${hasCompleted ? "bg-[#BEF03C]" : "bg-white"
+                            }`}
                           title={hasCompleted ? "Mark as waiting" : "Mark as completed"}
                         >
                           {hasCompleted ? "✓" : ""}
@@ -967,9 +971,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
                 {/* Speaker Info */}
                 <div className="space-y-1">
-                  <h4 className={`font-black text-sm uppercase truncate ${
-                    hasCompleted ? "text-[#0D2421]/50" : "text-[#0D2421]"
-                  }`}>
+                  <h4 className={`font-black text-sm uppercase truncate ${hasCompleted ? "text-[#0D2421]/50" : "text-[#0D2421]"
+                    }`}>
                     {p.name}
                   </h4>
                   <p className="text-[10px] font-bold text-[#0D2421]/50 uppercase tracking-wide truncate">

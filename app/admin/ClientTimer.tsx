@@ -30,14 +30,14 @@ export function ClientTimer({ startedAt, durationMinutes, status, onTimeUp }: Cl
     const calculateTimeLeft = () => {
       const startTime = new Date(startedAt).getTime();
       const endTime = startTime + (durationMinutes * 60 * 1000);
-      
+
       if (status.startsWith('PAUSED_')) {
         const elapsedSec = parseInt(status.split('_')[1]);
         if (!isNaN(elapsedSec)) {
           return Math.max(0, (durationMinutes * 60 * 1000) - (elapsedSec * 1000));
         }
       }
-      
+
       const now = new Date().getTime();
       return Math.max(0, endTime - now);
     };

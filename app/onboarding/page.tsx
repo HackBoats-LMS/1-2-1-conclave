@@ -14,7 +14,7 @@ export default async function Onboarding() {
 
   const isProfileComplete = (session.user as any).onboardingCompleted;
   const role = (session.user as any).role;
-  
+
   if (isProfileComplete) {
     if (role === "ADMIN") {
       redirect("/admin");
@@ -46,7 +46,7 @@ export default async function Onboarding() {
       </div>
 
       <div className="bg-white border-2 border-[#0D2421] p-8 md:p-12 rounded-[2rem] shadow-[8px_8px_0px_#0D2421] max-w-lg w-full relative z-10 space-y-8">
-        
+
         <div className="text-center space-y-2">
           <div className="inline-block px-3 py-1.5 bg-[#0D2421] text-[#BEF03C] border border-[#0D2421] rounded-full text-[10px] font-black tracking-widest uppercase shadow-[1.5px_1.5px_0px_#0D2421]">
             STEP 02 / ACCOUNT CONFIGURATION
@@ -58,7 +58,7 @@ export default async function Onboarding() {
             {role === "ADMIN" ? "Confirm your basic details to access the console" : "Provide business detail credentials to join the table rounds"}
           </p>
         </div>
-        
+
         <OnboardingClient userRole={role} />
       </div>
     </div>

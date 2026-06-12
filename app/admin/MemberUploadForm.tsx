@@ -54,8 +54,8 @@ export function MemberUploadForm() {
         )}
       </div>
 
-      <form action={formAction} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-        <div className={`flex-1 relative border-2 border-dashed rounded-xl bg-white p-4 transition-all flex items-center justify-center min-h-[58px] ${
+      <form action={formAction} className="flex flex-col gap-4">
+        <div className={`relative border-2 border-dashed rounded-xl bg-white p-4 transition-all flex flex-col items-center justify-center min-h-[100px] ${
           isPending 
             ? "border-[#0D2421]/15 bg-slate-50 cursor-not-allowed" 
             : fileName 
@@ -72,28 +72,28 @@ export function MemberUploadForm() {
             onChange={handleFileChange}
             className={`opacity-0 absolute inset-0 w-full h-full z-10 ${isPending ? "cursor-not-allowed" : "cursor-pointer"}`}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center justify-center gap-2 text-center">
             {isPending ? (
-              <div className="flex items-center gap-2">
-                <ArrowPathIcon className="w-5 h-5 text-[#0D2421] animate-spin" />
+              <>
+                <ArrowPathIcon className="w-6 h-6 text-[#0D2421] animate-spin" />
                 <span className="text-xs font-black uppercase text-[#0D2421]/40 animate-pulse">
                   Processing Emails...
                 </span>
-              </div>
+              </>
             ) : fileName ? (
-              <div className="flex items-center gap-2">
-                <CheckIcon className="w-5 h-5 text-emerald-600" />
+              <>
+                <CheckIcon className="w-6 h-6 text-emerald-600" />
                 <span className="text-xs font-black uppercase text-emerald-600 truncate max-w-[280px]">
                   {fileName}
                 </span>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center gap-3">
-                <UserGroupIcon className="w-5 h-5 text-[#0D2421]/50" />
+              <>
+                <UserGroupIcon className="w-6 h-6 text-[#0D2421]/50" />
                 <span className="text-xs font-black uppercase text-[#0D2421]/70">
                   Choose Member Email Spreadsheet
                 </span>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -101,7 +101,7 @@ export function MemberUploadForm() {
         <button
           type="submit"
           disabled={isPending || !fileName}
-          className={`px-6 py-4 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-2 ${
+          className={`w-full py-4 border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-2 ${
             isPending || !fileName
               ? "bg-slate-100 text-slate-400 border-slate-300 shadow-none cursor-not-allowed"
               : "bg-[#BEF03C] text-[#0D2421] hover:bg-[#A6DF2B] shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer"

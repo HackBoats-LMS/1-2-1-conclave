@@ -26,7 +26,7 @@ export default async function LoginPage({
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
       <div className="bg-white border-2 border-[#0D2421] p-8 md:p-12 rounded-[2rem] shadow-[8px_8px_0px_#0D2421] max-w-md w-full text-center space-y-8 relative z-10">
-        
+
         {/* Brand Logo Icon */}
         <div className="w-14 h-14 mx-auto rounded-2xl bg-[#0D2421] border border-[#0D2421] flex items-center justify-center text-[#BEF03C] shadow-[3px_3px_0px_#0D2421]">
           <UsersIcon className="w-7 h-7" />

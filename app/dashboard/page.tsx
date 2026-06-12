@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { LiveControls, AutoRefresh } from "./LiveControls";
 import { UserCard } from "./UserCard";
 import { CaptainActiveRound } from "./CaptainActiveRound";
+import { TableRealtimeListener } from "./TableRealtimeListener";
 import { DownloadMyReferralsButton } from "./DownloadMyReferralsButton";
 import { SelfSpeakerTimer } from "./SelfSpeakerTimer";
 import { ExclamationTriangleIcon, UsersIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
@@ -379,6 +380,7 @@ export default async function UserDashboard() {
         <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
         <AutoRefresh initialRoundId={gameState.currentRoundId} />
+        <TableRealtimeListener roundId={round?.id as string} tableNumber={myAssignment.table.tableNumber} />
 
         <div className="max-w-6xl mx-auto w-full relative z-10 space-y-12">
           {/* Header Block */}
@@ -444,6 +446,7 @@ export default async function UserDashboard() {
       <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
       <AutoRefresh initialRoundId={gameState.currentRoundId} />
+      <TableRealtimeListener roundId={round?.id as string} tableNumber={myAssignment.table.tableNumber} />
 
       <div className="max-w-6xl mx-auto w-full relative z-10 space-y-12">
 
