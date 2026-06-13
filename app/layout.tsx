@@ -57,10 +57,15 @@ export default function RootLayout({
               />
             </div>
 
-            {/* Right: Copyright */}
-            <p className="text-[10px] font-bold text-[#FAF8F4]/40 uppercase tracking-widest">
-              &copy; {new Date().getFullYear()} 1-2-1 Conclave. All rights reserved.
-            </p>
+            {/* Right: Copyright & Support */}
+            <div className="flex flex-col items-center md:items-end gap-1">
+              <p className="text-[10px] font-bold text-[#FAF8F4]/80 uppercase tracking-widest">
+                Support: +91 99634 49974
+              </p>
+              <p className="text-[10px] font-bold text-[#FAF8F4]/40 uppercase tracking-widest">
+                &copy; {new Date().getFullYear()} 1-2-1 Conclave. All rights reserved.
+              </p>
+            </div>
           </div>
         </footer>
       </body>
