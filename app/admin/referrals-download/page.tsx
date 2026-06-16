@@ -42,7 +42,7 @@ export default async function AdminReferralsDownloadPage({ searchParams }: { sea
         },
       },
     },
-    orderBy: { receivedReferrals: { _count: "desc" } },
+    orderBy: { receivedReferralsCount: "desc" },
   });
 
   const totalReferrals = users.reduce((a, u) => a + u.receivedReferrals.length, 0);

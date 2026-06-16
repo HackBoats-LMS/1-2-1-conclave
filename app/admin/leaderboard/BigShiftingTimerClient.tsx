@@ -40,41 +40,46 @@ export function BigShiftingTimerClient({
   const prevRoundActiveRef = useRef(initialRoundActive);
   const [liveAllRoundsCompleted, setLiveAllRoundsCompleted] = useState(!!allRoundsCompleted);
 
-  // Poll /api/game-state every 2s — source of truth
+  // Listen to round_state_change via Websocket instead of polling DB
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/game-state", { cache: "no-store" });
-        if (!res.ok) return;
-        const data: GameState = await res.json();
+    import("@/lib/supabaseClient").then(({ supabase }) => {
+      const channel = supabase
+        .channel("global_events")
+        .on("broadcast", { event: "round_state_change" }, ({ payload }: any) => {
+          const { action, round, gameState, nextRoundId, allRoundsCompleted: completed } = payload;
+          
+          if (gameState) {
+            setLiveDuration(gameState.shiftDuration);
+            setLiveAutoMode(gameState.isAutoMode);
+          }
 
-        const wasActive = prevRoundActiveRef.current;
-        const isNowActive = data.isRoundActive;
-        prevRoundActiveRef.current = isNowActive;
+          if (action === "start") {
+            setLiveRoundActive(true);
+            setLiveEndedAtMs(null);
+            setTimeLeft(null);
+          } else if (action === "stop") {
+            setLiveRoundActive(false);
+            setLiveEndedAtMs(Date.now());
+            hasTriggeredRef.current = false;
+            
+            if (nextRoundId !== undefined) setLiveNextRoundId(nextRoundId);
+            if (completed !== undefined) setLiveAllRoundsCompleted(completed);
+            
+          } else if (action === "reset") {
+            setLiveRoundActive(false);
+            setLiveEndedAtMs(null);
+            setTimeLeft(null);
+            
+            if (nextRoundId !== undefined) setLiveNextRoundId(nextRoundId);
+            if (completed !== undefined) setLiveAllRoundsCompleted(completed);
+          }
+        })
+        .subscribe();
 
-        setLiveRoundActive(isNowActive);
-        setLiveDuration(data.shiftDuration);
-        setLiveAutoMode(data.isAutoMode);
-        setLiveNextRoundId(data.nextRoundId);
-        setLiveAllRoundsCompleted(data.allRoundsCompleted);
-
-        // Round just became inactive — only start shifting timer if rounds remain
-        if (wasActive && !isNowActive && !data.allRoundsCompleted) {
-          hasTriggeredRef.current = false;
-          setLiveEndedAtMs(Date.now());
-        }
-
-        // Round became active again — reset everything
-        if (!wasActive && isNowActive) {
-          setLiveEndedAtMs(null);
-          setTimeLeft(null);
-        }
-      } catch (_) {}
-    };
-
-    poll(); // immediate first call
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    });
   }, []);
 
   // Shifting countdown

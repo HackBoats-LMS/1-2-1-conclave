@@ -33,13 +33,69 @@ export async function sendReferral(formData: FormData) {
     return { error: "A note is required for additional referrals to this participant." };
   }
 
-  await prisma.referral.create({
-    data: {
-      fromUserId: session.user.id,
-      toUserId,
-      note: note.trim() || null,
-    },
+  const [newReferral] = await prisma.$transaction([
+    prisma.referral.create({
+      data: {
+        fromUserId: session.user.id,
+        toUserId,
+        note: note.trim() || null,
+      },
+      include: { fromUser: true },
+    }),
+    prisma.user.update({
+      where: { id: session.user.id },
+      data: { sentReferralsCount: { increment: 1 } },
+    }),
+    prisma.user.update({
+      where: { id: toUserId },
+      data: { receivedReferralsCount: { increment: 1 } },
+    })
+  ]);
+
+  // Fetch updated top senders
+  const topSenders = await prisma.user.findMany({
+    where: { role: { in: ["USER", "CAPTAIN"] }, sentReferralsCount: { gt: 0 } },
+    select: { id: true, name: true, businessCategory: true, sentReferralsCount: true },
+    orderBy: { sentReferralsCount: "desc" },
+    take: 10,
   });
+
+  // Broadcast to global_events for leaderboard
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+      },
+      body: JSON.stringify({
+        messages: [{ 
+          topic: `global_events`, 
+          event: "leaderboard_update", 
+          payload: { 
+            topSenders,
+            totalReferrals: await prisma.referral.count()
+          } 
+        }],
+      }),
+    });
+  } catch (e) {}
+
+  // Broadcast to receiver's personal channel
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+      },
+      body: JSON.stringify({
+        messages: [{ topic: `user_events_${toUserId}`, event: "referral_received", payload: { referral: newReferral } }],
+      }),
+    });
+  } catch (e) {}
 
   return { success: true };
 }

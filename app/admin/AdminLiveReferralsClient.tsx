@@ -14,35 +14,21 @@ export function AdminLiveReferralsClient({ initialTotal }: { initialTotal: numbe
   }
 
   useEffect(() => {
-    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/Referral?select=id`,
-          {
-            headers: {
-              apikey: ANON_KEY,
-              Authorization: `Bearer ${ANON_KEY}`,
-              Prefer: "count=exact",
-              Range: "0-0",
-            },
-            cache: "no-store",
+    import("@/lib/supabaseClient").then(({ supabase }) => {
+      const channel = supabase
+        .channel("global_events")
+        .on("broadcast", { event: "leaderboard_update" }, ({ payload }: any) => {
+          if (payload?.totalReferrals !== undefined) {
+            totalRef.current = payload.totalReferrals;
+            setTotal(payload.totalReferrals);
           }
-        );
-        const range = res.headers.get("content-range");
-        if (range) {
-          const count = parseInt(range.split("/")[1], 10);
-          if (!isNaN(count) && count !== totalRef.current) {
-            totalRef.current = count;
-            setTotal(count);
-          }
-        }
-      } catch (_) {}
-    }, 2000);
+        })
+        .subscribe();
 
-    return () => clearInterval(interval);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    });
   }, []);
 
   return (

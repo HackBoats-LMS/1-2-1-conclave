@@ -8,39 +8,28 @@ interface Sender {
   id: string;
   name: string | null;
   businessCategory: string | null;
-  _count: { sentReferrals: number };
+  sentReferralsCount: number;
 }
 
 export function LiveLeaderboardClient({ initialSenders }: { initialSenders: Sender[] }) {
   const router = useRouter();
   const [senders, setSenders] = useState<Sender[]>(initialSenders);
 
-  // Poll every 2s for live leaderboard updates
-  useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/game-state", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.topSenders) setSenders(data.topSenders);
-      } catch (_) {}
-    };
+  // No polling. Data is pushed via realtime broadcasts.
 
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Refresh page on round start so timer/server data updates
+  // Listen for realtime leaderboard updates
   useEffect(() => {
     const channel = supabase
-      .channel("leaderboard_page_refresh")
-      .on("broadcast", { event: "round_state_change" }, ({ payload }: { payload: Record<string, string> }) => {
-        if (payload?.action === "start") router.refresh();
+      .channel("global_events")
+      .on("broadcast", { event: "leaderboard_update" }, ({ payload }: { payload: { topSenders: Sender[] } }) => {
+        if (payload?.topSenders) {
+          setSenders(payload.topSenders);
+        }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [router]);
+  }, []);
 
   if (senders.length === 0) {
     return (
@@ -53,7 +42,7 @@ export function LiveLeaderboardClient({ initialSenders }: { initialSenders: Send
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 overflow-hidden p-2 content-start -m-2">
       {senders.map((user, index) => {
-        const count = user._count.sentReferrals;
+        const count = user.sentReferralsCount;
 
         let rankStyle = "bg-[#FAF8F4] text-[#0D2421] border-[#0D2421] shadow-[1px_1px_0px_#0D2421]";
         if (index === 0) rankStyle = "bg-amber-400 text-[#0D2421] border-[#0D2421] shadow-[2px_2px_0px_#0D2421]";

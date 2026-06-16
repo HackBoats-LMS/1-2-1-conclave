@@ -22,24 +22,37 @@ interface CaptainActiveRoundProps {
     status?: string;
   };
   tableNumber: number;
+  tableId: string;
   tableUsers: any[];
   sessionUser: {
     id: string;
     email: string;
     name?: string | null;
   };
+  initialProgress?: any;
 }
 
-export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser }: CaptainActiveRoundProps) {
+export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, sessionUser, initialProgress }: CaptainActiveRoundProps) {
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
+
+  // Initialize from DB if exists
+  const parsedPitched = initialProgress?.pitchedUserIds ? JSON.parse(initialProgress.pitchedUserIds) : [];
+  const parsedReferred = initialProgress?.referredUserIds ? JSON.parse(initialProgress.referredUserIds) : [];
+  
+  const initialPitched = parsedPitched.reduce((acc: any, id: string) => ({ ...acc, [id]: true }), {});
+  const initialReferred = parsedReferred.reduce((acc: any, id: string) => ({ ...acc, [id]: true }), {});
+
+  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(initialProgress?.activeSpeakerId || null);
+  const [speakerTimerType, setSpeakerTimerType] = useState<"PITCH" | "REFERRAL" | null>((initialProgress?.speakerType as any) || null);
+  
   const [speakerTimeLeft, setSpeakerTimeLeft] = useState<number | null>(null);
   const [speakerDuration, setSpeakerDuration] = useState<number>(60);
-  const [speakerTimerType, setSpeakerTimerType] = useState<"PITCH" | "REFERRAL" | null>(null);
-  const [manualPhase, setManualPhase] = useState<number | null>(null);
-  const [maxUnlockedPhase, setMaxUnlockedPhase] = useState<number>(1);
-  const [pitchedUsers, setPitchedUsers] = useState<Record<string, boolean>>({});
-  const [referredUsers, setReferredUsers] = useState<Record<string, boolean>>({});
+  
+  const [manualPhase, setManualPhase] = useState<number | null>(initialProgress?.currentPhase || null);
+  const [maxUnlockedPhase, setMaxUnlockedPhase] = useState<number>(initialProgress?.currentPhase || 1);
+  
+  const [pitchedUsers, setPitchedUsers] = useState<Record<string, boolean>>(initialPitched);
+  const [referredUsers, setReferredUsers] = useState<Record<string, boolean>>(initialReferred);
   const [windowWidth, setWindowWidth] = useState(1024);
   const [briefingTimeLeft, setBriefingTimeLeft] = useState<number | null>(null);
   const [briefingStarted, setBriefingStarted] = useState(false);
@@ -61,6 +74,42 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const briefingEndTimeRef = useRef<number | null>(null);
   const tickCountRef = useRef(0);
   const [isChannelConnected, setIsChannelConnected] = useState(false);
+
+  // Re-calculate time left if we resumed from DB state
+  useEffect(() => {
+    if (initialProgress?.speakerEndTime && initialProgress?.activeSpeakerId) {
+      const endTime = new Date(initialProgress.speakerEndTime).getTime();
+      const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+      if (remaining > 0) {
+        speakerEndTimeRef.current = endTime;
+        setSpeakerTimeLeft(remaining);
+      } else {
+        // Time already expired while offline
+        if (initialProgress.speakerType === "PITCH") {
+          setPitchedUsers(prev => ({ ...prev, [initialProgress.activeSpeakerId!]: true }));
+        } else {
+          setReferredUsers(prev => ({ ...prev, [initialProgress.activeSpeakerId!]: true }));
+        }
+        setActiveSpeakerId(null);
+        setSpeakerTimerType(null);
+      }
+    }
+  }, [initialProgress]);
+
+  // Function to persist progress to DB
+  const saveProgress = async (updates: any) => {
+    try {
+      await fetch("/api/captain-progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roundId: round.id,
+          tableId,
+          ...updates
+        })
+      });
+    } catch (e) {}
+  };
 
   useEffect(() => {
     // Initialize realtime broadcast channel for table members
@@ -160,10 +209,18 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
       // Mark user as completed when their timer ends
       if (currentId && currentType === "PITCH") {
-        setPitchedUsers(prev => ({ ...prev, [currentId]: true }));
+        setPitchedUsers(prev => {
+          const next = { ...prev, [currentId]: true };
+          saveProgress({ pitchedUserIds: Object.keys(next) });
+          return next;
+        });
       }
       if (currentId && currentType === "REFERRAL") {
-        setReferredUsers(prev => ({ ...prev, [currentId]: true }));
+        setReferredUsers(prev => {
+          const next = { ...prev, [currentId]: true };
+          saveProgress({ referredUserIds: Object.keys(next) });
+          return next;
+        });
       }
 
       // Clear active speaker states
@@ -218,8 +275,18 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     }
 
     // Wall-clock tick: recalculate from end time every 250ms for accuracy
+    let lastTick = Date.now();
     speakerIntervalRef.current = setInterval(() => {
+      const now = Date.now();
+      const delta = now - lastTick;
+      lastTick = now;
+
       if (!speakerEndTimeRef.current) return;
+
+      if (round.status?.startsWith("PAUSED_")) {
+        speakerEndTimeRef.current += delta;
+      }
+
       const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
       setSpeakerTimeLeft(remaining);
 
@@ -397,8 +464,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     // Auto-advance manualPhase to keep the UI in sync
     if (type === "PITCH" && currentPhase === 1) {
       setManualPhase(2);
+      saveProgress({ currentPhase: 2, activeSpeakerId: participantId, speakerType: type, speakerEndTime: new Date(speakerEndTimeRef.current).toISOString() });
     } else if (type === "REFERRAL" && currentPhase < 3) {
       setManualPhase(3);
+      saveProgress({ currentPhase: 3, activeSpeakerId: participantId, speakerType: type, speakerEndTime: new Date(speakerEndTimeRef.current).toISOString() });
+    } else {
+      saveProgress({ activeSpeakerId: participantId, speakerType: type, speakerEndTime: new Date(speakerEndTimeRef.current).toISOString() });
     }
 
     // Broadcast to UserCards on all screens at this table
@@ -427,10 +498,20 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     speakerEndTimeRef.current = null;
     if (activeSpeakerId) {
       if (speakerTimerType === "PITCH") {
-        setPitchedUsers(prev => ({ ...prev, [activeSpeakerId]: true }));
+        setPitchedUsers(prev => {
+          const next = { ...prev, [activeSpeakerId]: true };
+          saveProgress({ activeSpeakerId: null, speakerType: null, speakerEndTime: null, pitchedUserIds: Object.keys(next) });
+          return next;
+        });
       } else if (speakerTimerType === "REFERRAL") {
-        setReferredUsers(prev => ({ ...prev, [activeSpeakerId]: true }));
+        setReferredUsers(prev => {
+          const next = { ...prev, [activeSpeakerId]: true };
+          saveProgress({ activeSpeakerId: null, speakerType: null, speakerEndTime: null, referredUserIds: Object.keys(next) });
+          return next;
+        });
       }
+    } else {
+      saveProgress({ activeSpeakerId: null, speakerType: null, speakerEndTime: null });
     }
     setActiveSpeakerId(null);
     setSpeakerTimeLeft(null);
@@ -451,11 +532,13 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       const newDuration = speakerDuration + seconds;
       setSpeakerDuration(newDuration);
 
-      // Update the wall-clock target time
+        // Update the wall-clock target time
       if (speakerEndTimeRef.current) {
         speakerEndTimeRef.current += seconds * 1000;
         const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
         setSpeakerTimeLeft(remaining);
+        
+        saveProgress({ tableId, speakerEndTime: new Date(speakerEndTimeRef.current).toISOString() });
 
         // Broadcast the extension to everyone's devices
         const payload = {
@@ -619,7 +702,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
             return (
               <button
                 key={phNum}
-                onClick={() => isUnlocked && setManualPhase(phNum)}
+                onClick={() => {
+                  if (isUnlocked) {
+                    setManualPhase(phNum);
+                    saveProgress({ currentPhase: phNum });
+                  }
+                }}
                 disabled={!isUnlocked}
                 className={`py-2 text-[9px] font-black uppercase rounded-lg transition-all text-center ${currentPhase === phNum
                     ? "bg-[#BEF03C] text-[#0D2421]"

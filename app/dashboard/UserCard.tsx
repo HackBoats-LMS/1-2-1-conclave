@@ -7,9 +7,11 @@ import { supabase } from "@/lib/supabaseClient";
 interface UserCardProps {
   tu: any;
   alreadyReferred?: boolean;
+  onReferralSent?: () => void;
+  roundStatus?: string;
 }
 
-export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
+export function UserCard({ tu, alreadyReferred = false, onReferralSent, roundStatus }: UserCardProps) {
   const user = tu.user;
   const [isPending, startTransition] = useTransition();
   const [note, setNote] = useState("");
@@ -39,8 +41,17 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
           setActiveTimer({ type: payloadType, timeLeft: remaining });
           if (localIntervalRef.current) clearInterval(localIntervalRef.current);
           
+          let lastTick = Date.now();
           localIntervalRef.current = setInterval(() => {
             if (!targetEndTime) return;
+            const now = Date.now();
+            const delta = now - lastTick;
+            lastTick = now;
+
+            if (roundStatus?.startsWith("PAUSED_")) {
+              targetEndTime += delta;
+            }
+
             const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
             if (currentRemaining <= 0) {
               setActiveTimer(null);
@@ -92,7 +103,7 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
       window.removeEventListener("conclave_timer_sync", handleTimerSync);
       window.removeEventListener("conclave_timer_stop", handleTimerStop);
     };
-  }, [user.id, tu.table?.roundId, tu.table?.tableNumber]);
+  }, [user.id, tu.table?.roundId, tu.table?.tableNumber, roundStatus]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -114,6 +125,7 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
         }
 
         setRequireNoteLocally(true); // all subsequent referrals need a note
+        if (onReferralSent) onReferralSent();
         // Wait a bit for the plane to finish flying, then show the checkmark
         setTimeout(() => {
           setShowCheck(true);

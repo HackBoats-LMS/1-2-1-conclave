@@ -79,18 +79,30 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [maxRounds, setMaxRounds] = useState<number | string>(10);
+  const [minRounds, setMinRounds] = useState<number | string>(1);
+  const [maxTableSize, setMaxTableSize] = useState<number | string>("");
 
   useEffect(() => {
-    const saved = localStorage.getItem("conclave_max_rounds");
+    const savedMax = localStorage.getItem("conclave_max_rounds");
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved) setMaxRounds(parseInt(saved, 10));
+    if (savedMax) setMaxRounds(parseInt(savedMax, 10));
+
+    const savedMin = localStorage.getItem("conclave_min_rounds");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (savedMin) setMinRounds(parseInt(savedMin, 10));
+
+    const savedTableSize = localStorage.getItem("conclave_max_table_size");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (savedTableSize) setMaxTableSize(parseInt(savedTableSize, 10));
   }, []);
 
-  const handleMaxRoundsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNumericChange = (setter: any, key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
-    setMaxRounds(isNaN(val) ? "" : val);
+    setter(isNaN(val) ? "" : val);
     if (!isNaN(val)) {
-      localStorage.setItem("conclave_max_rounds", val.toString());
+      localStorage.setItem(key, val.toString());
+    } else {
+      localStorage.removeItem(key);
     }
   };
 
@@ -99,6 +111,8 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
     setError(null);
     try {
       const MAX_ROUNDS = parseInt(formData.get("maxRounds")?.toString() || "12", 10);
+      const MIN_ROUNDS = parseInt(formData.get("minRounds")?.toString() || "1", 10);
+      const MAX_TABLE_SIZE = parseInt(formData.get("maxTableSize")?.toString() || "0", 10); // 0 means no limit
       const DEFAULT_DURATION = parseInt(formData.get("defaultDuration")?.toString() || "15", 10);
 
       // 1. Fetch users from server
@@ -177,7 +191,7 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
             totalSize += partners.size;
           }
           const metCount = totalSize / 2;
-          if (metCount >= totalPossiblePairs) break;
+          if (matrix.length >= MIN_ROUNDS && metCount >= totalPossiblePairs) break;
 
           let bestRound: string[][] = Array.from({ length: C }, () => []);
           let maxNewPairs = -Infinity;
@@ -188,7 +202,13 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
             if (attempt % 2 === 0) await yieldToMain();
 
             const tables: string[][] = Array.from({ length: C }, () => []);
-            const tableSizes = Array.from({ length: C }, (_, i) => i >= C - extraTables ? membersPerTable + 1 : membersPerTable);
+            let tableSizes = Array.from({ length: C }, (_, i) => i >= C - extraTables ? membersPerTable + 1 : membersPerTable);
+            
+            // Enforce max table size (subtract 1 for the captain)
+            if (MAX_TABLE_SIZE > 1) {
+              const maxMembers = MAX_TABLE_SIZE - 1;
+              tableSizes = tableSizes.map(size => Math.min(size, maxMembers));
+            }
             shuffle(pool);
             const sorted = [...pool].sort((a, b) => currentMet.get(a)!.size - currentMet.get(b)!.size);
 
@@ -273,7 +293,9 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
               maxNewPairs = newScoreAdded;
               bestRound = tables.map(t => [...t]);
             }
-            if (metCount + (finalEval.pairs - metCount) >= totalPossiblePairs && finalEval.score > 0) break;
+            if (metCount + (finalEval.pairs - metCount) >= totalPossiblePairs && finalEval.score > 0) {
+              if (matrix.length >= MIN_ROUNDS - 1) break;
+            }
           }
 
           // Yield to the browser main thread to prevent "Page Unresponsive" warnings
@@ -373,22 +395,57 @@ export function AutoGenerateClient({ captainCount, memberCount, currentDuration 
       )}
       <form action={handleGenerate} className="flex flex-col space-y-4 w-full">
         <input type="hidden" name="defaultDuration" value={currentDuration} />
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-[#FAF8F4] p-4 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
-          <label htmlFor="maxRounds" className="text-xs font-black text-[#0D2421] uppercase tracking-wide whitespace-nowrap flex-shrink-0">
-            Max Rounds to Generate
-          </label>
-          <input 
-            type="number" 
-            id="maxRounds" 
-            name="maxRounds" 
-            value={maxRounds}
-            onChange={handleMaxRoundsChange}
-            min={1} 
-            max={20}
-            className="p-3 border-2 border-[#0D2421] bg-white rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 w-24 text-center text-xs flex-shrink-0"
-          />
-          <p className="text-[10px] text-[#0D2421]/60 font-semibold uppercase tracking-wide leading-relaxed flex-1">
-            The engine will stop early if it hits 100% room coverage before reaching this limit.
+        <div className="flex flex-col gap-4 bg-[#FAF8F4] p-5 rounded-xl border-2 border-[#0D2421] shadow-[2px_2px_0px_#0D2421]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="minRounds" className="text-[10px] font-black text-[#0D2421] uppercase tracking-wider">
+                Min Rounds
+              </label>
+              <input 
+                type="number" 
+                id="minRounds" 
+                name="minRounds" 
+                value={minRounds}
+                onChange={handleNumericChange(setMinRounds, "conclave_min_rounds")}
+                min={1} 
+                max={20}
+                className="p-3 border-2 border-[#0D2421] bg-white rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="maxRounds" className="text-[10px] font-black text-[#0D2421] uppercase tracking-wider">
+                Max Rounds
+              </label>
+              <input 
+                type="number" 
+                id="maxRounds" 
+                name="maxRounds" 
+                value={maxRounds}
+                onChange={handleNumericChange(setMaxRounds, "conclave_max_rounds")}
+                min={1} 
+                max={20}
+                className="p-3 border-2 border-[#0D2421] bg-white rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="maxTableSize" className="text-[10px] font-black text-[#0D2421] uppercase tracking-wider">
+                Max Table Size <span className="text-[#0D2421]/50 text-[8px]">(Total People)</span>
+              </label>
+              <input 
+                type="number" 
+                id="maxTableSize" 
+                name="maxTableSize" 
+                value={maxTableSize}
+                onChange={handleNumericChange(setMaxTableSize, "conclave_max_table_size")}
+                placeholder="No limit"
+                min={2} 
+                max={50}
+                className="p-3 border-2 border-[#0D2421] bg-white rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 text-xs"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-[#0D2421]/60 font-semibold uppercase tracking-wide leading-relaxed">
+            The engine will stop when it hits 100% coverage, but never before <span className="font-bold">Min Rounds</span>. It will never exceed <span className="font-bold">Max Rounds</span>. If <span className="font-bold">Max Table Size</span> forces members to sit out, the engine will automatically rotate them fairly.
           </p>
         </div>
 

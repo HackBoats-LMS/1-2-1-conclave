@@ -9,6 +9,7 @@ import crypto from 'crypto';
 // Server-side broadcast via Supabase REST API
 async function broadcast(event: string, payload: object = {}) {
   const channels = ["big_shift_timer", "global_events", "leaderboard_page_refresh"];
+  console.log(`[BROADCAST SENT] Event: ${event}, PayloadAction: ${(payload as any)?.action}`);
   try {
     await Promise.all(
       channels.map((channel) =>
@@ -23,13 +24,15 @@ async function broadcast(event: string, payload: object = {}) {
               "x-api-key": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             },
             body: JSON.stringify({
-              messages: [{ topic: `realtime:${channel}`, event, payload }],
+              messages: [{ topic: channel, event, payload }],
             }),
           }
-        )
+        ).then(res => res.text().then(text => console.log(`[BROADCAST RESPONSE] ${channel}: ${res.status} - ${text}`)))
       )
     );
-  } catch (_) { }
+  } catch (err) { 
+    console.error(`[BROADCAST FAILED]`, err);
+  }
 }
 
 async function requireAdmin() {
@@ -292,7 +295,7 @@ export async function startRound(formData: FormData) {
       }
     }
 
-    await prisma.round.update({
+    const updatedRound = await prisma.round.update({
       where: { id: roundId },
       data: {
         status: "IN_PROGRESS",
@@ -301,19 +304,19 @@ export async function startRound(formData: FormData) {
       }
     });
 
-    const state = await prisma.gameState.findFirst();
-    if (state) {
-      await prisma.gameState.update({
-        where: { id: state.id },
+    let updatedGameState = await prisma.gameState.findFirst();
+    if (updatedGameState) {
+      updatedGameState = await prisma.gameState.update({
+        where: { id: updatedGameState.id },
         data: { currentRoundId: roundId }
       });
     } else {
-      await prisma.gameState.create({
+      updatedGameState = await prisma.gameState.create({
         data: { currentRoundId: roundId }
       });
     }
 
-    await broadcast('round_state_change', { action: 'start' });
+    await broadcast('round_state_change', { action: 'start', round: updatedRound, gameState: updatedGameState });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -326,16 +329,29 @@ export async function stopRound(payload: FormData | string) {
   await requireAdmin();
   try {
     const roundId = typeof payload === "string" ? payload : payload.get("roundId") as string;
-    await prisma.round.update({
+    const updatedRound = await prisma.round.update({
       where: { id: roundId },
       data: { status: "COMPLETED", endedAt: new Date() }
     });
-    const state = await prisma.gameState.findFirst();
-    if (state?.currentRoundId === roundId) {
-      await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+    let updatedGameState = await prisma.gameState.findFirst();
+    if (updatedGameState?.currentRoundId === roundId) {
+      updatedGameState = await prisma.gameState.update({ where: { id: updatedGameState.id }, data: { currentRoundId: null } });
     }
 
-    await broadcast('round_state_change', { action: 'stop' });
+    const nextPendingRound = await prisma.round.findFirst({
+      where: { status: "PENDING" },
+      orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
+      select: { id: true },
+    });
+    const pendingCount = await prisma.round.count({ where: { status: "PENDING" } });
+
+    await broadcast('round_state_change', { 
+      action: 'stop', 
+      round: updatedRound, 
+      gameState: updatedGameState,
+      nextRoundId: nextPendingRound?.id || null,
+      allRoundsCompleted: pendingCount === 0
+    });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -350,15 +366,18 @@ export async function pauseRound(formData: FormData) {
     const roundId = formData.get("roundId") as string;
 
     const round = await prisma.round.findUnique({ where: { id: roundId } });
+    let updatedRound = round;
     if (round?.startTime && round.status === "IN_PROGRESS") {
       const elapsedSec = Math.floor((Date.now() - round.startTime.getTime()) / 1000);
-      await prisma.round.update({
+      updatedRound = await prisma.round.update({
         where: { id: roundId },
         data: { status: `PAUSED_${elapsedSec}` }
       });
     }
 
-    await broadcast('round_state_change', { action: 'pause' });
+    const gameState = await prisma.gameState.findFirst();
+
+    await broadcast('round_state_change', { action: 'pause', round: updatedRound, gameState });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -373,12 +392,23 @@ export async function resetAllRounds() {
     await prisma.round.updateMany({
       data: { status: "PENDING" }
     });
-    const state = await prisma.gameState.findFirst();
-    if (state) {
-      await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+    let updatedGameState = await prisma.gameState.findFirst();
+    if (updatedGameState) {
+      updatedGameState = await prisma.gameState.update({ where: { id: updatedGameState.id }, data: { currentRoundId: null } });
     }
 
-    await broadcast('round_state_change', { action: 'reset' });
+    const nextPendingRound = await prisma.round.findFirst({
+      where: { status: "PENDING" },
+      orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
+      select: { id: true },
+    });
+
+    await broadcast('round_state_change', { 
+      action: 'reset', 
+      gameState: updatedGameState,
+      nextRoundId: nextPendingRound?.id || null,
+      allRoundsCompleted: false
+    });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");

@@ -4,19 +4,24 @@ import { LeaderboardTimerClient } from "./LeaderboardTimerClient";
 import { BigShiftingTimerClient } from "./BigShiftingTimerClient";
 import { LiveTotalCount } from "./LiveTotalCount";
 import { LiveLeaderboardClient } from "./LiveLeaderboardClient";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function LeaderboardPage() {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    redirect("/");
+  }
+
   const totalReferrals = await prisma.referral.count();
 
   const topSenders = await prisma.user.findMany({
-    where: { role: { in: ["USER", "CAPTAIN"] } },
-    include: {
-      _count: { select: { sentReferrals: true } },
-    },
-    orderBy: { sentReferrals: { _count: "desc" } },
+    where: { role: { in: ["USER", "CAPTAIN"] }, sentReferralsCount: { gt: 0 } },
+    orderBy: { sentReferralsCount: "desc" },
     take: 10,
+    select: { id: true, name: true, businessCategory: true, sentReferralsCount: true }
   });
 
   const gameState = await prisma.gameState.findFirst();
@@ -46,36 +51,39 @@ export default async function LeaderboardPage() {
     orderBy: { roundNumber: "asc" }
   });
 
-  const allReferralsTime = await prisma.referral.findMany({
-    select: { createdAt: true }
-  });
-
   const roundCounts: Record<number, number> = {};
   rounds.forEach(r => { roundCounts[r.roundNumber] = 0; });
 
-  allReferralsTime.forEach((ref) => {
-    let matchedRound = -1;
-    for (let i = 0; i < rounds.length; i++) {
-      const current = rounds[i];
-      const next = rounds[i + 1];
-      if (!current.startTime) continue;
-      
-      const refTime = ref.createdAt.getTime();
-      const currTime = current.startTime.getTime();
-      
-      if (refTime >= currTime) {
-        if (!next || !next.startTime || refTime < next.startTime.getTime()) {
-          matchedRound = current.roundNumber;
-          break;
+  await Promise.all(
+    rounds.map(async (current, index) => {
+      if (!current.startTime) return;
+      const next = rounds[index + 1];
+
+      const whereClause: any = {
+        createdAt: {
+          gte: current.startTime
         }
+      };
+
+      if (next && next.startTime) {
+        whereClause.createdAt.lt = next.startTime;
       }
-    }
-    if (matchedRound !== -1) {
-      roundCounts[matchedRound]++;
-    } else if (rounds.length > 0 && rounds[0].startTime && ref.createdAt.getTime() < rounds[0].startTime.getTime()) {
-      roundCounts[rounds[0].roundNumber]++; // Catch pre-game referrals
-    }
-  });
+
+      const count = await prisma.referral.count({
+        where: whereClause
+      });
+
+      roundCounts[current.roundNumber] = count;
+    })
+  );
+
+  // Catch pre-game referrals
+  if (rounds.length > 0 && rounds[0].startTime) {
+    const preGameCount = await prisma.referral.count({
+      where: { createdAt: { lt: rounds[0].startTime } }
+    });
+    roundCounts[rounds[0].roundNumber] += preGameCount;
+  }
 
   const roundStats = rounds
     .filter(r => r.startTime) // Only show rounds that have actually started

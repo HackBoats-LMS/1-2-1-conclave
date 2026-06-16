@@ -22,6 +22,8 @@ model User {
   isApproved          Boolean           @default(false)
   onboardingCompleted Boolean           @default(false)
   group               String?
+  sentReferralsCount  Int               @default(0)
+  receivedReferralsCount Int            @default(0)
   accounts            Account[]
   sentReferrals       Referral[]        @relation("SentReferrals")
   receivedReferrals   Referral[]        @relation("ReceivedReferrals")
@@ -89,6 +91,7 @@ model Table {
   tableNumber Int
   round       Round             @relation(fields: [roundId], references: [id], onDelete: Cascade)
   assignments TableAssignment[]
+  roundProgress RoundProgress?
 
   @@unique([roundId, tableNumber])
 }
@@ -163,4 +166,18 @@ model ArchivedReferral {
   event     ArchivedEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([toEmail])
+}
+
+model RoundProgress {
+  id                  String    @id @default(cuid())
+  tableId             String    @unique
+  currentPhase        Int       @default(1)
+  activeSpeakerId     String?
+  speakerTimerType    String?
+  speakerEndTime      DateTime?
+  pitchedUserIds      String[]  @default([])
+  referredUserIds     String[]  @default([])
+  updatedAt           DateTime  @updatedAt
+  
+  table               Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
 }

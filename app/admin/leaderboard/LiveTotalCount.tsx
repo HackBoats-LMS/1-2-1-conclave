@@ -15,49 +15,21 @@ export function LiveTotalCount({ initialTotal }: { initialTotal: number }) {
   }, [initialTotal]);
 
   useEffect(() => {
-    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-    // Poll Supabase REST every 2s — just fetches a count, no DB stress
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/Referral?select=id`,
-          {
-            headers: {
-              apikey: ANON_KEY,
-              Authorization: `Bearer ${ANON_KEY}`,
-              Prefer: "count=exact",
-              Range: "0-0",
-            },
-            cache: "no-store",
-          }
-        );
-        // Supabase returns total count in Content-Range header: "0-0/TOTAL"
-        const range = res.headers.get("content-range");
-        if (range) {
-          const count = parseInt(range.split("/")[1], 10);
-          if (!isNaN(count) && count !== totalRef.current) {
-            totalRef.current = count;
-            setTotal(count);
-          }
-        }
-      } catch (_) {}
-    }, 2000);
-
-    // Also keep round_state_change for timer refresh
+    // Listen for realtime leaderboard updates which now include totalReferrals
     const channel = supabase
       .channel("global_events")
-      .on("broadcast", { event: "round_state_change" }, () => {
-        router.refresh();
+      .on("broadcast", { event: "leaderboard_update" }, ({ payload }: any) => {
+        if (payload?.totalReferrals !== undefined) {
+          totalRef.current = payload.totalReferrals;
+          setTotal(payload.totalReferrals);
+        }
       })
       .subscribe();
 
     return () => {
-      clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [router]);
+  }, []);
 
   const len = total.toString().length;
   const sizeClass =

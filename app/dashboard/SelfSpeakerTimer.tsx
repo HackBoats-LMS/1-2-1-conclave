@@ -7,10 +7,12 @@ export function SelfSpeakerTimer({
   roundId,
   tableNumber,
   userId,
+  roundStatus,
 }: {
   roundId: string;
   tableNumber: number;
   userId: string;
+  roundStatus?: string;
 }) {
   const [activeTimer, setActiveTimer] = useState<{ type: string; timeLeft: number } | null>(null);
 
@@ -33,8 +35,17 @@ export function SelfSpeakerTimer({
           setActiveTimer({ type: payloadType, timeLeft: remaining });
           if (localInterval) clearInterval(localInterval);
           
+          let lastTick = Date.now();
           localInterval = setInterval(() => {
             if (!targetEndTime) return;
+            const now = Date.now();
+            const delta = now - lastTick;
+            lastTick = now;
+
+            if (roundStatus?.startsWith("PAUSED_")) {
+              targetEndTime += delta;
+            }
+
             const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
             if (currentRemaining <= 0) {
               console.log(`[SelfSpeakerTimer] Timer finished!`);
@@ -89,7 +100,7 @@ export function SelfSpeakerTimer({
       window.removeEventListener("conclave_timer_sync", handleTimerSync);
       window.removeEventListener("conclave_timer_stop", handleTimerStop);
     };
-  }, [roundId, tableNumber, userId]);
+  }, [roundId, tableNumber, userId, roundStatus]);
 
   if (!activeTimer) return null;
 

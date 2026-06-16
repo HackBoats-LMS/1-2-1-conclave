@@ -29,23 +29,21 @@ function useLiveReferrals(initialTotal: number, initialUsers: ReferralUser[]) {
   const totalRef = useRef(initialTotal);
 
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/game-state", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.referralUsers) {
-          const newTotal = data.referralUsers.reduce(
-            (a: number, u: ReferralUser) => a + u.receivedReferrals.length, 0
-          );
-          totalRef.current = newTotal;
-          setTotal(newTotal);
-          setUsers(data.referralUsers);
-        }
-      } catch (_) {}
-    };
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
+    import("@/lib/supabaseClient").then(({ supabase }) => {
+      const channel = supabase
+        .channel("global_events")
+        .on("broadcast", { event: "leaderboard_update" }, ({ payload }: any) => {
+          if (payload?.totalReferrals !== undefined) {
+            totalRef.current = payload.totalReferrals;
+            setTotal(payload.totalReferrals);
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    });
   }, []);
 
   return { total, users };
