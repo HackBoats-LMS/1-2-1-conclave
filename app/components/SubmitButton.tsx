@@ -2,24 +2,26 @@
 import React from "react";
 import { useFormStatus } from "react-dom";
 
-interface SubmitButtonProps {
+interface SubmitButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
-  className?: string;
   loadingText?: string;
-  title?: string;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-export function SubmitButton({ children, className = "", loadingText = "Processing...", title, onClick }: SubmitButtonProps) {
+export function SubmitButton({ 
+  children, 
+  className = "", 
+  loadingText = "Processing...", 
+  disabled,
+  ...props 
+}: SubmitButtonProps) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      disabled={pending}
-      title={title}
-      onClick={onClick}
+      disabled={pending || disabled}
       className={`${className} ${pending ? "opacity-70 cursor-not-allowed pointer-events-none" : ""} flex items-center justify-center gap-2 transition-all`}
+      {...props}
     >
       {pending ? (
         <>

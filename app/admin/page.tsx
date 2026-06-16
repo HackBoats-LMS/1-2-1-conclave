@@ -116,7 +116,7 @@ export default async function AdminDashboard() {
   if (slots.length > 0 && slots[0].rounds.length > 0) {
     currentDuration = slots[0].rounds[0].durationMinutes || 15;
   }
-  const captainCount = allUsers.filter(u => u.role === "CAPTAIN").length;
+  const captainCount = allUsers.filter(u => u.role === "CAPTAIN" && u.isApproved).length;
   const memberCount = allUsers.filter(u => u.role === "USER" && u.isApproved).length;
   const totalUsers = memberCount + captainCount;
   const nonAdminApproved = allUsers.filter(u => u.isApproved && u.role !== "ADMIN").length;

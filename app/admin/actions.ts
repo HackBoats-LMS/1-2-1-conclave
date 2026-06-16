@@ -1326,6 +1326,25 @@ export async function injectLateAttendee(formData: FormData): Promise<{
           roundNumber: round.roundNumber,
           tableNumber: newTable.tableNumber,
         });
+
+        // Re-balance: steal a user from the most crowded table in this round
+        const sortedTables = [...round.tables].sort(
+          (a, b) => b._count.assignments - a._count.assignments
+        );
+        if (sortedTables.length > 0 && sortedTables[0]._count.assignments > 1) {
+          const crowdedTable = sortedTables[0];
+          const userToMove = await prisma.tableAssignment.findFirst({
+            where: { tableId: crowdedTable.id, isCaptain: false }
+          });
+          if (userToMove) {
+            await prisma.tableAssignment.update({
+              where: { id: userToMove.id },
+              data: { tableId: newTable.id }
+            });
+            // Update local count so subsequent iterations don't overly deplete this table
+            crowdedTable._count.assignments -= 1;
+          }
+        }
       } else {
         // Pick the table with the fewest current assignments (most room)
         const sortedTables = [...round.tables].sort(
