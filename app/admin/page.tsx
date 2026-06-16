@@ -16,9 +16,11 @@ import { ClientTimer } from "./ClientTimer";
 import { AutoGenerateClient } from "./AutoGenerateClient";
 import { UserTable } from "./UserTable";
 import { OnboardingExportButton } from "./OnboardingExportButton";
+import { InjectLateAttendeeForm } from "./InjectLateAttendeeForm";
 import { ClearMembersWarningButton } from "./ClearMembersWarningButton";
 import { AdminLiveReferralsClient } from "./AdminLiveReferralsClient";
 import { LogoutButton } from "../components/LogoutButton";
+import { AddParticipantForms } from "./AddParticipantForms";
 import { ArrowTrendingUpIcon, ArrowDownTrayIcon, ArchiveBoxIcon, ExclamationTriangleIcon, RectangleStackIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 
 export const dynamic = 'force-dynamic';
@@ -78,17 +80,18 @@ export default async function AdminDashboard() {
   }
 
   // ── Data Fetching (batched queries) ──
-  const [slots, gameState, totalReferrals, allUsers] = await Promise.all([
+  const [slots, gameState, allReferrals, allUsers] = await Promise.all([
     prisma.slot.findMany({
       include: { rounds: { orderBy: { roundNumber: 'asc' } } },
       orderBy: { slotNumber: 'asc' }
     }),
     prisma.gameState.findFirst(),
-    prisma.referral.count(),
+    prisma.referral.findMany({ select: { createdAt: true } }),
     prisma.user.findMany({ orderBy: { email: 'asc' } })
   ]);
 
   const users = allUsers;
+  const totalReferrals = allReferrals.length;
 
   // ── Calculate Stats ──
   const allOrderedRounds = slots.flatMap(s => s.rounds);
@@ -120,6 +123,8 @@ export default async function AdminDashboard() {
   const pendingOnboarding = allUsers.filter(u => u.isApproved && !u.onboardingCompleted && u.role !== "ADMIN").length;
   const completedOnboarding = nonAdminApproved - pendingOnboarding;
   const hasAssignments = slots.length > 0;
+  // Count of PENDING rounds — used by the Late Attendee injection form
+  const pendingRoundCount = allOrderedRounds.filter(r => r.status === "PENDING").length;
 
   // ── Build Assignment Preview Data (only if assignments exist) ──
   let previewData = null;
@@ -453,6 +458,28 @@ export default async function AdminDashboard() {
                 <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Digital referrals exchanged during rounds</p>
               </div>
               <AdminLiveReferralsClient initialTotal={totalReferrals} />
+              
+              {/* Per-Round Referral Breakdown */}
+              {allOrderedRounds.some(r => r.status === 'COMPLETED') && (
+                <div className="pt-4 border-t-2 border-dashed border-[#0D2421]/10">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-[#0D2421]/40 mb-3">Referrals Per Round</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {allOrderedRounds
+                      .filter(r => r.status === 'COMPLETED' && r.startTime && r.endedAt)
+                      .map(r => {
+                        const count = allReferrals.filter(ref => ref.createdAt >= r.startTime! && ref.createdAt <= r.endedAt!).length;
+                        return (
+                          <div key={r.id} className="bg-[#FAF8F4] border border-[#0D2421]/20 rounded-xl p-2.5 text-center flex items-center justify-between px-3">
+                            <span className="text-[9px] font-black uppercase text-[#0D2421]/60">R{r.roundNumber}</span>
+                            <span className="text-xs font-black text-[#0D2421]">{count}</span>
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <ReferralsExportButtons />
                 <SecureAdminButton
@@ -733,46 +760,12 @@ export default async function AdminDashboard() {
           </div>
 
 
-          {/* Manual User Add */}
-          <form action={addManualUser} className="bg-[#FAF8F4] p-6 rounded-2xl border-2 border-[#0D2421] shadow-[3px_3px_0px_#0D2421] space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#0D2421]"></span>
-              <span className="text-[10px] font-black tracking-widest text-[#0D2421] uppercase">ADD SINGLE ATTENDEE CREDENTIAL</span>
-            </div>
-            <div className="flex flex-col md:flex-row gap-4 items-end">
-              <div className="flex-1 w-full space-y-1.5">
-                <label htmlFor="email" className="block text-xs font-black uppercase tracking-wider text-[#0D2421]/60">Google Account Email</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  required
-                  placeholder="name@company.com"
-                  className="w-full bg-white border-2 border-[#0D2421] rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30"
-                />
-              </div>
-              <div className="w-full md:w-56 space-y-1.5">
-                <label htmlFor="role" className="block text-xs font-black uppercase tracking-wider text-[#0D2421]/60">Security Role</label>
-                <div className="relative">
-                  <select
-                    id="role"
-                    name="role"
-                    className="w-full bg-white border-2 border-[#0D2421] rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="USER">Standard Member</option>
-                    <option value="CAPTAIN">Table Captain</option>
-                    <option value="ADMIN">Platform Admin</option>
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#0D2421]">
-                    <ChevronDownIcon className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-              <SubmitButton loadingText="Granting..." className="w-full md:w-auto px-6 py-3 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl font-black uppercase text-xs shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer">
-                Grant Whitelist
-              </SubmitButton>
-            </div>
-          </form>
+          {/* ── LATE ATTENDEE INJECTION AND MANUAL USER ADD ── */}
+          <AddParticipantForms 
+            hasAssignments={hasAssignments} 
+            pendingRoundCount={pendingRoundCount} 
+            addManualUserAction={addManualUser} 
+          />
 
           <UserTable users={users} />
         </div>

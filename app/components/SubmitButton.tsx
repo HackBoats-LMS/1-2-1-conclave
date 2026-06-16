@@ -7,9 +7,10 @@ interface SubmitButtonProps {
   className?: string;
   loadingText?: string;
   title?: string;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-export function SubmitButton({ children, className = "", loadingText = "Processing...", title }: SubmitButtonProps) {
+export function SubmitButton({ children, className = "", loadingText = "Processing...", title, onClick }: SubmitButtonProps) {
   const { pending } = useFormStatus();
 
   return (
@@ -17,7 +18,8 @@ export function SubmitButton({ children, className = "", loadingText = "Processi
       type="submit"
       disabled={pending}
       title={title}
-      className={`${className} ${pending ? "opacity-70 cursor-not-allowed" : ""} flex items-center justify-center gap-2 transition-all`}
+      onClick={onClick}
+      className={`${className} ${pending ? "opacity-70 cursor-not-allowed pointer-events-none" : ""} flex items-center justify-center gap-2 transition-all`}
     >
       {pending ? (
         <>

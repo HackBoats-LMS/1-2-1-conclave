@@ -1224,3 +1224,142 @@ export async function endConclave(formData: FormData) {
     revalidatePath("/admin");
   }
 }
+
+// ──────────────────────────────────────────────
+// LATE ATTENDEE INJECTION (Safe Mid-Event Addition)
+// Adds a user to ALL PENDING rounds only — never touches COMPLETED or IN_PROGRESS rounds.
+// ──────────────────────────────────────────────
+
+export async function injectLateAttendee(formData: FormData): Promise<{
+  success: boolean;
+  error?: string;
+  injectedRounds?: { roundNumber: number; tableNumber: number }[];
+}> {
+  await requireAdmin();
+
+  const rawEmail = formData.get("email") as string;
+  const email = rawEmail?.trim().toLowerCase();
+  const role = (formData.get("role") as string) || "USER";
+
+  if (!email) {
+    return { success: false, error: "Email is required." };
+  }
+  if (!["USER", "CAPTAIN"].includes(role)) {
+    return { success: false, error: "Role must be USER or CAPTAIN." };
+  }
+
+  try {
+    // 1. Upsert the user into the whitelist
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: { isApproved: true, role },
+      create: { email, isApproved: true, role },
+    });
+
+    // 2. Find all PENDING rounds (safe to modify — not started yet)
+    const pendingRounds = await prisma.round.findMany({
+      where: { status: "PENDING" },
+      include: {
+        tables: {
+          include: {
+            // Count how many people are at each table
+            _count: { select: { assignments: true } },
+          },
+        },
+      },
+      orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
+    });
+
+    if (pendingRounds.length === 0) {
+      return {
+        success: false,
+        error: "No pending rounds found. All rounds are either in progress or completed.",
+      };
+    }
+
+    // 3. Check if this user is already assigned to any pending round (avoid duplicates)
+    const existingAssignments = await prisma.tableAssignment.findMany({
+      where: {
+        userId: user.id,
+        table: {
+          roundId: { in: pendingRounds.map((r) => r.id) },
+        },
+      },
+      include: { table: true },
+    });
+    const alreadyAssignedRoundIds = new Set(existingAssignments.map((a) => a.table.roundId));
+
+    const injectedRounds: { roundNumber: number; tableNumber: number }[] = [];
+    const newAssignments: { userId: string; tableId: string; isCaptain: boolean }[] = [];
+
+    // 4. For each pending round, find the table with fewest members and assign
+    for (const round of pendingRounds) {
+      // Skip if user already has an assignment in this round
+      if (alreadyAssignedRoundIds.has(round.id)) {
+        const existingAssignment = existingAssignments.find((a) => a.table.roundId === round.id);
+        if (existingAssignment) {
+          injectedRounds.push({
+            roundNumber: round.roundNumber,
+            tableNumber: existingAssignment.table.tableNumber,
+          });
+        }
+        continue;
+      }
+
+      if (round.tables.length === 0) continue;
+
+      if (role === "CAPTAIN") {
+        // A Captain needs their own table
+        const maxTableNumber = round.tables.reduce((max, t) => Math.max(max, t.tableNumber), 0);
+        const newTable = await prisma.table.create({
+          data: {
+            roundId: round.id,
+            tableNumber: maxTableNumber + 1
+          }
+        });
+        newAssignments.push({
+          userId: user.id,
+          tableId: newTable.id,
+          isCaptain: true,
+        });
+        injectedRounds.push({
+          roundNumber: round.roundNumber,
+          tableNumber: newTable.tableNumber,
+        });
+      } else {
+        // Pick the table with the fewest current assignments (most room)
+        const sortedTables = [...round.tables].sort(
+          (a, b) => a._count.assignments - b._count.assignments
+        );
+        const targetTable = sortedTables[0];
+
+        newAssignments.push({
+          userId: user.id,
+          tableId: targetTable.id,
+          isCaptain: false,
+        });
+
+        injectedRounds.push({
+          roundNumber: round.roundNumber,
+          tableNumber: targetTable.tableNumber,
+        });
+      }
+    }
+
+    // 5. Batch-insert all new assignments
+    if (newAssignments.length > 0) {
+      await prisma.tableAssignment.createMany({
+        data: newAssignments,
+        skipDuplicates: true,
+      });
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+
+    return { success: true, injectedRounds };
+  } catch (e: any) {
+    console.error("Failed to inject late attendee:", e);
+    return { success: false, error: e.message || "Injection failed." };
+  }
+}
