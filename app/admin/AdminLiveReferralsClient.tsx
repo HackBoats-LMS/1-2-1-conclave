@@ -1,25 +1,23 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export function AdminLiveReferralsClient({ initialTotal }: { initialTotal: number }) {
-  const [prevInitial, setPrevInitial] = useState(initialTotal);
   const [total, setTotal] = useState(initialTotal);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    setLastUpdated(new Date());
-  }, []);
   const [isFlashing, setIsFlashing] = useState(false);
   const totalRef = useRef(initialTotal);
 
-  if (initialTotal !== prevInitial) {
-    setPrevInitial(initialTotal);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
     setTotal(initialTotal);
     totalRef.current = initialTotal;
-  }
+  }, [initialTotal]);
 
   useEffect(() => {
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -56,9 +54,21 @@ export function AdminLiveReferralsClient({ initialTotal }: { initialTotal: numbe
       } catch (_) {}
     };
 
-    // Poll every 5 seconds (down from 2s to reduce noise, still near real-time)
-    const interval = setInterval(poll, 5000);
-    return () => clearInterval(interval);
+    const channel = supabase
+      .channel("admin_live_referrals")
+      .on("broadcast", { event: "referral_sent" }, () => {
+        poll();
+      })
+      .on("broadcast", { event: "round_state_change" }, () => {
+        poll();
+      })
+      .subscribe();
+
+    const fallbackInterval = setInterval(poll, 60_000);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(fallbackInterval);
+    };
   }, []);
 
   const formatTime = (d: Date) =>
@@ -75,15 +85,7 @@ export function AdminLiveReferralsClient({ initialTotal }: { initialTotal: numbe
       >
         {total}
       </div>
-      <div className="flex items-center justify-center gap-1.5">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-        </span>
-        <span className="text-[9px] font-bold text-[#0D2421]/40 uppercase tracking-widest">
-          Live • Updated {isMounted && lastUpdated ? formatTime(lastUpdated) : "--:--:--"}
-        </span>
-      </div>
+      
     </div>
   );
 }

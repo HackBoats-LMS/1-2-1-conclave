@@ -1,15 +1,35 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import * as xlsx from "xlsx";
 
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const referrals = await prisma.referral.findMany({
-      include: {
-        fromUser: true,
-        toUser: true
+      select: {
+        createdAt: true,
+        note: true,
+        fromUser: {
+          select: {
+            email: true,
+            name: true,
+            businessName: true,
+          },
+        },
+        toUser: {
+          select: {
+            email: true,
+            name: true,
+            businessName: true,
+          },
+        },
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
     const data = referrals.map((r: any) => ({

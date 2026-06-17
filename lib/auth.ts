@@ -38,7 +38,15 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     async signIn({ user, profile }) {
       if (!user.email) return false;
 
-      const gameState = await prisma.gameState.findFirst({ select: { isOpenLogins: true } });
+      // Fetch gameState and dbUser in parallel — both are independent reads
+      const [gameState, dbUser] = await Promise.all([
+        prisma.gameState.findFirst({ select: { isOpenLogins: true } }),
+        prisma.user.findFirst({
+          where: { email: { equals: user.email.toLowerCase(), mode: "insensitive" } },
+          select: { id: true, isApproved: true },
+        }),
+      ]);
+
       if (gameState?.isOpenLogins) {
         // FIX (Login 303 Loop): Also sync name and image from Google profile on open-login
         // upsert, so the JWT is never stale with missing profile fields.
@@ -59,10 +67,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         });
         return true;
       }
-
-      const dbUser = await prisma.user.findFirst({
-        where: { email: { equals: user.email.toLowerCase(), mode: "insensitive" } },
-      });
 
       if (!dbUser || !dbUser.isApproved) return false;
       return true;

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 interface Sender {
@@ -12,35 +11,71 @@ interface Sender {
 }
 
 export function LiveLeaderboardClient({ initialSenders }: { initialSenders: Sender[] }) {
-  const router = useRouter();
   const [senders, setSenders] = useState<Sender[]>(initialSenders);
+  const isFetchingRef = useRef(false);
 
-  // Poll every 2s for live leaderboard updates
-  useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/game-state", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.topSenders) setSenders(data.topSenders);
-      } catch (_) {}
-    };
-
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
+  /**
+   * Fetch leaderboard data from the dedicated lightweight endpoint.
+   * This runs 3 DB queries instead of the 6 that /api/game-state runs.
+   * Called reactively (on Supabase event) — NOT on a tight interval.
+   */
+  const fetchLeaderboard = useCallback(async () => {
+    // Debounce: if a fetch is already in flight, skip this call
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const res = await fetch("/api/leaderboard-data", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.topSenders) setSenders(data.topSenders);
+    } catch (_) {
+    } finally {
+      isFetchingRef.current = false;
+    }
   }, []);
 
-  // Refresh page on round start so timer/server data updates
   useEffect(() => {
+    /**
+     * PRIMARY: Supabase Realtime (WebSocket)
+     * Admin actions broadcast to "leaderboard_page_refresh" channel.
+     * When round state changes, fetch fresh leaderboard data once.
+     * This replaces the 2s polling loop — no DB queries during steady state.
+     */
     const channel = supabase
       .channel("leaderboard_page_refresh")
-      .on("broadcast", { event: "round_state_change" }, ({ payload }: { payload: Record<string, string> }) => {
-        if (payload?.action === "start") router.refresh();
-      })
+      .on(
+        "broadcast",
+        { event: "round_state_change" },
+        () => {
+          // Small delay so DB write from the action has committed
+          setTimeout(fetchLeaderboard, 500);
+        }
+      )
+      .on(
+        "broadcast",
+        { event: "referral_sent" },
+        () => {
+          setTimeout(fetchLeaderboard, 500);
+        }
+      )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [router]);
+    /**
+     * FALLBACK: Poll every 60s as a safety net for WebSocket disconnects.
+     * This is 30× slower than the old 2s interval — same safety, 97% less load.
+     */
+    const fallbackInterval = setInterval(fetchLeaderboard, 60_000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(fallbackInterval);
+    };
+  }, [fetchLeaderboard]);
+
+  // Sync when SSR passes new initialSenders (e.g. page refresh)
+  useEffect(() => {
+    setSenders(initialSenders);
+  }, [initialSenders]);
 
   if (senders.length === 0) {
     return (

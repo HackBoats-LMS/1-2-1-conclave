@@ -12,37 +12,47 @@ export async function GET() {
     }
 
     const assignments = await prisma.tableAssignment.findMany({
-      include: {
-        user: true,
+      select: {
+        isCaptain: true,
+        user: {
+          select: {
+            email: true,
+            name: true,
+            businessName: true,
+            businessCategory: true,
+          },
+        },
         table: {
-          include: {
+          select: {
+            tableNumber: true,
             round: {
-              include: { slot: true }
-            }
-          }
-        }
-      }
+              select: {
+                roundNumber: true,
+                slot: { select: { slotNumber: true } },
+              },
+            },
+          },
+        },
+      },
+      // Sort at DB level — no JS .sort() needed
+      orderBy: [
+        { table: { round: { slot: { slotNumber: "asc" } } } },
+        { table: { round: { roundNumber: "asc" } } },
+        { table: { tableNumber: "asc" } },
+        { isCaptain: "desc" }, // captains first
+      ],
     });
 
-    const data = (assignments as any[])
-      .map(a => ({
-        "Slot": `Slot ${a.table.round.slot.slotNumber}`,
-        "Round": `Round ${a.table.round.roundNumber}`,
-        "Table": `Table ${a.table.tableNumber}`,
-        "Role": a.isCaptain ? "CAPTAIN" : "MEMBER",
-        "Email": a.user.email || "N/A",
-        "Name": a.user.name || a.user.businessName || "N/A",
-        "Business": a.user.businessName || "N/A",
-        "Category": a.user.businessCategory || "N/A",
-      }))
-      .sort((a, b) => {
-        // Sort by Slot → Round → Table → Role (captains first)
-        if (a["Slot"] !== b["Slot"]) return a["Slot"].localeCompare(b["Slot"]);
-        if (a["Round"] !== b["Round"]) return a["Round"].localeCompare(b["Round"]);
-        if (a["Table"] !== b["Table"]) return a["Table"].localeCompare(b["Table"]);
-        if (a["Role"] !== b["Role"]) return a["Role"] === "CAPTAIN" ? -1 : 1;
-        return 0;
-      });
+    const data = assignments.map((a) => ({
+      "Slot": `Slot ${a.table.round.slot.slotNumber}`,
+      "Round": `Round ${a.table.round.roundNumber}`,
+      "Table": `Table ${a.table.tableNumber}`,
+      "Role": a.isCaptain ? "CAPTAIN" : "MEMBER",
+      "Email": a.user.email || "N/A",
+      "Name": a.user.name || a.user.businessName || "N/A",
+      "Business": a.user.businessName || "N/A",
+      "Category": a.user.businessCategory || "N/A",
+    }));
 
     const worksheet = xlsx.utils.json_to_sheet(data);
     

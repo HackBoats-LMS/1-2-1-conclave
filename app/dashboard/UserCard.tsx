@@ -7,9 +7,10 @@ import { supabase } from "@/lib/supabaseClient";
 interface UserCardProps {
   tu: any;
   alreadyReferred?: boolean;
+  activeTimer?: { type: string; timeLeft: number } | null;
 }
 
-export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
+export function UserCard({ tu, alreadyReferred = false, activeTimer = null }: UserCardProps) {
   const user = tu.user;
   const [isPending, startTransition] = useTransition();
   const [note, setNote] = useState("");
@@ -17,82 +18,6 @@ export function UserCard({ tu, alreadyReferred = false }: UserCardProps) {
   const [showCheck, setShowCheck] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [requireNoteLocally, setRequireNoteLocally] = useState(alreadyReferred);
-  
-  const [activeTimer, setActiveTimer] = useState<{ type: string, timeLeft: number } | null>(null);
-  const localIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (!tu.table?.roundId || !tu.table?.tableNumber) return;
-    
-    let targetEndTime: number | null = null;
-    
-    // Shared function to initialize or adopt a timer
-    const activateTimer = (payloadUserId: string, payloadType: string, payloadTargetEndTime: number) => {
-      if (payloadUserId === user.id) {
-        // Only update if we aren't already tracking this exact target end time (to avoid resetting intervals needlessly)
-        if (targetEndTime === payloadTargetEndTime) return;
-        
-        targetEndTime = payloadTargetEndTime;
-        const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
-        
-        if (remaining > 0) {
-          setActiveTimer({ type: payloadType, timeLeft: remaining });
-          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-          
-          localIntervalRef.current = setInterval(() => {
-            if (!targetEndTime) return;
-            const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
-            if (currentRemaining <= 0) {
-              setActiveTimer(null);
-              if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-              targetEndTime = null;
-            } else {
-              setActiveTimer(prev => prev ? { ...prev, timeLeft: currentRemaining } : null);
-            }
-          }, 250); // Polling every 250ms
-        } else {
-          setActiveTimer(null);
-          if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-          targetEndTime = null;
-        }
-      } else {
-        setActiveTimer(null);
-        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-        targetEndTime = null;
-      }
-    };
-    
-    const handleTimerStart = (e: any) => {
-      const payload = e.detail;
-      const initialTarget = Date.now() + payload.durationSec * 1000;
-      activateTimer(payload.userId, payload.type, initialTarget);
-    };
-
-    const handleTimerSync = (e: any) => {
-      const payload = e.detail;
-      activateTimer(payload.userId, payload.type, payload.targetEndTime);
-    };
-
-    const handleTimerStop = (e: any) => {
-      const payload = e.detail;
-      if (!payload.userId || payload.userId === user.id) {
-        setActiveTimer(null);
-        if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-        targetEndTime = null;
-      }
-    };
-
-    window.addEventListener("conclave_timer_start", handleTimerStart);
-    window.addEventListener("conclave_timer_sync", handleTimerSync);
-    window.addEventListener("conclave_timer_stop", handleTimerStop);
-
-    return () => {
-      if (localIntervalRef.current) clearInterval(localIntervalRef.current);
-      window.removeEventListener("conclave_timer_start", handleTimerStart);
-      window.removeEventListener("conclave_timer_sync", handleTimerSync);
-      window.removeEventListener("conclave_timer_stop", handleTimerStop);
-    };
-  }, [user.id, tu.table?.roundId, tu.table?.tableNumber]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, getCachedGameState } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { LiveControls, AutoRefresh } from "./LiveControls";
-import { UserCard } from "./UserCard";
+import { MembersGrid } from "./MembersGrid";
 import { CaptainActiveRound } from "./CaptainActiveRound";
 import { TableRealtimeListener } from "./TableRealtimeListener";
 import { DownloadMyReferralsButton } from "./DownloadMyReferralsButton";
@@ -31,7 +31,7 @@ export default async function UserDashboard() {
   if (!isProfileComplete) redirect("/onboarding");
 
   const [gameState, totalRounds, completedRounds] = await Promise.all([
-    prisma.gameState.findFirst(),
+    getCachedGameState(),
     prisma.round.count(),
     prisma.round.count({ where: { status: "COMPLETED" } })
   ]);
@@ -314,35 +314,54 @@ export default async function UserDashboard() {
 
   // ── ACTIVE ROUND STATE ──
 
-  const [round, myAssignment, nextRound] = await Promise.all([
-    prisma.round.findUnique({
-      where: { id: gameState.currentRoundId },
-      include: { slot: true }
-    }),
+  // Consolidated query fetching my assignment, round, table, and other users' details in parallel with next round search
+  const [myAssignmentData, nextRound] = await Promise.all([
     prisma.tableAssignment.findFirst({
-      where: { userId: session.user.id, table: { roundId: gameState.currentRoundId } },
-      include: { table: true }
+      where: {
+        userId: session.user.id,
+        table: { roundId: gameState.currentRoundId! }
+      },
+      include: {
+        table: {
+          include: {
+            round: {
+              include: { slot: true }
+            },
+            assignments: {
+              where: { userId: { not: session.user.id } },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    businessName: true,
+                    businessCategory: true,
+                    description: true,
+                    specificAsk1: true,
+                    specificAsk2: true,
+                    onboardingCompleted: true
+                  }
+                }
+              },
+              orderBy: { isCaptain: 'desc' }
+            }
+          }
+        }
+      }
     }),
     prisma.round.findFirst({
       where: { status: "PENDING" },
-      orderBy: [{ slot: { slotNumber: 'asc' } }, { roundNumber: 'asc' }]
+      orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }]
     })
   ]);
 
-  let nextAssignment = null;
-  if (nextRound) {
-    nextAssignment = await prisma.tableAssignment.findFirst({
-      where: { userId: session.user.id, table: { roundId: nextRound.id } },
-      include: { table: true }
-    });
-  }
-
-  if (!myAssignment) {
+  if (!myAssignmentData) {
     return (
       <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
         <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04] bg-[radial-gradient(#0d2421_1.5px,transparent_1.5px)] [background-size:24px_24px]"></div>
 
-        <AutoRefresh initialRoundId={gameState?.currentRoundId || null} />
+        <AutoRefresh initialRoundId={gameState.currentRoundId} />
 
         <div className="bg-white border-2 border-[#0D2421] p-8 md:p-12 rounded-[2rem] shadow-[8px_8px_0px_#0D2421] text-center max-w-lg w-full relative z-10 space-y-6">
           <div className="w-14 h-14 bg-amber-500 border-2 border-[#0D2421] rounded-2xl flex items-center justify-center mx-auto text-white shadow-[3px_3px_0px_#0D2421]">
@@ -351,7 +370,7 @@ export default async function UserDashboard() {
           <div className="space-y-2">
             <h1 className="text-2xl font-black uppercase tracking-tight">No Table Assignment</h1>
             <p className="text-xs font-semibold text-[#0D2421]/60 leading-relaxed uppercase tracking-wider">
-              You are not assigned to a table for Round {round?.roundNumber}. Please contact the conclave administrator.
+              You are not assigned to a table for this round. Please contact the conclave administrator.
             </p>
           </div>
         </div>
@@ -359,19 +378,30 @@ export default async function UserDashboard() {
     );
   }
 
-  // Find other users at this table (captains first)
-  const tableUsers = await prisma.tableAssignment.findMany({
-    where: { tableId: myAssignment.tableId, userId: { not: session.user.id } },
-    include: { user: true },
-    orderBy: { isCaptain: 'desc' }
-  });
+  // Map consolidated data
+  const myAssignment = myAssignmentData;
+  const round = myAssignmentData.table.round;
+  const tableUsers = myAssignmentData.table.assignments;
+  const tableUserIds = tableUsers.map(a => a.userId);
 
-  const sentReferralUserIds = new Set(
-    (await prisma.referral.findMany({
-      where: { fromUserId: session.user.id as string, toUserId: { in: tableUsers.map(t => t.userId) } },
-      select: { toUserId: true },
-    })).map(r => r.toUserId)
-  );
+  // Fetch next assignment and sent referrals in parallel
+  const [nextAssignment, sentReferrals] = await Promise.all([
+    nextRound
+      ? prisma.tableAssignment.findFirst({
+          where: { userId: session.user.id, table: { roundId: nextRound.id } },
+          include: { table: true }
+        })
+      : null,
+    tableUserIds.length > 0
+      ? prisma.referral.findMany({
+          where: { fromUserId: session.user.id, toUserId: { in: tableUserIds } },
+          select: { toUserId: true }
+        })
+      : []
+  ]);
+
+  const sentReferralUserIds = new Set(sentReferrals.map(r => r.toUserId));
+
 
   if (isCaptain) {
     return (
@@ -538,22 +568,19 @@ export default async function UserDashboard() {
         )}
 
         {/* Members Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-          {tableUsers.map((tu: any) => (
-            <UserCard key={tu.user.id} tu={{ ...tu, table: myAssignment.table }} alreadyReferred={sentReferralUserIds.has(tu.userId)} />
-          ))}
-          {tableUsers.length === 0 && (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-white space-y-4">
-              <div className="w-16 h-16 bg-[#FAF8F4] border border-[#0D2421]/35 rounded-full flex items-center justify-center mx-auto">
-                <UsersIcon className="w-8 h-8 text-[#0D2421]/40" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-black text-sm uppercase text-[#0D2421]/70">No other members assigned to this table yet</p>
-                <p className="text-xs font-semibold text-[#0D2421]/50 uppercase tracking-wider">Please wait for partners to log in or ask the admin to allocate table coordinates.</p>
-              </div>
+        {tableUsers.length > 0 ? (
+          <MembersGrid tableUsers={tableUsers} table={myAssignment.table} sentReferralUserIds={Array.from(sentReferralUserIds)} />
+        ) : (
+          <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-white space-y-4">
+            <div className="w-16 h-16 bg-[#FAF8F4] border border-[#0D2421]/35 rounded-full flex items-center justify-center mx-auto">
+              <UsersIcon className="w-8 h-8 text-[#0D2421]/40" />
             </div>
-          )}
-        </div>
+            <div className="space-y-1">
+              <p className="font-black text-sm uppercase text-[#0D2421]/70">No other members assigned to this table yet</p>
+              <p className="text-xs font-semibold text-[#0D2421]/50 uppercase tracking-wider">Please wait for partners to log in or ask the admin to allocate table coordinates.</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

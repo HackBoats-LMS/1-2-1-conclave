@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { UserSearchFilter } from "../UserSearchFilter";
 import { Suspense } from "react";
-import { LiveReferralsTotalBadge, LiveReferralsContent } from "./LiveReferralsTotalBadge";
+import { LiveReferralsWrapper } from "./LiveReferralsTotalBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,7 @@ export default async function AdminReferralsDownloadPage({ searchParams }: { sea
 
       <div className="max-w-6xl mx-auto relative z-10 space-y-6">
 
-        {/* Header */}
+        {/* Header — static SSR values, no extra polling */}
         <header className="flex flex-col md:flex-row md:items-center md:justify-between bg-white border-2 border-[#0D2421] p-5 md:p-6 rounded-3xl shadow-[4px_4px_0px_#0D2421] gap-4">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-[#0D2421] rounded-xl flex items-center justify-center shadow-[3px_3px_0px_#BEF03C] shrink-0">
@@ -73,7 +73,10 @@ export default async function AdminReferralsDownloadPage({ searchParams }: { sea
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            <LiveReferralsTotalBadge initialTotal={totalReferrals} initialUsers={users} />
+            <div className="flex flex-col items-center bg-[#BEF03C] border-2 border-[#0D2421] px-5 py-3 rounded-2xl shadow-[3px_3px_0px_#0D2421]">
+              <span className="text-3xl font-black leading-none">{totalReferrals}</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-[#0D2421]/60 mt-0.5">Total Referrals</span>
+            </div>
             <div className="flex flex-col items-center bg-[#FAF8F4] border-2 border-[#0D2421] px-5 py-3 rounded-2xl shadow-[3px_3px_0px_#0D2421]">
               <span className="text-3xl font-black leading-none">{users.length}</span>
               <span className="text-[8px] font-black uppercase tracking-widest text-[#0D2421]/60 mt-0.5">Participants</span>
@@ -83,7 +86,8 @@ export default async function AdminReferralsDownloadPage({ searchParams }: { sea
 
         <Suspense><UserSearchFilter /></Suspense>
 
-        <LiveReferralsContent initialTotal={totalReferrals} initialUsers={users} />
+        {/* Single live component — owns ONE poll, renders both the live badge and full ranked list */}
+        <LiveReferralsWrapper initialTotal={totalReferrals} initialUsers={users} />
 
       </div>
     </div>

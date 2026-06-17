@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { startRound } from "../actions";
+import { supabase } from "@/lib/supabaseClient";
 
-interface GameState {
+interface ShiftTimerData {
   isRoundActive: boolean;
   lastRoundEndedAt: string | null;
   shiftDuration: number;
   isAutoMode: boolean;
   nextRoundId: string | null;
-  allRoundsCompleted: boolean;
 }
 
 export function BigShiftingTimerClient({
@@ -35,49 +35,96 @@ export function BigShiftingTimerClient({
   const [liveDuration, setLiveDuration] = useState(initialDurationMinutes);
   const [liveAutoMode, setLiveAutoMode] = useState(initialAutoMode);
   const [liveNextRoundId, setLiveNextRoundId] = useState(initialNextRoundId);
+  const [liveAllRoundsCompleted, setLiveAllRoundsCompleted] = useState(!!allRoundsCompleted);
 
   const hasTriggeredRef = useRef(false);
   const prevRoundActiveRef = useRef(initialRoundActive);
-  const [liveAllRoundsCompleted, setLiveAllRoundsCompleted] = useState(!!allRoundsCompleted);
+  const isFetchingRef = useRef(false);
 
-  // Poll /api/game-state every 2s — source of truth
+  /**
+   * Fetch from the dedicated 2-query shift-timer endpoint.
+   * Called reactively on Supabase events — NOT on a 2s loop.
+   */
+  const fetchShiftTimer = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const res = await fetch("/api/shift-timer", { cache: "no-store" });
+      if (!res.ok) return;
+      const data: ShiftTimerData = await res.json();
+
+      const wasActive = prevRoundActiveRef.current;
+      const isNowActive = data.isRoundActive;
+      prevRoundActiveRef.current = isNowActive;
+
+      setLiveRoundActive(isNowActive);
+      setLiveDuration(data.shiftDuration);
+      setLiveAutoMode(data.isAutoMode);
+      setLiveNextRoundId(data.nextRoundId);
+
+      // Round just became inactive — start the shifting timer
+      if (wasActive && !isNowActive && !liveAllRoundsCompleted) {
+        hasTriggeredRef.current = false;
+        setLiveEndedAtMs(Date.now());
+      }
+
+      // Round became active — clear the shifting timer
+      if (!wasActive && isNowActive) {
+        setLiveEndedAtMs(null);
+        setTimeLeft(null);
+      }
+    } catch (_) {
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [liveAllRoundsCompleted]);
+
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/game-state", { cache: "no-store" });
-        if (!res.ok) return;
-        const data: GameState = await res.json();
+    /**
+     * PRIMARY: Supabase Realtime (WebSocket).
+     * Admin start/stop/pause/reset broadcasts to "global_events".
+     * We react to the event instantly — no polling loop needed.
+     */
+    const channel = supabase
+      .channel("big_shift_timer")
+      .on("broadcast", { event: "round_state_change" }, ({ payload }) => {
+        const action = (payload as { action?: string })?.action;
 
-        const wasActive = prevRoundActiveRef.current;
-        const isNowActive = data.isRoundActive;
-        prevRoundActiveRef.current = isNowActive;
-
-        setLiveRoundActive(isNowActive);
-        setLiveDuration(data.shiftDuration);
-        setLiveAutoMode(data.isAutoMode);
-        setLiveNextRoundId(data.nextRoundId);
-        setLiveAllRoundsCompleted(data.allRoundsCompleted);
-
-        // Round just became inactive — only start shifting timer if rounds remain
-        if (wasActive && !isNowActive && !data.allRoundsCompleted) {
-          hasTriggeredRef.current = false;
-          setLiveEndedAtMs(Date.now());
-        }
-
-        // Round became active again — reset everything
-        if (!wasActive && isNowActive) {
+        if (action === "stop") {
+          // Round ended — kick off the shifting timer immediately
+          const wasActive = prevRoundActiveRef.current;
+          prevRoundActiveRef.current = false;
+          setLiveRoundActive(false);
+          if (wasActive && !liveAllRoundsCompleted) {
+            hasTriggeredRef.current = false;
+            setLiveEndedAtMs(Date.now());
+          }
+        } else if (action === "start") {
+          // New round started — hide the shifting timer
+          prevRoundActiveRef.current = true;
+          setLiveRoundActive(true);
           setLiveEndedAtMs(null);
           setTimeLeft(null);
         }
-      } catch (_) {}
+
+        // Fetch fresh data to sync shiftDuration, nextRoundId, etc.
+        setTimeout(fetchShiftTimer, 400);
+      })
+      .subscribe();
+
+    /**
+     * FALLBACK: Poll every 30s for drift correction (WebSocket disconnect safety).
+     * This is 15× less frequent than the old 2s interval.
+     */
+    const fallbackInterval = setInterval(fetchShiftTimer, 30_000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(fallbackInterval);
     };
+  }, [fetchShiftTimer, liveAllRoundsCompleted]);
 
-    poll(); // immediate first call
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Shifting countdown
+  // Shifting countdown — pure local JS, zero DB queries
   useEffect(() => {
     if (!liveEndedAtMs || liveRoundActive || liveAllRoundsCompleted) {
       setTimeLeft(null);
@@ -104,7 +151,7 @@ export function BigShiftingTimerClient({
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [liveEndedAtMs, liveDuration, liveRoundActive, allRoundsCompleted, liveAutoMode, liveNextRoundId]);
+  }, [liveEndedAtMs, liveDuration, liveRoundActive, liveAllRoundsCompleted, liveAutoMode, liveNextRoundId]);
 
   if (timeLeft === null || liveRoundActive) return null;
   if (timeLeft === 0) return null;

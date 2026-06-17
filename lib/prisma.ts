@@ -11,13 +11,13 @@ let prisma: PrismaClient;
 if (globalForPrisma.prisma) {
   prisma = globalForPrisma.prisma;
 } else {
-  // Use DIRECT_URL (port 5432) instead of DATABASE_URL (port 6543)
-  // because the pg module doesn't support PgBouncer transaction mode well.
-  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!;
-  const pool = new Pool({ 
+  // Use transaction-pooled DATABASE_URL (port 6543) by default to prevent pool exhaustion under serverless load.
+  // Fall back to DIRECT_URL (port 5432) only if necessary.
+  const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL!;
+  const pool = new Pool({
     connectionString,
-    max: 5,
-    idleTimeoutMillis: 30000,
+    max: 2, // Limit pool size per serverless container to prevent exhausting the 100-connection DB limit
+    idleTimeoutMillis: 15000, // Reclaim idle connection sockets quickly
     connectionTimeoutMillis: 10000,
     ssl: { rejectUnauthorized: false }
   });
@@ -26,5 +26,26 @@ if (globalForPrisma.prisma) {
   globalForPrisma.prisma = prisma;
 }
 
+// In-memory GameState cache layer (2-second TTL)
+let cachedGameState: any = null;
+let cacheTimestamp = 0;
+
+export async function getCachedGameState() {
+  const now = Date.now();
+  if (cachedGameState && (now - cacheTimestamp < 2000)) {
+    return cachedGameState;
+  }
+  const state = await prisma.gameState.findFirst();
+  cachedGameState = state;
+  cacheTimestamp = now;
+  return state;
+}
+
+export function invalidateGameStateCache() {
+  cachedGameState = null;
+  cacheTimestamp = 0;
+}
+
 export { prisma };
+
 

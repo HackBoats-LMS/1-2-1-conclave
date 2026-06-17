@@ -17,12 +17,9 @@ export async function completeOnboarding(formData: FormData) {
   const specificAsk1 = formData.get("specificAsk1") as string | null;
   const specificAsk2 = formData.get("specificAsk2") as string | null;
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (!user) throw new Error("User not found");
-
-  // Save profile details
+  // session.user.id is already the DB user ID — no need for an extra findUnique round-trip
   const updatedUser = await prisma.user.update({
-    where: { id: user.id },
+    where: { id: session.user.id },
     data: {
       name,
       businessName,

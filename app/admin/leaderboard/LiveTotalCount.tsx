@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+/**
+ * Polls Supabase REST directly for the referral count every 60s as a fallback,
+ * and updates instantly on realtime referral_sent events.
+ * This is a Supabase-to-client call — it does NOT hit our Vercel server
+ * or our Prisma connection pool at all. Zero cost to our backend.
+ */
 export function LiveTotalCount({ initialTotal }: { initialTotal: number }) {
-  const router = useRouter();
   const [total, setTotal] = useState(initialTotal);
   const totalRef = useRef(initialTotal);
 
@@ -18,8 +22,9 @@ export function LiveTotalCount({ initialTotal }: { initialTotal: number }) {
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-    // Poll Supabase REST every 2s — just fetches a count, no DB stress
-    const interval = setInterval(async () => {
+    // Poll Supabase PostgREST directly — bypasses Vercel and our DB pool entirely.
+    // Only reads the Content-Range header (count), not row data.
+    const poll = async () => {
       try {
         const res = await fetch(
           `${SUPABASE_URL}/rest/v1/Referral?select=id`,
@@ -33,7 +38,6 @@ export function LiveTotalCount({ initialTotal }: { initialTotal: number }) {
             cache: "no-store",
           }
         );
-        // Supabase returns total count in Content-Range header: "0-0/TOTAL"
         const range = res.headers.get("content-range");
         if (range) {
           const count = parseInt(range.split("/")[1], 10);
@@ -43,21 +47,24 @@ export function LiveTotalCount({ initialTotal }: { initialTotal: number }) {
           }
         }
       } catch (_) {}
-    }, 2000);
+    };
 
-    // Also keep round_state_change for timer refresh
     const channel = supabase
-      .channel("global_events")
+      .channel("leaderboard_page_refresh_total")
+      .on("broadcast", { event: "referral_sent" }, () => {
+        poll();
+      })
       .on("broadcast", { event: "round_state_change" }, () => {
-        router.refresh();
+        poll();
       })
       .subscribe();
 
+    const fallbackInterval = setInterval(poll, 60_000);
     return () => {
-      clearInterval(interval);
       supabase.removeChannel(channel);
+      clearInterval(fallbackInterval);
     };
-  }, [router]);
+  }, []);
 
   const len = total.toString().length;
   const sizeClass =

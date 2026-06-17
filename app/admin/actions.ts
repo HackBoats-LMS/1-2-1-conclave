@@ -1,5 +1,5 @@
 "use server";
-import { prisma } from "@/lib/prisma";
+import { prisma, invalidateGameStateCache } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import * as xlsx from 'xlsx';
@@ -199,59 +199,72 @@ export async function removeAllUsers(formData: FormData) {
   try {
     verifyDeletePassword(password);
 
-    // 1. Fetch data to archive
-    const usersToArchive = await prisma.user.findMany({
-      where: { role: { not: "ADMIN" } }
-    });
-
-    const referralsToArchive = await prisma.referral.findMany({
-      include: { fromUser: true, toUser: true }
-    });
-
-    if (usersToArchive.length > 0 || referralsToArchive.length > 0) {
-      // 2. Create Archive Event
-      const archivedEvent = await prisma.archivedEvent.create({
-        data: { name: eventName.trim() }
+    // Wrap entire archive + delete in a transaction — fully atomic, rolls back on any failure
+    await prisma.$transaction(async (tx) => {
+      // BUG-07 FIX: Use select to fetch only the columns needed for archiving.
+      // Previously fetched every column (including large blobs) on every user/referral.
+      const usersToArchive = await tx.user.findMany({
+        where: { role: { not: "ADMIN" } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          businessName: true,
+          businessCategory: true,
+          contactNumber: true,
+          role: true,
+        },
       });
 
-      // 3. Insert Archived Users
-      if (usersToArchive.length > 0) {
-        await prisma.archivedUser.createMany({
-          data: usersToArchive.map(u => ({
-            eventId: archivedEvent.id,
-            originalUserId: u.id,
-            name: u.name,
-            email: u.email,
-            businessName: u.businessName,
-            businessCategory: u.businessCategory,
-            contactNumber: u.contactNumber,
-            role: u.role,
-          }))
+      const referralsToArchive = await tx.referral.findMany({
+        select: {
+          note: true,
+          createdAt: true,
+          fromUser: { select: { name: true, email: true } },
+          toUser: { select: { name: true, email: true } },
+        },
+      });
+
+      if (usersToArchive.length > 0 || referralsToArchive.length > 0) {
+        const archivedEvent = await tx.archivedEvent.create({
+          data: { name: eventName.trim() }
         });
+
+        if (usersToArchive.length > 0) {
+          await tx.archivedUser.createMany({
+            data: usersToArchive.map(u => ({
+              eventId: archivedEvent.id,
+              originalUserId: u.id,
+              name: u.name,
+              email: u.email,
+              businessName: u.businessName,
+              businessCategory: u.businessCategory,
+              contactNumber: u.contactNumber,
+              role: u.role,
+            }))
+          });
+        }
+
+        if (referralsToArchive.length > 0) {
+          await tx.archivedReferral.createMany({
+            data: referralsToArchive.map(r => ({
+              eventId: archivedEvent.id,
+              fromName: r.fromUser?.name || "Unknown",
+              fromEmail: r.fromUser?.email || "unknown@email.com",
+              toName: r.toUser?.name || "Unknown",
+              toEmail: r.toUser?.email || "unknown@email.com",
+              note: r.note,
+              createdAt: r.createdAt
+            }))
+          });
+        }
       }
 
-      // 4. Insert Archived Referrals
-      if (referralsToArchive.length > 0) {
-        await prisma.archivedReferral.createMany({
-          data: referralsToArchive.map(r => ({
-            eventId: archivedEvent.id,
-            fromName: r.fromUser?.name || "Unknown",
-            fromEmail: r.fromUser?.email || "unknown@email.com",
-            toName: r.toUser?.name || "Unknown",
-            toEmail: r.toUser?.email || "unknown@email.com",
-            note: r.note,
-            createdAt: r.createdAt
-          }))
-        });
-      }
-    }
-
-    // 5. Finally, wipe the primary tables
-    await prisma.user.deleteMany({
-      where: { role: { not: "ADMIN" } }
-    });
-    // Referrals will cascade delete, but we can also manually wipe TableAssignments/Slots if needed
-    // Usually wiping users wipes assignments and referrals due to cascading.
+      // Delete inside the same transaction — if anything above failed, this won't run
+      await tx.user.deleteMany({
+        where: { role: { not: "ADMIN" } }
+      });
+    }, { timeout: 30000 }); // 30s timeout for large event datasets
 
   } catch (e: any) {
     console.error(e);
@@ -274,51 +287,77 @@ export async function startRound(formData: FormData) {
   const roundId = formData.get("roundId") as string;
 
   try {
-    const round = await prisma.round.findUnique({
-      where: { id: roundId }
+    await prisma.$transaction(async (tx) => {
+      // 1. Enforce that no other round is active (currently IN_PROGRESS)
+      const activeState = await tx.gameState.findFirst();
+      if (activeState?.currentRoundId && activeState.currentRoundId !== roundId) {
+        const activeRound = await tx.round.findUnique({
+          where: { id: activeState.currentRoundId },
+          select: { status: true }
+        });
+        if (activeRound && activeRound.status === "IN_PROGRESS") {
+          throw new Error("Another round is currently active.");
+        }
+      }
+
+      // 2. Enforce status constraints on the target round
+      const round = await tx.round.findUnique({
+        where: { id: roundId },
+        select: { status: true, durationMinutes: true },
+      });
+
+      if (!round) {
+        throw new Error("Target round not found.");
+      }
+
+      if (round.status === "COMPLETED") {
+        throw new Error("Cannot restart a completed round.");
+      }
+
+      if (round.status === "IN_PROGRESS") {
+        return; // harmless concurrent click no-op
+      }
+
+      const durationMinutesStr = formData.get("durationMinutes");
+      let durationMinutes = round.durationMinutes;
+      if (durationMinutesStr && typeof durationMinutesStr === "string") {
+        durationMinutes = parseInt(durationMinutesStr, 10);
+      }
+
+      let newStartTime = new Date();
+      if (round.status.startsWith("PAUSED_")) {
+        const elapsedSec = parseInt(round.status.split("_")[1]);
+        if (!isNaN(elapsedSec)) {
+          newStartTime = new Date(Date.now() - (elapsedSec * 1000));
+        }
+      }
+
+      await tx.round.update({
+        where: { id: roundId },
+        data: { status: "IN_PROGRESS", startTime: newStartTime, durationMinutes },
+      });
+
+      if (activeState) {
+        await tx.gameState.update({
+          where: { id: activeState.id },
+          data: { currentRoundId: roundId },
+        });
+      } else {
+        await tx.gameState.create({
+          data: { currentRoundId: roundId },
+        });
+      }
     });
 
-    const durationMinutesStr = formData.get("durationMinutes");
-    let durationMinutes = round?.durationMinutes || 15;
-    if (durationMinutesStr && typeof durationMinutesStr === "string") {
-      durationMinutes = parseInt(durationMinutesStr, 10);
-    }
-
-    let newStartTime = new Date();
-    if (round?.status?.startsWith("PAUSED_")) {
-      const elapsedSec = parseInt(round.status.split("_")[1]);
-      if (!isNaN(elapsedSec)) {
-        newStartTime = new Date(Date.now() - (elapsedSec * 1000));
-      }
-    }
-
-    await prisma.round.update({
-      where: { id: roundId },
-      data: {
-        status: "IN_PROGRESS",
-        startTime: newStartTime,
-        durationMinutes
-      }
-    });
-
-    const state = await prisma.gameState.findFirst();
-    if (state) {
-      await prisma.gameState.update({
-        where: { id: state.id },
-        data: { currentRoundId: roundId }
-      });
-    } else {
-      await prisma.gameState.create({
-        data: { currentRoundId: roundId }
-      });
-    }
+    invalidateGameStateCache();
 
     await broadcast('round_state_change', { action: 'start' });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
-  } catch (e) {
-    console.error("Failed to start round", e);
+  } catch (e: any) {
+    console.error("Failed to start round:", e.message || e);
+    await setError(e.message || "Failed to start round");
   }
 }
 
@@ -326,14 +365,27 @@ export async function stopRound(payload: FormData | string) {
   await requireAdmin();
   try {
     const roundId = typeof payload === "string" ? payload : payload.get("roundId") as string;
-    await prisma.round.update({
-      where: { id: roundId },
-      data: { status: "COMPLETED", endedAt: new Date() }
+
+    await prisma.$transaction(async (tx) => {
+      const round = await tx.round.findUnique({
+        where: { id: roundId },
+        select: { status: true }
+      });
+      if (!round || (round.status !== "IN_PROGRESS" && !round.status.startsWith("PAUSED_"))) {
+        return; // harmless no-op
+      }
+
+      await tx.round.update({
+        where: { id: roundId },
+        data: { status: "COMPLETED", endedAt: new Date() },
+      });
+      const state = await tx.gameState.findFirst();
+      if (state?.currentRoundId === roundId) {
+        await tx.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+      }
     });
-    const state = await prisma.gameState.findFirst();
-    if (state?.currentRoundId === roundId) {
-      await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
-    }
+
+    invalidateGameStateCache();
 
     await broadcast('round_state_change', { action: 'stop' });
 
@@ -349,14 +401,25 @@ export async function pauseRound(formData: FormData) {
   try {
     const roundId = formData.get("roundId") as string;
 
-    const round = await prisma.round.findUnique({ where: { id: roundId } });
+    const [round, gameState] = await Promise.all([
+      prisma.round.findUnique({
+        where: { id: roundId },
+        select: { startTime: true, status: true },
+      }),
+      prisma.gameState.findFirst({ select: { currentRoundId: true } }),
+    ]);
+
+    if (gameState?.currentRoundId !== roundId) return; // Not the active round — ignore
+
     if (round?.startTime && round.status === "IN_PROGRESS") {
       const elapsedSec = Math.floor((Date.now() - round.startTime.getTime()) / 1000);
       await prisma.round.update({
         where: { id: roundId },
-        data: { status: `PAUSED_${elapsedSec}` }
+        data: { status: `PAUSED_${elapsedSec}` },
       });
     }
+
+    invalidateGameStateCache();
 
     await broadcast('round_state_change', { action: 'pause' });
 
@@ -371,12 +434,14 @@ export async function resetAllRounds() {
   await requireAdmin();
   try {
     await prisma.round.updateMany({
-      data: { status: "PENDING" }
+      data: { status: "PENDING", startTime: null, endedAt: null }
     });
     const state = await prisma.gameState.findFirst();
     if (state) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
+
+    invalidateGameStateCache();
 
     await broadcast('round_state_change', { action: 'reset' });
 
@@ -416,6 +481,13 @@ export async function uploadWhitelistExcel(formData: FormData) {
     const file = formData.get("file") as File;
     if (!file || !file.size) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("File exceeds 5MB size limit.");
+    }
+    if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+      throw new Error("Only Excel files (.xlsx, .xls) are allowed.");
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const workbook = xlsx.read(buffer, { type: "buffer" });
@@ -443,7 +515,6 @@ export async function uploadWhitelistExcel(formData: FormData) {
       }
     }
 
-    // High-performance batch upsert to prevent Vercel timeouts
     const uploadedEmails = usersData.map(u => u.email);
     const existingUsers = await prisma.user.findMany({
       where: { email: { in: uploadedEmails } },
@@ -467,16 +538,26 @@ export async function uploadWhitelistExcel(formData: FormData) {
     }
 
     if (toUpdate.length > 0) {
-      await prisma.$transaction(
-        toUpdate.map(u => prisma.user.update({
-          where: { email: u.email },
-          data: { isApproved: true, group: u.group }
-        }))
+      const groupMap = new Map<string, string[]>();
+      for (const u of toUpdate) {
+        const key = u.group ?? "__null__";
+        if (!groupMap.has(key)) groupMap.set(key, []);
+        groupMap.get(key)!.push(u.email);
+      }
+      await Promise.all(
+        Array.from(groupMap.entries()).map(([groupKey, emails]) =>
+          prisma.user.updateMany({
+            where: { email: { in: emails } },
+            data: { isApproved: true, group: groupKey === "__null__" ? null : groupKey },
+          })
+        )
       );
     }
     emailsCount = usersData.length;
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
+    await setError(e.message || "Failed to upload whitelist");
+    revalidatePath("/admin");
     return;
   }
   await setSuccess(`uploaded_whitelist&added=${emailsCount}`);
@@ -493,6 +574,13 @@ export async function uploadCaptainExcel(formData: FormData) {
   try {
     const file = formData.get("file") as File;
     if (!file || !file.size) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("File exceeds 5MB size limit.");
+    }
+    if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+      throw new Error("Only Excel files (.xlsx, .xls) are allowed.");
+    }
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -521,7 +609,6 @@ export async function uploadCaptainExcel(formData: FormData) {
       }
     }
 
-    // High-performance batch upsert to prevent Vercel timeouts
     const uploadedEmails = usersData.map(u => u.email);
     const existingUsers = await prisma.user.findMany({
       where: { email: { in: uploadedEmails } },
@@ -545,16 +632,26 @@ export async function uploadCaptainExcel(formData: FormData) {
     }
 
     if (toUpdate.length > 0) {
-      await prisma.$transaction(
-        toUpdate.map(u => prisma.user.update({
-          where: { email: u.email },
-          data: { isApproved: true, role: "CAPTAIN", group: u.group }
-        }))
+      const groupMap = new Map<string, string[]>();
+      for (const u of toUpdate) {
+        const key = u.group ?? "__null__";
+        if (!groupMap.has(key)) groupMap.set(key, []);
+        groupMap.get(key)!.push(u.email);
+      }
+      await Promise.all(
+        Array.from(groupMap.entries()).map(([groupKey, emails]) =>
+          prisma.user.updateMany({
+            where: { email: { in: emails } },
+            data: { isApproved: true, role: "CAPTAIN", group: groupKey === "__null__" ? null : groupKey },
+          })
+        )
       );
     }
     captainCount = usersData.length;
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
+    await setError(e.message || "Failed to upload captains");
+    revalidatePath("/admin");
     return;
   }
   await setSuccess(`uploaded_captains&added=${captainCount}`);
@@ -580,6 +677,7 @@ export async function clearAssignments(formData: FormData) {
     if (state) {
       await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
     }
+    invalidateGameStateCache();
     revalidatePath("/dashboard");
   } catch (e: any) {
     console.error(e);
@@ -598,16 +696,19 @@ export async function clearAssignments(formData: FormData) {
 export async function fetchUsersForGeneration() {
   await requireAdmin();
   try {
-    const captains = await prisma.user.findMany({
-      where: { role: "CAPTAIN", isApproved: true },
-      orderBy: { email: 'asc' },
-      select: { id: true, email: true, group: true }
-    });
-    const members = await prisma.user.findMany({
-      where: { role: "USER", isApproved: true },
-      orderBy: { email: 'asc' },
-      select: { id: true, email: true, group: true }
-    });
+    // BUG-10 FIX: Run both queries in parallel — they are fully independent.
+    const [captains, members] = await Promise.all([
+      prisma.user.findMany({
+        where: { role: "CAPTAIN", isApproved: true },
+        orderBy: { email: 'asc' },
+        select: { id: true, email: true, group: true },
+      }),
+      prisma.user.findMany({
+        where: { role: "USER", isApproved: true },
+        orderBy: { email: 'asc' },
+        select: { id: true, email: true, group: true },
+      }),
+    ]);
     return { captains, members, error: null };
   } catch (error: any) {
     return { captains: [], members: [], error: error.message };
@@ -619,22 +720,24 @@ export async function saveAutoAssignments(payload: any) {
   try {
     const { slotData, roundData, tableData, assignmentData } = payload;
 
-    // Wipe old data
-    await prisma.tableAssignment.deleteMany({});
-    await prisma.table.deleteMany({});
-    await prisma.round.deleteMany({});
-    await prisma.slot.deleteMany({});
+    await prisma.$transaction(async (tx) => {
+      await tx.tableAssignment.deleteMany({});
+      await tx.table.deleteMany({});
+      await tx.round.deleteMany({});
+      await tx.slot.deleteMany({});
 
-    const state = await prisma.gameState.findFirst();
-    if (state) {
-      await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
-    }
+      const state = await tx.gameState.findFirst();
+      if (state) {
+        await tx.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+      }
 
-    // Batch create
-    await prisma.slot.createMany({ data: slotData });
-    await prisma.round.createMany({ data: roundData });
-    await prisma.table.createMany({ data: tableData });
-    await prisma.tableAssignment.createMany({ data: assignmentData, skipDuplicates: true });
+      await tx.slot.createMany({ data: slotData });
+      await tx.round.createMany({ data: roundData });
+      await tx.table.createMany({ data: tableData });
+      await tx.tableAssignment.createMany({ data: assignmentData, skipDuplicates: true });
+    }, { timeout: 30000 });
+
+    invalidateGameStateCache();
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");
@@ -656,26 +759,22 @@ export async function uploadAssignmentsExcel(formData: FormData) {
     const file = formData.get("file") as File;
     if (!file || !file.size) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("File exceeds 5MB size limit.");
+    }
+    if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
+      throw new Error("Only Excel files (.xlsx, .xls) are allowed.");
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const workbook = xlsx.read(buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet);
 
-    // Wipe old assignments
-    await prisma.tableAssignment.deleteMany({});
-    await prisma.table.deleteMany({});
-    await prisma.round.deleteMany({});
-    await prisma.slot.deleteMany({});
-
-    const state = await prisma.gameState.findFirst();
-    if (state) {
-      await prisma.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
-    }
-
-    // Prepare mapped data
+    // Prepare mapped data in memory
     const rows: { email: string; role: string; slot: number; round: number; table: number }[] = [];
-    
+
     for (const row of data) {
       // Flexible matching for columns
       const emailKey = Object.keys(row).find(k => k.toLowerCase() === "email" || k.toLowerCase() === "mail");
@@ -705,7 +804,7 @@ export async function uploadAssignmentsExcel(formData: FormData) {
       where: { email: { in: emails } }
     });
     const existingEmails = new Set(existingUsers.map(u => u.email?.toLowerCase()));
-    
+
     const missingUsers = rows
       .filter(r => !existingEmails.has(r.email))
       // Deduplicate before creation
@@ -784,11 +883,25 @@ export async function uploadAssignmentsExcel(formData: FormData) {
       }
     }
 
-    // 3. Batch Create
-    await prisma.slot.createMany({ data: slotData });
-    await prisma.round.createMany({ data: roundData });
-    await prisma.table.createMany({ data: tableData });
-    await prisma.tableAssignment.createMany({ data: assignmentData, skipDuplicates: true });
+    // 3. Batch Create inside a single transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.tableAssignment.deleteMany({});
+      await tx.table.deleteMany({});
+      await tx.round.deleteMany({});
+      await tx.slot.deleteMany({});
+
+      const state = await tx.gameState.findFirst();
+      if (state) {
+        await tx.gameState.update({ where: { id: state.id }, data: { currentRoundId: null } });
+      }
+
+      await tx.slot.createMany({ data: slotData });
+      await tx.round.createMany({ data: roundData });
+      await tx.table.createMany({ data: tableData });
+      await tx.tableAssignment.createMany({ data: assignmentData, skipDuplicates: true });
+    }, { timeout: 30000 });
+
+    invalidateGameStateCache();
 
   } catch (e: any) {
     console.error("Upload assignments failed:", e);
@@ -1137,6 +1250,7 @@ export async function updateShiftDuration(formData: FormData) {
         data: { shiftDuration: duration }
       });
     }
+    invalidateGameStateCache();
     revalidatePath("/dashboard");
     revalidatePath("/admin/leaderboard");
   } catch (error) {
@@ -1161,6 +1275,7 @@ export async function toggleOpenLogin(formData: FormData) {
     } else {
       await prisma.gameState.create({ data: { isOpenLogins } });
     }
+    invalidateGameStateCache();
     await setSuccess("toggled_open_login");
     revalidatePath("/admin");
   } catch (e: any) {
@@ -1186,6 +1301,7 @@ export async function toggleAutoMode(formData: FormData) {
         data: { isAutoMode }
       });
     }
+    invalidateGameStateCache();
 
     await setSuccess("toggled_mode");
     revalidatePath("/admin");
@@ -1211,6 +1327,7 @@ export async function endConclave(formData: FormData) {
         data: { currentRoundId: null, isAutoMode: false }
       });
     }
+    invalidateGameStateCache();
 
     await broadcast('round_state_change', { action: 'end_conclave' });
 
@@ -1249,129 +1366,117 @@ export async function injectLateAttendee(formData: FormData): Promise<{
   }
 
   try {
-    // 1. Upsert the user into the whitelist
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: { isApproved: true, role },
-      create: { email, isApproved: true, role },
-    });
+    const injectedRounds = await prisma.$transaction(async (tx) => {
+      // 1. Advisory lock to serialize concurrent injection operations safely
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(121121)`;
 
-    // 2. Find all PENDING rounds (safe to modify — not started yet)
-    const pendingRounds = await prisma.round.findMany({
-      where: { status: "PENDING" },
-      include: {
-        tables: {
-          include: {
-            // Count how many people are at each table
-            _count: { select: { assignments: true } },
+      // 2. Upsert the user into the database whitelisting schema
+      const user = await tx.user.upsert({
+        where: { email },
+        update: { isApproved: true, role },
+        create: { email, isApproved: true, role },
+      });
+
+      // 3. Find all PENDING rounds
+      const pendingRounds = await tx.round.findMany({
+        where: { status: "PENDING" },
+        include: {
+          tables: {
+            include: {
+              _count: { select: { assignments: true } },
+            },
           },
         },
-      },
-      orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
-    });
-
-    if (pendingRounds.length === 0) {
-      return {
-        success: false,
-        error: "No pending rounds found. All rounds are either in progress or completed.",
-      };
-    }
-
-    // 3. Check if this user is already assigned to any pending round (avoid duplicates)
-    const existingAssignments = await prisma.tableAssignment.findMany({
-      where: {
-        userId: user.id,
-        table: {
-          roundId: { in: pendingRounds.map((r) => r.id) },
-        },
-      },
-      include: { table: true },
-    });
-    const alreadyAssignedRoundIds = new Set(existingAssignments.map((a) => a.table.roundId));
-
-    const injectedRounds: { roundNumber: number; tableNumber: number }[] = [];
-    const newAssignments: { userId: string; tableId: string; isCaptain: boolean }[] = [];
-
-    // 4. For each pending round, find the table with fewest members and assign
-    for (const round of pendingRounds) {
-      // Skip if user already has an assignment in this round
-      if (alreadyAssignedRoundIds.has(round.id)) {
-        const existingAssignment = existingAssignments.find((a) => a.table.roundId === round.id);
-        if (existingAssignment) {
-          injectedRounds.push({
-            roundNumber: round.roundNumber,
-            tableNumber: existingAssignment.table.tableNumber,
-          });
-        }
-        continue;
-      }
-
-      if (round.tables.length === 0) continue;
-
-      if (role === "CAPTAIN") {
-        // A Captain needs their own table
-        const maxTableNumber = round.tables.reduce((max, t) => Math.max(max, t.tableNumber), 0);
-        const newTable = await prisma.table.create({
-          data: {
-            roundId: round.id,
-            tableNumber: maxTableNumber + 1
-          }
-        });
-        newAssignments.push({
-          userId: user.id,
-          tableId: newTable.id,
-          isCaptain: true,
-        });
-        injectedRounds.push({
-          roundNumber: round.roundNumber,
-          tableNumber: newTable.tableNumber,
-        });
-
-        // Re-balance: steal a user from the most crowded table in this round
-        const sortedTables = [...round.tables].sort(
-          (a, b) => b._count.assignments - a._count.assignments
-        );
-        if (sortedTables.length > 0 && sortedTables[0]._count.assignments > 1) {
-          const crowdedTable = sortedTables[0];
-          const userToMove = await prisma.tableAssignment.findFirst({
-            where: { tableId: crowdedTable.id, isCaptain: false }
-          });
-          if (userToMove) {
-            await prisma.tableAssignment.update({
-              where: { id: userToMove.id },
-              data: { tableId: newTable.id }
-            });
-            // Update local count so subsequent iterations don't overly deplete this table
-            crowdedTable._count.assignments -= 1;
-          }
-        }
-      } else {
-        // Pick the table with the fewest current assignments (most room)
-        const sortedTables = [...round.tables].sort(
-          (a, b) => a._count.assignments - b._count.assignments
-        );
-        const targetTable = sortedTables[0];
-
-        newAssignments.push({
-          userId: user.id,
-          tableId: targetTable.id,
-          isCaptain: false,
-        });
-
-        injectedRounds.push({
-          roundNumber: round.roundNumber,
-          tableNumber: targetTable.tableNumber,
-        });
-      }
-    }
-
-    // 5. Batch-insert all new assignments
-    if (newAssignments.length > 0) {
-      await prisma.tableAssignment.createMany({
-        data: newAssignments,
-        skipDuplicates: true,
+        orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
       });
-    }
+
+      if (pendingRounds.length === 0) {
+        throw new Error("No pending rounds found. All rounds are either in progress or completed.");
+      }
+
+      // 4. Check if this user is already assigned to any pending round to prevent duplicate writes
+      const existingAssignments = await tx.tableAssignment.findMany({
+        where: {
+          userId: user.id,
+          table: {
+            roundId: { in: pendingRounds.map((r) => r.id) },
+          },
+        },
+        include: { table: true },
+      });
+      const alreadyAssignedRoundIds = new Set(existingAssignments.map((a) => a.table.roundId));
+
+      const roundResults: { roundNumber: number; tableNumber: number }[] = [];
+      const newAssignments: { userId: string; tableId: string; isCaptain: boolean }[] = [];
+      const newTableBatch: { id: string; roundId: string; tableNumber: number }[] = [];
+      const rebalanceMoves: { crowdedTableId: string; newTableId: string }[] = [];
+
+      for (const round of pendingRounds) {
+        if (alreadyAssignedRoundIds.has(round.id)) {
+          const existingAssignment = existingAssignments.find((a) => a.table.roundId === round.id);
+          if (existingAssignment) {
+            roundResults.push({
+              roundNumber: round.roundNumber,
+              tableNumber: existingAssignment.table.tableNumber,
+            });
+          }
+          continue;
+        }
+
+        if (round.tables.length === 0) continue;
+
+        if (role === "CAPTAIN") {
+          const maxTableNumber = round.tables.reduce((max, t) => Math.max(max, t.tableNumber), 0);
+          const newTableId = crypto.randomUUID();
+          const newTableNumber = maxTableNumber + 1;
+
+          newTableBatch.push({ id: newTableId, roundId: round.id, tableNumber: newTableNumber });
+          newAssignments.push({ userId: user.id, tableId: newTableId, isCaptain: true });
+          roundResults.push({ roundNumber: round.roundNumber, tableNumber: newTableNumber });
+
+          const sortedTables = [...round.tables].sort(
+            (a, b) => b._count.assignments - a._count.assignments
+          );
+          if (sortedTables.length > 0 && sortedTables[0]._count.assignments > 1) {
+            rebalanceMoves.push({ crowdedTableId: sortedTables[0].id, newTableId });
+            sortedTables[0]._count.assignments -= 1;
+          }
+        } else {
+          const sortedTables = [...round.tables].sort(
+            (a, b) => a._count.assignments - b._count.assignments
+          );
+          const targetTable = sortedTables[0];
+
+          newAssignments.push({ userId: user.id, tableId: targetTable.id, isCaptain: false });
+          roundResults.push({ roundNumber: round.roundNumber, tableNumber: targetTable.tableNumber });
+        }
+      }
+
+      if (newTableBatch.length > 0) {
+        await tx.table.createMany({ data: newTableBatch, skipDuplicates: true });
+      }
+
+      for (const { crowdedTableId, newTableId } of rebalanceMoves) {
+        const userToMove = await tx.tableAssignment.findFirst({
+          where: { tableId: crowdedTableId, isCaptain: false },
+        });
+        if (userToMove) {
+          await tx.tableAssignment.update({
+            where: { id: userToMove.id },
+            data: { tableId: newTableId },
+          });
+        }
+      }
+
+      if (newAssignments.length > 0) {
+        await tx.tableAssignment.createMany({
+          data: newAssignments,
+          skipDuplicates: true,
+        });
+      }
+
+      return roundResults;
+    }, { timeout: 15000 });
 
     revalidatePath("/admin");
     revalidatePath("/dashboard");

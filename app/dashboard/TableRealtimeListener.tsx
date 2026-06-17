@@ -34,7 +34,15 @@ export function TableRealtimeListener({
       );
     });
 
-    channel.subscribe();
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        channel.send({
+          type: "broadcast",
+          event: "request_state_sync",
+          payload: { timestamp: Date.now() }
+        });
+      }
+    });
 
     return () => {
       supabase.removeChannel(channel);

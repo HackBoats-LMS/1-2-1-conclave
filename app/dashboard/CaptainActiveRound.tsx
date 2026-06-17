@@ -62,10 +62,41 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   const tickCountRef = useRef(0);
   const [isChannelConnected, setIsChannelConnected] = useState(false);
 
+  const activeSpeakerIdRef = useRef<string | null>(null);
+  const speakerTimerTypeRef = useRef<"PITCH" | "REFERRAL" | null>(null);
+
+  useEffect(() => {
+    activeSpeakerIdRef.current = activeSpeakerId;
+    speakerTimerTypeRef.current = speakerTimerType;
+  }, [activeSpeakerId, speakerTimerType]);
+
   useEffect(() => {
     // Initialize realtime broadcast channel for table members
     const channelName = `room_${round.id}_table_${tableNumber}`;
     const channel = supabase.channel(channelName);
+
+    channel.on("broadcast", { event: "request_state_sync" }, () => {
+      const currentId = activeSpeakerIdRef.current;
+      const currentType = speakerTimerTypeRef.current;
+      const endTime = speakerEndTimeRef.current;
+
+      if (currentId && endTime && currentType) {
+        const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+        if (remaining > 0) {
+          channel.send({
+            type: "broadcast",
+            event: "timer_sync",
+            payload: {
+              userId: currentId,
+              durationSec: remaining,
+              type: currentType,
+              targetEndTime: endTime,
+              timestamp: Date.now()
+            }
+          });
+        }
+      }
+    });
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -150,10 +181,17 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
   // Speaker timer countdown logic — wall-clock based for accuracy
+  // Runs only when the active speaker or timer type changes (NOT on every second tick!)
   useEffect(() => {
-    if (speakerTimeLeft === null) return;
+    if (activeSpeakerId === null || speakerTimerType === null) {
+      if (speakerIntervalRef.current) {
+        clearInterval(speakerIntervalRef.current);
+        speakerIntervalRef.current = null;
+      }
+      return;
+    }
 
-    if (speakerTimeLeft <= 0) {
+    const handleTimerEnd = () => {
       const currentId = activeSpeakerId;
       const currentType = speakerTimerType;
       speakerEndTimeRef.current = null;
@@ -212,25 +250,40 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
           setManualPhase(3);
         }
       }
+    };
 
+    // Initialize/reset tick count
+    tickCountRef.current = 0;
 
-      return;
-    }
-
-    // Wall-clock tick: recalculate from end time every 250ms for accuracy
+    // Tick every 250ms for wall-clock alignment
     speakerIntervalRef.current = setInterval(() => {
       if (!speakerEndTimeRef.current) return;
-      const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
+      
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - now) / 1000));
+      
+      // Update local state display
       setSpeakerTimeLeft(remaining);
 
-      // Broadcast heartbeat sync every 1 second (4 * 250ms)
+      // Check if timer has expired
+      if (remaining <= 0) {
+        if (speakerIntervalRef.current) {
+          clearInterval(speakerIntervalRef.current);
+          speakerIntervalRef.current = null;
+        }
+        handleTimerEnd();
+        return;
+      }
+
+      // Broadcast heartbeat sync every 1 second (4 * 250ms = 1000ms)
       tickCountRef.current += 1;
       if (tickCountRef.current % 4 === 0 && isChannelConnected && activeSpeakerId && speakerTimerType) {
         const payload = {
           userId: activeSpeakerId,
           durationSec: remaining,
           type: speakerTimerType,
-          targetEndTime: speakerEndTimeRef.current
+          targetEndTime: speakerEndTimeRef.current,
+          timestamp: Date.now()
         };
         channelRef.current?.send({
           type: 'broadcast',
@@ -242,10 +295,13 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     }, 250);
 
     return () => {
-      if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
+      if (speakerIntervalRef.current) {
+        clearInterval(speakerIntervalRef.current);
+        speakerIntervalRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speakerTimeLeft, activeSpeakerId, speakerTimerType, pitchDurationSec, isChannelConnected]);
+  }, [activeSpeakerId, speakerTimerType, isChannelConnected]);
 
   // Clean up transitions only on unmount
   useEffect(() => {
@@ -271,9 +327,12 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
   const currentPhase = manualPhase !== null ? manualPhase : computedPhase;
 
-  if (currentPhase > maxUnlockedPhase) {
-    setMaxUnlockedPhase(currentPhase);
-  }
+  // Keep maxUnlockedPhase in sync — must be in a useEffect, not called during render
+  useEffect(() => {
+    if (currentPhase > maxUnlockedPhase) {
+      setMaxUnlockedPhase(currentPhase);
+    }
+  }, [currentPhase, maxUnlockedPhase]);
 
   // ── FULLY AUTOMATED MODE ──
   // Phase 1: Auto-start the 60-second captain briefing countdown as soon as round launches
@@ -413,7 +472,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
       event: 'timer_start',
       payload
     });
-    
+
     // Also dispatch locally for the captain's own UserCards
     window.dispatchEvent(new CustomEvent('conclave_timer_start', { detail: payload }));
   }
@@ -437,7 +496,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
     setSpeakerTimerType(null);
 
     // Broadcast stop
-    const payload = { userId: activeSpeakerId };
+    const payload = { userId: activeSpeakerId, timestamp: Date.now() };
     channelRef.current?.send({
       type: 'broadcast',
       event: 'timer_stop',
@@ -622,10 +681,10 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                 onClick={() => isUnlocked && setManualPhase(phNum)}
                 disabled={!isUnlocked}
                 className={`py-2 text-[9px] font-black uppercase rounded-lg transition-all text-center ${currentPhase === phNum
-                    ? "bg-[#BEF03C] text-[#0D2421]"
-                    : isUnlocked
-                      ? "text-white/60 hover:text-white hover:bg-white/10 cursor-pointer"
-                      : "text-white/20 cursor-not-allowed"
+                  ? "bg-[#BEF03C] text-[#0D2421]"
+                  : isUnlocked
+                    ? "text-white/60 hover:text-white hover:bg-white/10 cursor-pointer"
+                    : "text-white/20 cursor-not-allowed"
                   }`}
               >
                 {isUnlocked ? `Stage ${phNum}` : `🔒 Stage ${phNum}`}
@@ -636,7 +695,7 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
         {/* Wizard Card Container */}
         <div className={`flex-1 border-3 border-[#0D2421] p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] flex flex-col justify-between gap-6 transition-all duration-300 ${currentPhase === 1 ? "bg-amber-50" :
-            currentPhase === 2 ? "bg-[#FAF8F4]" : "bg-yellow-50"
+          currentPhase === 2 ? "bg-[#FAF8F4]" : "bg-yellow-50"
           }`}>
 
           {/* Step Header */}
@@ -826,8 +885,8 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
                 <button
                   onClick={handleAutopilotAction}
                   className={`w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${activeSpeakerId
-                      ? "bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
-                      : "bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
+                    ? "bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
+                    : "bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
                     }`}
                 >
                   {activeSpeakerId ? (
@@ -902,10 +961,10 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
               <div
                 key={p.id}
                 className={`border-2 border-[#0D2421] p-4 rounded-2xl flex flex-col justify-between gap-4 transition-all duration-300 relative ${isSpeaker
-                    ? "bg-[#BEF03C]/10 border-[#BEF03C] shadow-[4px_4px_0px_#0D2421] scale-[1.02] ring-2 ring-[#0D2421]"
-                    : hasCompleted
-                      ? "bg-[#0D2421]/5 border-[#0D2421]/40 opacity-70"
-                      : "bg-white shadow-[4px_4px_0px_#0D2421]"
+                  ? "bg-[#BEF03C]/10 border-[#BEF03C] shadow-[4px_4px_0px_#0D2421] scale-[1.02] ring-2 ring-[#0D2421]"
+                  : hasCompleted
+                    ? "bg-[#0D2421]/5 border-[#0D2421]/40 opacity-70"
+                    : "bg-white shadow-[4px_4px_0px_#0D2421]"
                   }`}
               >
                 {/* Status Badges & Action Vector */}
@@ -1040,7 +1099,11 @@ export function CaptainActiveRound({ round, tableNumber, tableUsers, sessionUser
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
           {tableUsers.map((tu: any) => (
-            <UserCard key={tu.user.id} tu={{ ...tu, table: { roundId: round.id, tableNumber } }} />
+            <UserCard 
+              key={tu.user.id} 
+              tu={{ ...tu, table: { roundId: round.id, tableNumber } }} 
+              activeTimer={activeSpeakerId === tu.user.id && speakerTimeLeft !== null ? { type: speakerTimerType as string, timeLeft: speakerTimeLeft } : null}
+            />
           ))}
           {tableUsers.length === 0 && (
             <div className="col-span-full py-10 text-center text-xs font-bold text-[#0D2421]/40 uppercase tracking-wider">

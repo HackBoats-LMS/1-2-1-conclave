@@ -80,18 +80,45 @@ export default async function AdminDashboard() {
   }
 
   // ── Data Fetching (batched queries) ──
-  const [slots, gameState, allReferrals, allUsers] = await Promise.all([
+  const [slots, gameState, totalReferrals, allUsers, allAssignments] = await Promise.all([
     prisma.slot.findMany({
       include: { rounds: { orderBy: { roundNumber: 'asc' } } },
       orderBy: { slotNumber: 'asc' }
     }),
     prisma.gameState.findFirst(),
-    prisma.referral.findMany({ select: { createdAt: true } }),
-    prisma.user.findMany({ orderBy: { email: 'asc' } })
+    // count() for the live referral counter widget
+    prisma.referral.count(),
+    prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isApproved: true,
+        onboardingCompleted: true,
+        businessName: true,
+        businessCategory: true,
+        contactNumber: true,
+        group: true,
+      },
+      orderBy: { email: 'asc' }
+    }),
+    prisma.tableAssignment.findMany({
+      select: {
+        userId: true,
+        tableId: true,
+        isCaptain: true,
+        user: {
+          select: { id: true, email: true, name: true, businessName: true, businessCategory: true }
+        },
+        table: {
+          select: { tableNumber: true, roundId: true }
+        }
+      }
+    })
   ]);
 
   const users = allUsers;
-  const totalReferrals = allReferrals.length;
 
   // ── Calculate Stats ──
   const allOrderedRounds = slots.flatMap(s => s.rounds);
@@ -136,21 +163,6 @@ export default async function AdminDashboard() {
         roundInfoMap.set(r.id, { slotNumber: s.slotNumber, roundNumber: r.roundNumber, status: r.status });
       }
     }
-
-    // 2. Fetch assignments minimally without deeply joining round and slot
-    const allAssignments = await prisma.tableAssignment.findMany({
-      select: {
-        userId: true,
-        tableId: true,
-        isCaptain: true,
-        user: {
-          select: { id: true, email: true, name: true, businessName: true, businessCategory: true }
-        },
-        table: {
-          select: { tableNumber: true, roundId: true }
-        }
-      }
-    });
 
     // Build preview structure
     const slotMap = new Map<number, {
@@ -445,40 +457,17 @@ export default async function AdminDashboard() {
             <div className="bg-white border-2 border-[#0D2421] p-6 rounded-[2rem] shadow-[6px_6px_0px_#0D2421] space-y-4 relative overflow-hidden">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-black tracking-widest text-[#0D2421]/40 uppercase">01 / CONNECTION TELEMETRY</span>
-                <div className="flex items-center gap-3">
-                  <RefreshButton />
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#BEF03C] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#BEF03C] border border-[#0D2421]"></span>
-                  </span>
-                </div>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#BEF03C] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#BEF03C] border border-[#0D2421]"></span>
+                </span>
               </div>
               <div className="space-y-1">
                 <h3 className="font-black text-lg uppercase">Live Referrals</h3>
                 <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Digital referrals exchanged during rounds</p>
               </div>
               <AdminLiveReferralsClient initialTotal={totalReferrals} />
-              
-              {/* Per-Round Referral Breakdown */}
-              {allOrderedRounds.some(r => r.status === 'COMPLETED') && (
-                <div className="pt-4 border-t-2 border-dashed border-[#0D2421]/10">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-[#0D2421]/40 mb-3">Referrals Per Round</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {allOrderedRounds
-                      .filter(r => r.status === 'COMPLETED' && r.startTime && r.endedAt)
-                      .map(r => {
-                        const count = allReferrals.filter(ref => ref.createdAt >= r.startTime! && ref.createdAt <= r.endedAt!).length;
-                        return (
-                          <div key={r.id} className="bg-[#FAF8F4] border border-[#0D2421]/20 rounded-xl p-2.5 text-center flex items-center justify-between px-3">
-                            <span className="text-[9px] font-black uppercase text-[#0D2421]/60">R{r.roundNumber}</span>
-                            <span className="text-xs font-black text-[#0D2421]">{count}</span>
-                          </div>
-                        );
-                      })
-                    }
-                  </div>
-                </div>
-              )}
+
 
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <ReferralsExportButtons />

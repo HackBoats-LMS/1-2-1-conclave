@@ -8,29 +8,51 @@ import { LiveLeaderboardClient } from "./LiveLeaderboardClient";
 export const dynamic = "force-dynamic";
 
 export default async function LeaderboardPage() {
-  const totalReferrals = await prisma.referral.count();
-
-  const topSenders = await prisma.user.findMany({
-    where: { role: { in: ["USER", "CAPTAIN"] } },
-    include: {
-      _count: { select: { sentReferrals: true } },
-    },
-    orderBy: { sentReferrals: { _count: "desc" } },
-    take: 10,
-  });
-
-  const gameState = await prisma.gameState.findFirst();
-  let activeRound = null;
-  if (gameState?.currentRoundId) {
-    activeRound = await prisma.round.findUnique({
-      where: { id: gameState.currentRoundId }
-    });
-  }
-
-  const lastCompletedRound = await prisma.round.findFirst({
-    where: { status: "COMPLETED" },
-    orderBy: [{ slot: { slotNumber: 'desc' } }, { roundNumber: 'desc' }]
-  });
+  // Batch 1: consolidate all queries — run in parallel (1 database round-trip)
+  const [totalReferrals, topSenders, gameState, lastCompletedRound, rounds, allReferralsTime, activeRound, nextPendingRound] =
+    await Promise.all([
+      prisma.referral.count(),
+      prisma.user.findMany({
+        where: { role: { in: ["USER", "CAPTAIN"] } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          businessName: true,
+          businessCategory: true,
+          _count: { select: { sentReferrals: true } },
+        },
+        orderBy: { sentReferrals: { _count: "desc" } },
+        take: 10,
+      }),
+      prisma.gameState.findFirst(),
+      prisma.round.findFirst({
+        where: { status: "COMPLETED" },
+        orderBy: [{ slot: { slotNumber: 'desc' } }, { roundNumber: 'desc' }],
+        select: { endedAt: true, startTime: true, durationMinutes: true },
+      }),
+      prisma.round.findMany({
+        select: { roundNumber: true, startTime: true, status: true },
+        orderBy: { roundNumber: "asc" }
+      }),
+      prisma.referral.findMany({
+        select: { createdAt: true }
+      }),
+      prisma.round.findFirst({
+        where: {
+          OR: [
+            { status: "IN_PROGRESS" },
+            { status: { startsWith: "PAUSED_" } }
+          ]
+        },
+        select: { id: true, status: true, startTime: true, durationMinutes: true, roundNumber: true },
+      }),
+      prisma.round.findFirst({
+        where: { status: "PENDING" },
+        orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
+        select: { id: true },
+      }),
+    ]);
 
   let computedLastRoundEndedAt: Date | null = null;
   if (lastCompletedRound?.endedAt) {
@@ -39,16 +61,6 @@ export default async function LeaderboardPage() {
     // Fallback for older rounds before endedAt was added
     computedLastRoundEndedAt = new Date(lastCompletedRound.startTime.getTime() + lastCompletedRound.durationMinutes * 60000);
   }
-
-  // Efficiently calculate per-round referral counts without hurting DB
-  const rounds = await prisma.round.findMany({
-    select: { roundNumber: true, startTime: true, status: true },
-    orderBy: { roundNumber: "asc" }
-  });
-
-  const allReferralsTime = await prisma.referral.findMany({
-    select: { createdAt: true }
-  });
 
   const roundCounts: Record<number, number> = {};
   rounds.forEach(r => { roundCounts[r.roundNumber] = 0; });
@@ -86,14 +98,7 @@ export default async function LeaderboardPage() {
 
   const allRoundsCompleted = rounds.length > 0 && rounds.every(r => r.status === "COMPLETED") && !gameState?.currentRoundId;
 
-  // Fetch next pending round for auto-start
-  const nextPendingRound = gameState?.isAutoMode
-    ? await prisma.round.findFirst({
-        where: { status: "PENDING" },
-        orderBy: [{ slot: { slotNumber: "asc" } }, { roundNumber: "asc" }],
-        select: { id: true },
-      })
-    : null;
+  const resolvedNextPendingRound = gameState?.isAutoMode ? nextPendingRound : null;
 
   return (
     <div className="min-h-screen bg-[#FAF8F4] text-[#0D2421] p-4 relative overflow-x-hidden font-sans selection:bg-[#BEF03C]/40 flex flex-col h-screen max-h-screen">
@@ -103,7 +108,7 @@ export default async function LeaderboardPage() {
         durationMinutes={gameState?.shiftDuration || 3}
         allRoundsCompleted={allRoundsCompleted}
         isAutoMode={!!gameState?.isAutoMode}
-        nextRoundId={nextPendingRound?.id || null}
+        nextRoundId={resolvedNextPendingRound?.id || null}
       />
 
       {/* Blueprint Dot Grid Background */}
