@@ -19,11 +19,17 @@ export async function startRound(formData: FormData) {
       durationMinutes = parseInt(durationMinutesStr, 10);
     }
 
+    // If we are resuming, backdate the startTime so clients calculate the correct elapsed time!
+    let newStartTime = new Date();
+    if (round?.elapsedSeconds) {
+      newStartTime = new Date(Date.now() - round.elapsedSeconds * 1000);
+    }
+
     const updatedRound = await prisma.round.update({
       where: { id: roundId },
       data: {
         status: "IN_PROGRESS",
-        startTime: new Date(),
+        startTime: newStartTime,
         durationMinutes
       }
     });
@@ -98,7 +104,7 @@ export async function pauseRound(formData: FormData) {
       updatedRound = await prisma.round.update({
         where: { id: roundId },
         data: { 
-          status: "PAUSED",
+          status: `PAUSED_${elapsedSec}`,
           elapsedSeconds: elapsedSec,
           startTime: null
         }
