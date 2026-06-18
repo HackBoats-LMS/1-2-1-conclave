@@ -4,8 +4,24 @@ import * as xlsx from "xlsx";
 
 export async function GET() {
   try {
-    const users = await prisma.user.findMany({
+    const usersRaw = await prisma.user.findMany({
       orderBy: { email: "asc" }
+    });
+
+    const users = [...usersRaw].sort((a, b) => {
+      const roleOrder: Record<string, number> = {
+        CAPTAIN: 1,
+        USER: 2,
+        ADMIN: 3
+      };
+      const priorityA = roleOrder[a.role] || 99;
+      const priorityB = roleOrder[b.role] || 99;
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      const emailA = a.email || "";
+      const emailB = b.email || "";
+      return emailA.localeCompare(emailB);
     });
 
     const data = users.map((u: any) => ({
