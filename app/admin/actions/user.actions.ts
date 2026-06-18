@@ -88,6 +88,33 @@ export async function deleteArchivedEvent(formData: FormData) {
   revalidatePath("/admin/archive");
 }
 
+export async function updateArchivedEventName(formData: FormData) {
+  await requireAdmin();
+  const eventId = formData.get("eventId") as string;
+  const newName = formData.get("name") as string;
+
+  if (!eventId || !newName || newName.trim() === "") {
+    await setError("Invalid event ID or name");
+    revalidatePath("/admin/archive");
+    return;
+  }
+
+  try {
+    await prisma.archivedEvent.update({
+      where: { id: eventId },
+      data: { name: newName.trim() }
+    });
+  } catch (error: any) {
+    console.error(error);
+    await setError(error.message || "Failed to update archived event name");
+    revalidatePath("/admin/archive");
+    return;
+  }
+
+  await setSuccess("updated_archive_name");
+  revalidatePath("/admin/archive");
+}
+
 export async function updateUserRole(formData: FormData) {
   await requireAdmin();
   const userId = formData.get("userId") as string;

@@ -93,24 +93,7 @@ export default async function AdminDashboard() {
     prisma.user.findMany({ orderBy: { email: 'asc' } })
   ]);
 
-  // Sort whitelisted users: CAPTAIN first, then USER, then ADMIN/other roles.
-  // Within the same role, preserve the alphabetical order by email.
-  const allUsers = [...allUsersRaw].sort((a, b) => {
-    const roleOrder: Record<string, number> = {
-      CAPTAIN: 1,
-      USER: 2,
-      ADMIN: 3
-    };
-    const priorityA = roleOrder[a.role] || 99;
-    const priorityB = roleOrder[b.role] || 99;
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
-    }
-    const emailA = a.email || "";
-    const emailB = b.email || "";
-    return emailA.localeCompare(emailB);
-  });
-
+  const allUsers = allUsersRaw;
   const users = allUsers;
 
   // ── Calculate Stats ──

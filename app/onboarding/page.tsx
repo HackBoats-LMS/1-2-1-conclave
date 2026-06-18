@@ -1,19 +1,24 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { OnboardingClient } from "./OnboardingClient";
 import { LogoutButton } from "../components/LogoutButton";
 
 export default async function Onboarding() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user?.id) redirect("/login");
 
-  // Verify approval / whitelist status
-  if (!(session.user as any).isApproved) {
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { isApproved: true, onboardingCompleted: true, role: true }
+  });
+
+  if (!dbUser || !dbUser.isApproved) {
     redirect("/login?error=AccessDenied");
   }
 
-  const isProfileComplete = (session.user as any).onboardingCompleted;
-  const role = (session.user as any).role;
+  const isProfileComplete = dbUser.onboardingCompleted;
+  const role = dbUser.role;
 
   if (isProfileComplete) {
     if (role === "ADMIN") {

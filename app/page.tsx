@@ -6,8 +6,18 @@ import { UserGroupIcon } from "@heroicons/react/24/outline";
 export default async function Home() {
   const session = await auth();
   const isLoggedIn = !!session?.user;
-  const isAdmin = session?.user && (session.user as any).role === "ADMIN";
-  const isProfileComplete = session?.user && (session.user as any).onboardingCompleted;
+  
+  let dbUser = null;
+  if (isLoggedIn && session?.user?.id) {
+    dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, onboardingCompleted: true }
+    });
+  }
+
+  const isAdmin = dbUser?.role === "ADMIN";
+  const isProfileComplete = dbUser?.onboardingCompleted;
+  const isCaptain = dbUser?.role === "CAPTAIN";
 
   let ctaLink = "/login";
   let ctaText = "Sign In with Google";
@@ -23,8 +33,6 @@ export default async function Home() {
       ctaText = "Onboard Profile";
     }
   }
-
-  const isCaptain = session?.user && (session.user as any).role === "CAPTAIN";
 
   // Live database stats
   const totalReferrals = await prisma.referral.count();

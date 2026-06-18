@@ -5,7 +5,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as xlsx from "xlsx";
 import { SecureAdminButton } from "./SecureAdminButton";
-import { deleteArchivedEvent } from "./actions/user.actions";
+import { deleteArchivedEvent, updateArchivedEventName } from "./actions/user.actions";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface ArchivedEvent {
@@ -25,10 +25,21 @@ export function AdminArchiveSection({ events }: { events: ArchivedEvent[] }) {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [eventSearchQuery, setEventSearchQuery] = useState("");
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   const handleDelete = async (eventId: string, formData: FormData) => {
     formData.append("eventId", eventId);
     await deleteArchivedEvent(formData);
+  };
+
+  const handleSaveName = async (eventId: string) => {
+    if (!editName.trim()) return;
+    const formData = new FormData();
+    formData.append("eventId", eventId);
+    formData.append("name", editName);
+    await updateArchivedEventName(formData);
+    setEditingEventId(null);
   };
 
   const exportReferralsPDF = async (eventId: string, eventName: string, userEmail?: string, userName?: string) => {
@@ -153,6 +164,197 @@ export function AdminArchiveSection({ events }: { events: ArchivedEvent[] }) {
     }
   };
 
+  const exportSummaryReportPDF = async (eventId: string, eventName: string, userCount: number, referralCount: number) => {
+    try {
+      setExportingId(`report-pdf-${eventId}`);
+      const res = await fetch(`/api/export/archive-admin/report?eventId=${eventId}`);
+      if (!res.ok) throw new Error("Failed to fetch report data");
+      
+      const data = await res.json();
+      
+      // Load HackBoats Logo Image asynchronously
+      const img = new Image();
+      img.src = '/hb-logo.png';
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+
+      // Convert image to Canvas Data URL
+      let dataUrl = "";
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 200;
+        canvas.height = 50;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, 200, 50);
+          ctx.drawImage(img, 0, 0, 200, 50);
+          dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        }
+      } catch (err) {
+        console.error("Logo canvas pre-render failed:", err);
+      }
+
+      const doc = new jsPDF({ orientation: "portrait", compress: true });
+
+      const drawBackground = (pdfDoc: any) => {
+        // Draw diagonal repeating watermarks "HACKBOATS"
+        pdfDoc.setFont("helvetica", "bold");
+        pdfDoc.setFontSize(15);
+        pdfDoc.setTextColor(220, 216, 207);
+        for (let py = 25; py < 290; py += 55) {
+          for (let px = 15; px < 200; px += 60) {
+            pdfDoc.text("HACKBOATS", px, py, { angle: 30 });
+          }
+        }
+
+        // Draw blueprint-style decorative grid crosshairs
+        pdfDoc.setDrawColor(13, 36, 33, 0.04);
+        pdfDoc.setLineWidth(0.3);
+        pdfDoc.line(8, 10, 16, 10);
+        pdfDoc.line(10, 8, 10, 16);
+        pdfDoc.line(194, 10, 202, 10);
+        pdfDoc.line(200, 8, 200, 16);
+        pdfDoc.line(8, 287, 16, 287);
+        pdfDoc.line(10, 285, 10, 293);
+        pdfDoc.line(194, 287, 202, 287);
+        pdfDoc.line(200, 285, 200, 293);
+      };
+
+      drawBackground(doc);
+
+      // ── Page 1: Premium Neo-Brutalist Title Banner ──
+      doc.setFillColor(13, 36, 33);
+      doc.rect(16, 12, 182, 24, "F");
+
+      doc.setFillColor(26, 62, 58); // Teal
+      doc.setDrawColor(13, 36, 33);
+      doc.setLineWidth(0.8);
+      doc.rect(14, 10, 182, 24, "FD");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text("EVENT SUMMARY REPORT", 20, 18.5);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(190, 240, 60); // Neon Lime
+      doc.text(eventName.toUpperCase(), 20, 23.5);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Authorized: Session Administrator", 20, 28.5);
+
+      // Metadata summary
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(110);
+      doc.text(`Export Date: ${new Date().toLocaleDateString()}`, 14, 42);
+
+      // --- Summary Stats Block ---
+      doc.setFillColor(13, 36, 33);
+      doc.rect(16, 48, 182, 20, "F");
+      doc.setFillColor(250, 248, 244);
+      doc.setDrawColor(13, 36, 33);
+      doc.setLineWidth(0.8);
+      doc.rect(14, 46, 182, 20, "FD");
+
+      doc.setFontSize(10);
+      doc.setTextColor(13, 36, 33);
+      doc.text(`Total Attendees: ${userCount}`, 20, 54);
+      doc.text(`Total Referrals: ${referralCount}`, 20, 61);
+      
+      doc.text(`Captains: ${data.roles?.CAPTAIN || 0}`, 80, 54);
+      doc.text(`Members: ${data.roles?.USER || 0}`, 80, 61);
+      doc.text(`Visitors: ${data.roles?.VISITOR || 0}`, 130, 54);
+
+      // --- Top Networkers (Most Referrals Sent) ---
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(13, 36, 33);
+      doc.text("Top Networkers (Most Referrals Sent)", 14, 78);
+      
+      if (data.topSenders && data.topSenders.length > 0) {
+        autoTable(doc, {
+          head: [["Name", "Email", "Sent"]],
+          body: data.topSenders.map((s: any) => [s.name, s.email, s.count]),
+          startY: 82,
+          styles: { fontSize: 9, cellPadding: 3, font: "helvetica", textColor: [13, 36, 33] },
+          headStyles: { fillColor: [26, 62, 58], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [250, 248, 244] },
+          theme: "grid",
+        });
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text("No referral data available.", 14, 85);
+      }
+
+      // --- Top Businesses (Most Referrals Received) ---
+      const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY : 85;
+      
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Top Businesses (Most Referrals Received)", 14, finalY + 15);
+      
+      if (data.topReceivers && data.topReceivers.length > 0) {
+        autoTable(doc, {
+          head: [["Name", "Email", "Received"]],
+          body: data.topReceivers.map((r: any) => [r.name, r.email, r.count]),
+          startY: finalY + 19,
+          styles: { fontSize: 9, cellPadding: 3, font: "helvetica", textColor: [13, 36, 33] },
+          headStyles: { fillColor: [26, 62, 58], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [250, 248, 244] },
+          theme: "grid",
+        });
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text("No referral data available.", 14, finalY + 22);
+      }
+
+      // ── Footers & Page Numbers Loop ──
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        doc.setDrawColor(13, 36, 33, 0.15);
+        doc.setLineWidth(0.4);
+        doc.line(14, pageHeight - 18, pageWidth - 14, pageHeight - 18);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(140);
+        doc.text(`Page ${i} of ${pageCount}`, 14, pageHeight - 11);
+
+        doc.text("Powered by", pageWidth - 36, pageHeight - 11, { align: "right" });
+        try {
+          if (dataUrl) {
+            doc.addImage(dataUrl, "JPEG", pageWidth - 34, pageHeight - 15, 20, 5, 'hb-logo', 'FAST');
+          } else {
+            doc.addImage(img, "JPEG", pageWidth - 34, pageHeight - 15, 20, 5, 'hb-logo', 'FAST');
+          }
+        } catch (err) {
+          doc.setFont("helvetica", "bold");
+          doc.text("HackBoats", pageWidth - 14, pageHeight - 11, { align: "right" });
+        }
+      }
+
+      doc.save(`summary_report_${eventName.replace(/\s+/g, '_').toLowerCase()}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to export Summary Report PDF");
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const handleOpenEvent = async (eventId: string) => {
     if (expandedEventId === eventId) {
       setExpandedEventId(null);
@@ -215,7 +417,32 @@ export function AdminArchiveSection({ events }: { events: ArchivedEvent[] }) {
               {/* TOP HEADER ROW */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h4 className="font-black uppercase text-lg">{evt.name}</h4>
+                {editingEventId === evt.id ? (
+                  <div className="flex items-center gap-2 mb-1">
+                    <input 
+                      type="text" 
+                      value={editName} 
+                      onChange={(e) => setEditName(e.target.value)} 
+                      className="text-lg font-black uppercase border-b-2 border-[#0D2421] bg-transparent focus:outline-none w-full max-w-[200px]"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName(evt.id);
+                        if (e.key === "Escape") setEditingEventId(null);
+                      }}
+                    />
+                    <button onClick={() => handleSaveName(evt.id)} className="text-[10px] bg-[#BEF03C] hover:bg-[#A6DF2B] px-3 py-1.5 rounded-lg border border-[#0D2421] font-black uppercase shadow-[1.5px_1.5px_0px_#0D2421] transition-all">Save</button>
+                    <button onClick={() => setEditingEventId(null)} className="text-[10px] bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-[#0D2421] font-black uppercase shadow-[1.5px_1.5px_0px_#0D2421] transition-all">Cancel</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black uppercase text-lg">{evt.name}</h4>
+                    <button onClick={() => { setEditingEventId(evt.id); setEditName(evt.name); }} className="p-1 rounded hover:bg-[#0D2421]/10 text-[#0D2421]/40 hover:text-[#0D2421] transition-colors" title="Edit Event Name">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-4 text-[10px] font-black tracking-widest text-[#0D2421]/60 uppercase mt-1">
                   <span>{evt._count.users} Users</span>
                   <span>{evt._count.referrals} Referrals</span>
@@ -260,6 +487,16 @@ export function AdminArchiveSection({ events }: { events: ArchivedEvent[] }) {
                       {exportingId === `pdf-${evt.id}` ? "..." : "PDF"}
                     </button>
                   </div>
+                </div>
+                <div className="space-y-1 w-full md:w-auto mt-3 sm:mt-0">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-[#0D2421]/40 block text-center sm:text-left">Report</span>
+                  <button 
+                    onClick={() => exportSummaryReportPDF(evt.id, evt.name, evt._count.users, evt._count.referrals)}
+                    disabled={exportingId !== null}
+                    className="w-full sm:w-auto px-4 py-2 bg-[#0D2421] text-[#BEF03C] hover:bg-[#163733] border-2 border-[#0D2421] rounded-xl text-[10px] font-black uppercase transition-all shadow-[2px_2px_0px_#0D2421] disabled:opacity-50"
+                  >
+                    {exportingId === `report-pdf-${evt.id}` ? "Generating..." : "Summary PDF"}
+                  </button>
                 </div>
               </div>
             </div> {/* END TOP HEADER ROW */}

@@ -16,40 +16,86 @@ interface UserRow {
 
 export function UserTable({ users }: { users: UserRow[] }) {
   const [query, setQuery] = useState("");
+  const [showAdmins, setShowAdmins] = useState(false);
 
   const filtered = useMemo(() => {
+    let res = users;
+
+    // 1. Filter out admins if showAdmins is false
+    if (!showAdmins) {
+      res = res.filter(u => u.role !== "ADMIN");
+    }
+
+    // 2. Filter by search query
     const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter(u =>
-      u.email?.toLowerCase().includes(q) ||
-      u.name?.toLowerCase().includes(q) ||
-      u.businessName?.toLowerCase().includes(q) ||
-      u.businessCategory?.toLowerCase().includes(q)
-    );
-  }, [query, users]);
+    if (q) {
+      res = res.filter(u =>
+        u.email?.toLowerCase().includes(q) ||
+        u.name?.toLowerCase().includes(q) ||
+        u.businessName?.toLowerCase().includes(q) ||
+        u.businessCategory?.toLowerCase().includes(q)
+      );
+    }
+
+    // 3. Dynamic sorting
+    res = [...res].sort((a, b) => {
+      let order: Record<string, number>;
+      if (showAdmins) {
+        order = { ADMIN: 1, CAPTAIN: 2, VISITOR: 3, USER: 4 };
+      } else {
+        order = { CAPTAIN: 1, VISITOR: 2, USER: 3, ADMIN: 99 };
+      }
+      
+      const priorityA = order[a.role] || 99;
+      const priorityB = order[b.role] || 99;
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      const emailA = a.email || "";
+      const emailB = b.email || "";
+      return emailA.localeCompare(emailB);
+    });
+
+    return res;
+  }, [query, showAdmins, users]);
 
   return (
     <div className="space-y-6">
       {/* Search */}
-      <div className="relative w-full">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#0D2421]/40">
-          <MagnifyingGlassIcon className="w-5 h-5" />
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#0D2421]/40">
+            <MagnifyingGlassIcon className="w-5 h-5" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search members by name, email, company, or group..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="w-full bg-white border-2 border-[#0D2421] rounded-2xl pl-12 pr-10 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30 shadow-[4px_4px_0px_#0D2421]"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="absolute inset-y-0 right-0 flex items-center pr-4 text-[#0D2421]/40 hover:text-[#0D2421]"
+            >
+              <XMarkIcon className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        <input
-          type="text"
-          placeholder="Search members by name, email, company, or group..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          className="w-full bg-white border-2 border-[#0D2421] rounded-2xl pl-12 pr-10 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all placeholder:text-[#0D2421]/30 shadow-[4px_4px_0px_#0D2421]"
-        />
-        {query && (
-          <button
-            onClick={() => setQuery("")}
-            className="absolute inset-y-0 right-0 flex items-center pr-4 text-[#0D2421]/40 hover:text-[#0D2421]"
-          >
-            <XMarkIcon className="w-4 h-4" />
-          </button>
-        )}
+        
+        <label className="flex items-center gap-3 cursor-pointer whitespace-nowrap bg-white border-2 border-[#0D2421] rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-wider text-[#0D2421] shadow-[4px_4px_0px_#0D2421] hover:bg-[#FAF8F4] transition-colors select-none flex-shrink-0">
+          <input 
+            type="checkbox" 
+            checked={showAdmins} 
+            onChange={(e) => setShowAdmins(e.target.checked)}
+            className="w-5 h-5 accent-[#0D2421] border-2 border-[#0D2421] rounded cursor-pointer"
+          />
+          Show Admins
+        </label>
       </div>
 
       {/* Table — hidden on mobile */}
