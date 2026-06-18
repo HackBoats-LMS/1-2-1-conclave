@@ -2,13 +2,13 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export function LiveControls({ 
-  updatedAtTime, 
+export function LiveControls({
+  updatedAtTime,
   durationMinutes = 15,
   status
-}: { 
-  updatedAtTime: number; 
-  durationMinutes?: number; 
+}: {
+  updatedAtTime: number;
+  durationMinutes?: number;
   status?: string;
 }) {
   const [timeLeft, setTimeLeft] = useState(`${durationMinutes.toString().padStart(2, '0')}:00`);
@@ -42,14 +42,14 @@ export function LiveControls({
       }
     };
 
-    updateTimer(); 
-    
+    updateTimer();
+
     // Only tick if not paused
     let timerInterval: NodeJS.Timeout | null = null;
     if (!status?.startsWith("PAUSED_")) {
       timerInterval = setInterval(updateTimer, 1000);
     }
-    
+
     return () => {
       if (timerInterval) clearInterval(timerInterval);
     };
@@ -57,7 +57,7 @@ export function LiveControls({
 
   return (
     <div className={`px-4 md:px-6 py-3 rounded-2xl font-black text-lg md:text-xl border-2 text-center transition-all ${isEnded ? 'bg-[#FAF8F4] text-[#0D2421]/40 border-[#0D2421]/30' : 'bg-[#0D2421] text-[#BEF03C] border-[#0D2421] shadow-[3px_3px_0px_#0D2421]'}`}>
-      {timeLeft} 
+      {timeLeft}
       <span className={`text-xs font-black uppercase tracking-wider block md:inline md:ml-3 ${isEnded ? 'text-[#0D2421]/40' : 'text-[#BEF03C]'}`}>
         {isEnded ? "Round Ended" : "Remaining"}
       </span>

@@ -26,15 +26,15 @@ export function SelfSpeakerTimer({
     const activateTimer = (payloadUserId: string, payloadType: string, payloadTargetEndTime: number) => {
       if (payloadUserId === userId) {
         if (targetEndTime === payloadTargetEndTime) return;
-        
+
         targetEndTime = payloadTargetEndTime;
         const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
-        
+
         if (remaining > 0) {
           console.log(`[SelfSpeakerTimer] Activating timer for me! Type: ${payloadType}, remaining: ${remaining}`);
           setActiveTimer({ type: payloadType, timeLeft: remaining });
           if (localInterval) clearInterval(localInterval);
-          
+
           let lastTick = Date.now();
           localInterval = setInterval(() => {
             if (!targetEndTime) return;

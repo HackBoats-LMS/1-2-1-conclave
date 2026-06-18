@@ -434,8 +434,8 @@ export default async function AdminDashboard() {
                     }
                     revalidatePath("/admin");
                   }} className="w-full">
-                    <SubmitButton 
-                      loadingText="Seating..." 
+                    <SubmitButton
+                      loadingText="Seating..."
                       className="w-full px-5 py-3.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap text-center"
                     >
                       Seat Latecomers
@@ -719,8 +719,8 @@ export default async function AdminDashboard() {
                                   <SubmitButton
                                     loadingText="Launching..."
                                     className={`w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] transition-all ${round.status === 'COMPLETED'
-                                        ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
-                                        : 'bg-[#BEF03C] text-[#0D2421] hover:bg-[#A6DF2B] shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer'
+                                      ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
+                                      : 'bg-[#BEF03C] text-[#0D2421] hover:bg-[#A6DF2B] shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer'
                                       }`}
                                   >
                                     {round.status === 'COMPLETED' ? 'Session Finished' : 'Launch Round'}

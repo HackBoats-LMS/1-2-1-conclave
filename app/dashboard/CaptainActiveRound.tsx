@@ -38,19 +38,19 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
   // Initialize from DB if exists
   const parsedPitched = initialProgress?.pitchedUserIds ? JSON.parse(initialProgress.pitchedUserIds) : [];
   const parsedReferred = initialProgress?.referredUserIds ? JSON.parse(initialProgress.referredUserIds) : [];
-  
+
   const initialPitched = parsedPitched.reduce((acc: any, id: string) => ({ ...acc, [id]: true }), {});
   const initialReferred = parsedReferred.reduce((acc: any, id: string) => ({ ...acc, [id]: true }), {});
 
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(initialProgress?.activeSpeakerId || null);
   const [speakerTimerType, setSpeakerTimerType] = useState<"PITCH" | "REFERRAL" | null>((initialProgress?.speakerType as any) || null);
-  
+
   const [speakerTimeLeft, setSpeakerTimeLeft] = useState<number | null>(null);
   const [speakerDuration, setSpeakerDuration] = useState<number>(60);
-  
+
   const [manualPhase, setManualPhase] = useState<number | null>(initialProgress?.currentPhase || null);
   const [maxUnlockedPhase, setMaxUnlockedPhase] = useState<number>(initialProgress?.currentPhase || 1);
-  
+
   const [pitchedUsers, setPitchedUsers] = useState<Record<string, boolean>>(initialPitched);
   const [referredUsers, setReferredUsers] = useState<Record<string, boolean>>(initialReferred);
   const [windowWidth, setWindowWidth] = useState(1024);
@@ -108,7 +108,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
           ...updates
         })
       });
-    } catch (e) {}
+    } catch (e) { }
   };
 
   useEffect(() => {
@@ -484,7 +484,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
       event: 'timer_start',
       payload
     });
-    
+
     // Also dispatch locally for the captain's own UserCards
     window.dispatchEvent(new CustomEvent('conclave_timer_start', { detail: payload }));
   }
@@ -532,12 +532,12 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
       const newDuration = speakerDuration + seconds;
       setSpeakerDuration(newDuration);
 
-        // Update the wall-clock target time
+      // Update the wall-clock target time
       if (speakerEndTimeRef.current) {
         speakerEndTimeRef.current += seconds * 1000;
         const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
         setSpeakerTimeLeft(remaining);
-        
+
         saveProgress({ tableId, speakerEndTime: new Date(speakerEndTimeRef.current).toISOString() });
 
         // Broadcast the extension to everyone's devices
@@ -710,10 +710,10 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
                 }}
                 disabled={!isUnlocked}
                 className={`py-2 text-[9px] font-black uppercase rounded-lg transition-all text-center ${currentPhase === phNum
-                    ? "bg-[#BEF03C] text-[#0D2421]"
-                    : isUnlocked
-                      ? "text-white/60 hover:text-white hover:bg-white/10 cursor-pointer"
-                      : "text-white/20 cursor-not-allowed"
+                  ? "bg-[#BEF03C] text-[#0D2421]"
+                  : isUnlocked
+                    ? "text-white/60 hover:text-white hover:bg-white/10 cursor-pointer"
+                    : "text-white/20 cursor-not-allowed"
                   }`}
               >
                 {isUnlocked ? `Stage ${phNum}` : `🔒 Stage ${phNum}`}
@@ -724,7 +724,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
 
         {/* Wizard Card Container */}
         <div className={`flex-1 border-3 border-[#0D2421] p-6 md:p-8 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] flex flex-col justify-between gap-6 transition-all duration-300 ${currentPhase === 1 ? "bg-amber-50" :
-            currentPhase === 2 ? "bg-[#FAF8F4]" : "bg-yellow-50"
+          currentPhase === 2 ? "bg-[#FAF8F4]" : "bg-yellow-50"
           }`}>
 
           {/* Step Header */}
@@ -914,8 +914,8 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
                 <button
                   onClick={handleAutopilotAction}
                   className={`w-full py-5 border-3 border-[#0D2421] rounded-[1.5rem] font-black uppercase text-base hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-0 active:translate-y-0 transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${activeSpeakerId
-                      ? "bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
-                      : "bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
+                    ? "bg-red-400 hover:bg-red-300 text-white shadow-[5px_5px_0px_#0d2421]"
+                    : "bg-[#BEF03C] hover:bg-[#aee030] text-[#0D2421] shadow-[5px_5px_0px_#0d2421] animate-button-glow"
                     }`}
                 >
                   {activeSpeakerId ? (
@@ -990,10 +990,10 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
               <div
                 key={p.id}
                 className={`border-2 border-[#0D2421] p-4 rounded-2xl flex flex-col justify-between gap-4 transition-all duration-300 relative ${isSpeaker
-                    ? "bg-[#BEF03C]/10 border-[#BEF03C] shadow-[4px_4px_0px_#0D2421] scale-[1.02] ring-2 ring-[#0D2421]"
-                    : hasCompleted
-                      ? "bg-[#0D2421]/5 border-[#0D2421]/40 opacity-70"
-                      : "bg-white shadow-[4px_4px_0px_#0D2421]"
+                  ? "bg-[#BEF03C]/10 border-[#BEF03C] shadow-[4px_4px_0px_#0D2421] scale-[1.02] ring-2 ring-[#0D2421]"
+                  : hasCompleted
+                    ? "bg-[#0D2421]/5 border-[#0D2421]/40 opacity-70"
+                    : "bg-white shadow-[4px_4px_0px_#0D2421]"
                   }`}
               >
                 {/* Status Badges & Action Vector */}
