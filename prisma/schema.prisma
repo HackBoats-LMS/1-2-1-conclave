@@ -76,6 +76,7 @@ model Round {
   slotId          String
   roundNumber     Int
   status          String    @default("PENDING")
+  elapsedSeconds  Int       @default(0)
   startTime       DateTime?
   endedAt         DateTime?
   durationMinutes Int       @default(15)

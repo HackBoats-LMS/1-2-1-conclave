@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { SubmitButton } from "../components/SubmitButton";
-import { deleteUserAccount } from "./actions";
+import { deleteUserAccount } from "./actions/user.actions";
 import { AdminPinModal } from "./AdminPinModal";
 import { TrashIcon } from "@heroicons/react/24/outline";
 

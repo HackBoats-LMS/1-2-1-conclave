@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useActionState } from "react";
-import { uploadCaptainExcel } from "./actions";
+import { uploadCaptainExcel } from "./actions/upload.actions";
 import { ArrowPathIcon, CheckIcon } from "@heroicons/react/24/outline";
 
 export function CaptainUploadForm() {

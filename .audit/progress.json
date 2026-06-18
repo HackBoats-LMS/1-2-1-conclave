@@ -1,0 +1,387 @@
+[
+  {
+    "file_path": "app/admin/actions/assignment.actions.ts",
+    "status": "completed",
+    "findings_count": 1
+  },
+  {
+    "file_path": "app/admin/actions/round.actions.ts",
+    "status": "completed",
+    "findings_count": 1
+  },
+  {
+    "file_path": "app/admin/actions/upload.actions.ts",
+    "status": "completed",
+    "findings_count": 2
+  },
+  {
+    "file_path": "app/admin/actions/user.actions.ts",
+    "status": "completed",
+    "findings_count": 1
+  },
+  {
+    "file_path": "app/admin/actions/utils.ts",
+    "status": "completed",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/AdminArchiveSection.tsx",
+    "status": "completed",
+    "findings_count": 1
+  },
+  {
+    "file_path": "app/admin/AdminAutoShiftingManager.tsx",
+    "status": "completed",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/AdminLiveReferralsClient.tsx",
+    "status": "completed",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/AdminPinModal.tsx",
+    "status": "completed",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/archive/page.tsx",
+    "status": "completed",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/AssignmentPreview.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/AssignmentsUploadForm.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/AutoGenerateClient.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/CaptainUploadForm.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/ClearMembersWarningButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/ClientTimer.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/DeleteUserButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/EditUserRoleButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/EndConclaveButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/layout.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/leaderboard/BigShiftingTimerClient.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/leaderboard/LeaderboardTimerClient.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/leaderboard/LiveLeaderboardClient.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/leaderboard/LiveTotalCount.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/leaderboard/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/MemberUploadForm.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/OnboardingExportButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/referrals-download/AdminReferralsDownloadClient.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/referrals-download/LiveReferralsTotalBadge.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/referrals-download/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/ReferralsExportButtons.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/RefreshButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/SecureAdminButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/SuccessAlert.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/UserSearchFilter.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/admin/UserTable.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/auth/[...nextauth]/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/captain-progress/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/archive-admin/directory/json/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/archive-admin/directory/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/archive-admin/referrals/json/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/assignments/json/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/assignments/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/directory/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/referrals/json/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/referrals/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/export/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/api/game-state/route.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/captain-login/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/components/LogoutButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/components/SubmitButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/actions.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/CaptainActiveRound.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/ChangingTablesTimer.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/DashboardClientWrapper.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/DownloadMyReferralsButton.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/ExitWarning.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/layout.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/LiveControls.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/SelfSpeakerTimer.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/TableRealtimeListener.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/dashboard/UserCard.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/layout.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/login/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/onboarding/actions.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/onboarding/OnboardingClient.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/onboarding/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "app/page.tsx",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "lib/auth.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "lib/broadcaster.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "lib/prisma.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "lib/supabaseClient.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "scripts/test_db.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "scripts/update_admin.ts",
+    "status": "pending",
+    "findings_count": 0
+  },
+  {
+    "file_path": "types/index.ts",
+    "status": "pending",
+    "findings_count": 0
+  }
+]

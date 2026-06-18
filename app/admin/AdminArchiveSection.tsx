@@ -5,7 +5,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as xlsx from "xlsx";
 import { SecureAdminButton } from "./SecureAdminButton";
-import { deleteArchivedEvent } from "./actions";
+import { deleteArchivedEvent } from "./actions/user.actions";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface ArchivedEvent {

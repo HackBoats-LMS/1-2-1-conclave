@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { startRound } from "../actions";
+import { startRound } from "../actions/round.actions";
 
 interface GameState {
   isRoundActive: boolean;

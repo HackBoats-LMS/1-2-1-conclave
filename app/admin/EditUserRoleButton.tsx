@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { updateUserRole } from "./actions";
+import { updateUserRole } from "./actions/user.actions";
 import { SubmitButton } from "../components/SubmitButton";
 import { PencilIcon } from "@heroicons/react/24/outline";
 
@@ -42,6 +42,7 @@ export function EditUserRoleButton({ userId, currentRole }: Props) {
         className="text-[9px] font-black uppercase bg-white border-2 border-[#0D2421] rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
       >
         <option value="USER">Member</option>
+        <option value="VISITOR">Visitor</option>
         <option value="CAPTAIN">Captain</option>
         <option value="ADMIN">Admin</option>
       </select>

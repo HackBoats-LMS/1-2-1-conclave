@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
-import { startRound, stopRound, pauseRound, resetAllRounds, clearReferrals, addManualUser, removeAllUsers, deleteUserAccount, clearAssignments, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, toggleOpenLogin, endConclave } from "./actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, toggleOpenLogin, endConclave } from "./actions/round.actions";
+import { addManualUser, removeAllUsers, deleteUserAccount } from "./actions/user.actions";
+import { clearAssignments, clearReferrals, seatLatecomers } from "./actions/assignment.actions";
 import { AdminAutoShiftingManager } from "./AdminAutoShiftingManager";
 import { EndConclaveButton } from "./EndConclaveButton";
 import { SuccessAlert } from "./SuccessAlert";
 import { SubmitButton } from "../components/SubmitButton";
 import { SecureAdminButton } from "./SecureAdminButton";
 import { MemberUploadForm } from "./MemberUploadForm";
+import { VisitorUploadForm } from "./VisitorUploadForm";
 import { AssignmentsUploadForm } from "./AssignmentsUploadForm";
 import { CaptainUploadForm } from "./CaptainUploadForm";
 import { AssignmentPreview } from "./AssignmentPreview";
@@ -70,6 +73,8 @@ export default async function AdminDashboard() {
     successMessage = "Successfully switched mode!";
   } else if (successAction === "toggled_open_login") {
     successMessage = "Open Login setting updated!";
+  } else if (successAction === "seated_latecomers") {
+    successMessage = "Latecomers successfully seated in upcoming rounds!";
   }
 
   let errorMessage = "";
@@ -115,7 +120,8 @@ export default async function AdminDashboard() {
   }
   const captainCount = allUsers.filter(u => u.role === "CAPTAIN").length;
   const memberCount = allUsers.filter(u => u.role === "USER" && u.isApproved).length;
-  const totalUsers = memberCount + captainCount;
+  const visitorCount = allUsers.filter(u => u.role === "VISITOR" && u.isApproved).length;
+  const totalUsers = memberCount + captainCount + visitorCount;
   const nonAdminApproved = allUsers.filter(u => u.isApproved && u.role !== "ADMIN").length;
   const pendingOnboarding = allUsers.filter(u => u.isApproved && !u.onboardingCompleted && u.role !== "ADMIN").length;
   const completedOnboarding = nonAdminApproved - pendingOnboarding;
@@ -390,8 +396,8 @@ export default async function AdminDashboard() {
               <div className="space-y-0.5">
                 <div className="text-[10px] font-black uppercase text-[#0D2421]/40 tracking-widest">Ready to Generate</div>
                 <div className="text-xs font-black text-[#0D2421]">
-                  {captainCount} captain{captainCount !== 1 ? 's' : ''} × {memberCount} member{memberCount !== 1 ? 's' : ''}
-                  {captainCount > 0 && memberCount > 0 && (
+                  {captainCount} captain{captainCount !== 1 ? 's' : ''} × {memberCount} member{memberCount !== 1 ? 's' : ''} × {visitorCount} visitor{visitorCount !== 1 ? 's' : ''}
+                  {captainCount > 0 && (memberCount > 0 || visitorCount > 0) && (
                     <span className="text-[#0D2421]/40"> → {captainCount} tables</span>
                   )}
                 </div>
@@ -400,30 +406,52 @@ export default async function AdminDashboard() {
           </div>
 
           {/* Upload Zones */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
             <MemberUploadForm />
+            <VisitorUploadForm />
             <CaptainUploadForm />
             <AssignmentsUploadForm />
           </div>
 
           {/* Generate Button */}
           <div className="border-t-2 border-dashed border-[#0D2421]/20 pt-6 space-y-4">
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <AutoGenerateClient captainCount={captainCount} memberCount={memberCount} currentDuration={currentDuration} />
+            <div className="flex flex-col gap-6 w-full">
+              <AutoGenerateClient captainCount={captainCount} memberCount={memberCount} visitorCount={visitorCount} currentDuration={currentDuration} />
 
               {hasAssignments && (
-                <SecureAdminButton
-                  action={clearAssignments}
-                  label="Clear Assignments"
-                  loadingText="Clearing..."
-                  promptText="Enter Admin Pin to clear assignments:"
-                  className="px-5 py-3.5 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap text-center"
-                  formClassName="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full pt-4 border-t-2 border-[#0D2421]/10">
+                  <form action={async () => {
+                    "use server";
+                    const { seatLatecomers } = await import("./actions/assignment.actions");
+                    const { setSuccess, setError } = await import("./actions/utils");
+                    const { revalidatePath } = await import("next/cache");
+                    const result = await seatLatecomers();
+                    if (result.success) {
+                      await setSuccess("seated_latecomers");
+                    } else {
+                      await setError(result.error || "Failed to seat latecomers.");
+                    }
+                    revalidatePath("/admin");
+                  }} className="w-full">
+                    <SubmitButton 
+                      loadingText="Seating..." 
+                      className="w-full px-5 py-3.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap text-center"
+                    >
+                      Seat Latecomers
+                    </SubmitButton>
+                  </form>
+
+                  <SecureAdminButton
+                    action={clearAssignments}
+                    label="Clear Assignments"
+                    loadingText="Clearing..."
+                    promptText="Enter Admin Pin to clear assignments:"
+                    className="w-full px-5 py-3.5 bg-red-100 hover:bg-red-200 text-red-700 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap text-center"
+                    formClassName="w-full"
+                  />
+                </div>
               )}
             </div>
-
-
           </div>
         </div>
 
@@ -473,10 +501,14 @@ export default async function AdminDashboard() {
                 <h3 className="font-black text-lg uppercase">Platform Access</h3>
                 <p className="text-[10px] font-semibold text-[#0D2421]/60 uppercase tracking-wide">Members and captains</p>
               </div>
-              <div className="grid grid-cols-3 gap-3 pt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                 <div className="bg-[#FAF8F4] p-3 rounded-2xl border-2 border-[#0D2421] text-center">
                   <div className="text-2xl font-black">{memberCount}</div>
                   <div className="text-[8px] font-black text-[#0D2421]/50 uppercase tracking-wider">Members</div>
+                </div>
+                <div className="bg-[#FAF8F4] p-3 rounded-2xl border-2 border-[#0D2421] text-center">
+                  <div className="text-2xl font-black">{visitorCount}</div>
+                  <div className="text-[8px] font-black text-[#0D2421]/50 uppercase tracking-wider">Visitors</div>
                 </div>
                 <div className="bg-amber-50 p-3 rounded-2xl border-2 border-amber-500 text-center">
                   <div className="text-2xl font-black text-amber-600">{captainCount}</div>
@@ -760,6 +792,7 @@ export default async function AdminDashboard() {
                     className="w-full bg-white border-2 border-[#0D2421] rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 font-bold transition-all appearance-none cursor-pointer"
                   >
                     <option value="USER">Standard Member</option>
+                    <option value="VISITOR">Visitor</option>
                     <option value="CAPTAIN">Table Captain</option>
                     <option value="ADMIN">Platform Admin</option>
                   </select>

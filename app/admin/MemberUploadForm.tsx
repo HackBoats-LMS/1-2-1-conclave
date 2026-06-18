@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useActionState } from "react";
-import { uploadWhitelistExcel } from "./actions";
+import { uploadWhitelistExcel } from "./actions/upload.actions";
 import { ArrowPathIcon, CheckIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 
 export function MemberUploadForm() {
