@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { EditUserRoleButton } from "./EditUserRoleButton";
+import { EditUserDetailsButton } from "./EditUserDetailsButton";
 import { DeleteUserButton } from "./DeleteUserButton";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
@@ -144,7 +144,7 @@ export function UserTable({ users }: { users: UserRow[] }) {
                 </td>
                 <td className="py-4 px-6 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <EditUserRoleButton userId={user.id} currentRole={user.role} />
+                    <EditUserDetailsButton user={user} />
                     <DeleteUserButton userId={user.id} />
                   </div>
                 </td>
@@ -171,7 +171,7 @@ export function UserTable({ users }: { users: UserRow[] }) {
                 <p className="text-xs text-[#0D2421]/60 font-semibold truncate">{user.email}</p>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
-                <EditUserRoleButton userId={user.id} currentRole={user.role} />
+                <EditUserDetailsButton user={user} />
                 <DeleteUserButton userId={user.id} />
               </div>
             </div>

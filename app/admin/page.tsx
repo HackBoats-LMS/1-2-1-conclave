@@ -17,6 +17,8 @@ import { ReferralsExportButtons } from "./ReferralsExportButtons";
 import { RefreshButton } from "./RefreshButton";
 import { ClientTimer } from "./ClientTimer";
 import { AutoGenerateClient } from "./AutoGenerateClient";
+import { SeatLatecomersClient } from "./SeatLatecomersClient";
+import { QuickAddUserClient } from "./QuickAddUserClient";
 import { UserTable } from "./UserTable";
 import { OnboardingExportButton } from "./OnboardingExportButton";
 import { ClearMembersWarningButton } from "./ClearMembersWarningButton";
@@ -420,27 +422,9 @@ export default async function AdminDashboard() {
               <AutoGenerateClient captainCount={captainCount} memberCount={memberCount} visitorCount={visitorCount} currentDuration={currentDuration} />
 
               {hasAssignments && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full pt-4 border-t-2 border-[#0D2421]/10">
-                  <form action={async () => {
-                    "use server";
-                    const { seatLatecomers } = await import("./actions/assignment.actions");
-                    const { setSuccess, setError } = await import("./actions/utils");
-                    const { revalidatePath } = await import("next/cache");
-                    const result = await seatLatecomers();
-                    if (result.success) {
-                      await setSuccess("seated_latecomers");
-                    } else {
-                      await setError(result.error || "Failed to seat latecomers.");
-                    }
-                    revalidatePath("/admin");
-                  }} className="w-full">
-                    <SubmitButton
-                      loadingText="Seating..."
-                      className="w-full px-5 py-3.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border-2 border-[#0D2421] rounded-xl font-black text-xs uppercase shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer whitespace-nowrap text-center"
-                    >
-                      Seat Latecomers
-                    </SubmitButton>
-                  </form>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full pt-4 border-t-2 border-[#0D2421]/10">
+                  <SeatLatecomersClient />
+                  <QuickAddUserClient />
 
                   <SecureAdminButton
                     action={clearAssignments}

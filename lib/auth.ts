@@ -30,15 +30,15 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       const gameState = await prisma.gameState.findFirst({ select: { isOpenLogins: true } });
       if (gameState?.isOpenLogins) {
         await prisma.user.upsert({
-          where: { email: user.email.toLowerCase() },
+          where: { email: user.email.trim().toLowerCase() },
           update: { isApproved: true },
-          create: { email: user.email.toLowerCase(), isApproved: true, role: "USER" },
+          create: { email: user.email.trim().toLowerCase(), isApproved: true, role: "USER" },
         });
         return true;
       }
 
       const dbUser = await prisma.user.findFirst({
-        where: { email: { equals: user.email.toLowerCase(), mode: "insensitive" } },
+        where: { email: { equals: user.email.trim().toLowerCase(), mode: "insensitive" } },
       });
 
       if (!dbUser || !dbUser.isApproved) return false;
@@ -49,7 +49,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token.id = user.id;
         const dbUser = user.id
           ? await prisma.user.findUnique({ where: { id: user.id } })
-          : await prisma.user.findFirst({ where: { email: user.email!.toLowerCase() } });
+          : await prisma.user.findFirst({ where: { email: user.email!.trim().toLowerCase() } });
         if (dbUser) {
           token.id = dbUser.id;
           token.role = dbUser.role;

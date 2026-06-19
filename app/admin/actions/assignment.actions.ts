@@ -127,9 +127,12 @@ export async function seatLatecomers() {
     }
 
     // 2. Find all approved users who are NOT in the pending rounds
-    // To do this simply, we get ALL approved users...
+    // Filter out admins so they don't get seated at tables!
     const allUsers = await prisma.user.findMany({
-      where: { isApproved: true },
+      where: { 
+        isApproved: true,
+        role: { not: "ADMIN" }
+      },
       select: { id: true, businessCategory: true, role: true }
     });
 
@@ -153,7 +156,36 @@ export async function seatLatecomers() {
       const newAssignments = [];
 
       for (const u of unseatedUsers) {
-        // Quick scoring function to find the best table
+        // If the latecomer is a CAPTAIN, they need their own brand new table!
+        if (u.role === "CAPTAIN") {
+          const maxTableNum = Math.max(...round.tables.map(t => t.tableNumber), 0);
+          const newTable = await prisma.table.create({
+            data: {
+              roundId: round.id,
+              tableNumber: maxTableNum + 1
+            }
+          });
+
+          // Add this new table to our local tracking so other non-captain latecomers can join it
+          round.tables.push({
+            id: newTable.id,
+            roundId: round.id,
+            tableNumber: newTable.tableNumber,
+            assignments: [
+              { user: { businessCategory: u.businessCategory, role: "CAPTAIN" } }
+            ]
+          } as any);
+
+          newAssignments.push({
+            userId: u.id,
+            tableId: newTable.id,
+            isCaptain: true
+          });
+
+          continue;
+        }
+
+        // Quick scoring function to find the best table for Members/Visitors
         // We want to avoid matching business categories
         let bestTableId = round.tables[0]?.id;
         let bestScore = -Infinity;
@@ -203,11 +235,64 @@ export async function seatLatecomers() {
       }
     }
 
+    await setSuccess("seated_latecomers");
     revalidatePath("/admin");
     revalidatePath("/dashboard");
     return { success: true, count: totalAssignmentsAdded };
   } catch (e: any) {
     console.error("Failed to seat latecomers:", e);
+    await setError(e.message || "Failed to seat latecomers");
+    return { success: false, error: e.message };
+  }
+}
+
+export async function getLatecomersPreview() {
+  await requireAdmin();
+  try {
+    const pendingRounds = await prisma.round.findMany({
+      where: { status: "PENDING" },
+      include: {
+        tables: {
+          include: {
+            assignments: { select: { userId: true } }
+          }
+        }
+      }
+    });
+
+    if (pendingRounds.length === 0) return { success: true, missingUsers: [] };
+
+    const allUsers = await prisma.user.findMany({
+      where: { isApproved: true, role: { not: "ADMIN" } },
+      select: { id: true, name: true, email: true, role: true, businessCategory: true }
+    });
+
+    const missingUsersMap = new Map<string, any>();
+
+    for (const round of pendingRounds) {
+      const seatedUserIds = new Set<string>();
+      for (const t of round.tables) {
+        for (const a of t.assignments) {
+          seatedUserIds.add(a.userId);
+        }
+      }
+
+      for (const u of allUsers) {
+        if (!seatedUserIds.has(u.id)) {
+          if (!missingUsersMap.has(u.id)) {
+            missingUsersMap.set(u.id, {
+              ...u,
+              missingInRounds: [round.roundNumber]
+            });
+          } else {
+            missingUsersMap.get(u.id).missingInRounds.push(round.roundNumber);
+          }
+        }
+      }
+    }
+
+    return { success: true, missingUsers: Array.from(missingUsersMap.values()) };
+  } catch (e: any) {
     return { success: false, error: e.message };
   }
 }

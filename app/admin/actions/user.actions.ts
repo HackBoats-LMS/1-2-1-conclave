@@ -27,6 +27,37 @@ export async function addManualUser(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function createFullUser(formData: FormData) {
+  await requireAdmin();
+  const rawEmail = formData.get("email") as string;
+  const email = rawEmail?.trim().toLowerCase();
+  const role = formData.get("role") as string || "USER";
+  const name = formData.get("name") as string || "";
+  const businessCategory = formData.get("businessCategory") as string || "N/A";
+  
+  if (!email || !name) {
+    await setError("Name and Email are required");
+    revalidatePath("/admin");
+    return { success: false };
+  }
+
+  try {
+    await prisma.user.upsert({
+      where: { email },
+      update: { isApproved: true, role, name, businessCategory },
+      create: { email, isApproved: true, role, name, businessCategory }
+    });
+    await setSuccess("added_user_manually");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    console.error(error);
+    await setError(error.message || "Failed to add user");
+    revalidatePath("/admin");
+    return { success: false };
+  }
+}
+
 export async function removeUser(formData: FormData) {
   await requireAdmin();
   const rawEmail = formData.get("email") as string;
@@ -139,6 +170,47 @@ export async function updateUserRole(formData: FormData) {
   }
   await setSuccess("updated_role");
   revalidatePath("/admin");
+}
+
+export async function updateUserDetails(formData: FormData) {
+  await requireAdmin();
+  const userId = formData.get("userId") as string;
+  const rawEmail = formData.get("email") as string;
+  const email = rawEmail?.trim().toLowerCase();
+  const name = formData.get("name") as string || null;
+  const businessName = formData.get("businessName") as string || null;
+  const businessCategory = formData.get("businessCategory") as string || null;
+  const role = formData.get("role") as string;
+
+  if (!userId || !email) {
+    return { error: "Email is required" };
+  }
+
+  try {
+    const existing = await prisma.user.findFirst({
+      where: { email, id: { not: userId } }
+    });
+    if (existing) {
+      return { error: "That email is already in use by another user." };
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email,
+        name: name || null,
+        businessName: businessName || null,
+        businessCategory: businessCategory || null,
+        role
+      }
+    });
+    await setSuccess("updated_user_details");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    console.error(error);
+    return { error: error.message || "Failed to update user" };
+  }
 }
 
 export async function removeAllUsers(formData: FormData) {
