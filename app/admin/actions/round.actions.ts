@@ -1,7 +1,7 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { requireAdmin, setSuccess, setError } from "./utils";
+import { requireAdmin, setSuccess, setError, verifyDeletePassword } from "./utils";
 import { broadcast } from "@/lib/broadcaster";
 
 export async function startRound(formData: FormData) {
@@ -178,7 +178,7 @@ export async function updateAllRoundsDuration(formData: FormData) {
 
 export async function updateShiftDuration(formData: FormData) {
   await requireAdmin();
-  const duration = parseInt(formData.get("duration") as string, 10);
+  const duration = parseInt(formData.get("shiftDuration") as string, 10);
   if (isNaN(duration) || duration <= 0) {
     await setError("Invalid duration");
     revalidatePath("/admin");
@@ -243,11 +243,30 @@ export async function toggleOpenLogin() {
   revalidatePath("/admin");
 }
 
-export async function endConclave() {
+export async function endConclave(formData: FormData) {
   await requireAdmin();
   try {
-    await broadcast('global_events', { action: 'end_conclave' });
-  } catch (e) {
+    const password = formData.get("password") as string;
+    verifyDeletePassword(password);
+
+    await prisma.round.updateMany({
+      data: { status: "COMPLETED", endedAt: new Date() }
+    });
+
+    const state = await prisma.gameState.findFirst();
+    if (state) {
+      await prisma.gameState.update({
+        where: { id: state.id },
+        data: { currentRoundId: null }
+      });
+    }
+
+    await broadcast('round_state_change', { action: 'end_conclave' });
+    await setSuccess("ended_conclave");
+  } catch (e: any) {
     console.error(e);
+    await setError(e.message || "Failed to end conclave");
   }
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
 }

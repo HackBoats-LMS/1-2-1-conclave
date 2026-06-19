@@ -23,9 +23,9 @@ export async function broadcast(event: string, payload: object = {}) {
         }
       ).then(res => res.text().then(text => console.log(`[BROADCAST RESPONSE] ${channel}: ${res.status} - ${text}`)))
     )
-  ).catch(err => {
-    console.error(`[BROADCAST FAILED]`, err);
-  });
+  );
+
+  await broadcastTask;
 
   // Since we're in Next.js, we just let the Promise run in the background.
   // In Next.js 15+ we could use `unstable_after` or `waitUntil`.
