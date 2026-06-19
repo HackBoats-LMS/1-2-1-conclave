@@ -126,10 +126,13 @@ export async function seatLatecomers() {
       return { success: false, error: "No upcoming pending rounds found." };
     }
 
-    // 2. Find all approved users who are NOT in the pending rounds
-    // To do this simply, we get ALL approved users...
+    // 2. Find all approved users who are NOT in the pending rounds and are NOT admins
+    // To do this simply, we get ALL approved users who are not admins...
     const allUsers = await prisma.user.findMany({
-      where: { isApproved: true },
+      where: { 
+        isApproved: true,
+        role: { not: "ADMIN" }
+      },
       select: { id: true, businessCategory: true, role: true }
     });
 
