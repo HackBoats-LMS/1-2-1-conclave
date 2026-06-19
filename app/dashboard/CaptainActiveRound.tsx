@@ -290,9 +290,12 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
       const remaining = Math.max(0, Math.ceil((speakerEndTimeRef.current - Date.now()) / 1000));
       setSpeakerTimeLeft(remaining);
 
-      // Broadcast heartbeat sync every 1 second (4 * 250ms)
+      // Broadcast heartbeat sync every 15 seconds (60 * 250ms) to save Supabase limits
+      // Starts and stops are still instant because they use separate 'timer_start' and 'timer_stop' events.
       tickCountRef.current += 1;
-      if (tickCountRef.current % 4 === 0 && isChannelConnected && activeSpeakerId && speakerTimerType) {
+      const isPaused = round.status?.startsWith("PAUSED_");
+      
+      if (tickCountRef.current % 60 === 0 && !isPaused && isChannelConnected && activeSpeakerId && speakerTimerType) {
         const payload = {
           userId: activeSpeakerId,
           durationSec: remaining,
@@ -312,7 +315,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
       if (speakerIntervalRef.current) clearInterval(speakerIntervalRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speakerTimeLeft, activeSpeakerId, speakerTimerType, pitchDurationSec, isChannelConnected]);
+  }, [speakerTimeLeft, activeSpeakerId, speakerTimerType, pitchDurationSec, isChannelConnected, round.status]);
 
   // Clean up transitions only on unmount
   useEffect(() => {
@@ -1114,29 +1117,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
         </div>
       </div>
 
-      {/* ── SEND REFERRALS GRID (Captain Participation) ── */}
-      <div className="bg-white border-3 border-[#0D2421] p-6 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] space-y-6">
-        <div className="flex justify-between items-center border-b-2 border-dashed border-[#0D2421]/15 pb-4">
-          <div className="space-y-0.5">
-            <span className="text-[9px] font-black tracking-widest text-[#0D2421]/50 uppercase block">03 / YOUR REFERRALS</span>
-            <h3 className="font-black text-lg uppercase text-[#0D2421]">Send Referrals to Members</h3>
-          </div>
-          <span className="text-xs font-black uppercase bg-[#BEF03C] text-[#0D2421] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] shadow-[2.5px_2.5px_0px_#0D2421]">
-            Captain Active
-          </span>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-          {tableUsers.map((tu: any) => (
-            <UserCard key={tu.user.id} tu={{ ...tu, table: { roundId: round.id, tableNumber } }} />
-          ))}
-          {tableUsers.length === 0 && (
-            <div className="col-span-full py-10 text-center text-xs font-bold text-[#0D2421]/40 uppercase tracking-wider">
-              No members at this table to send referrals to.
-            </div>
-          )}
-        </div>
-      </div>
 
     </div>
   );

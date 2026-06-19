@@ -8,7 +8,9 @@ import { CaptainActiveRound } from "./CaptainActiveRound";
 import { TableRealtimeListener } from "./TableRealtimeListener";
 import { DownloadMyReferralsButton } from "./DownloadMyReferralsButton";
 import { SelfSpeakerTimer } from "./SelfSpeakerTimer";
-import { ExclamationTriangleIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { UsersIcon, CheckBadgeIcon } from "@heroicons/react/24/solid";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
 
 export function DashboardClientWrapper({
   initialGameState,
@@ -39,6 +41,76 @@ export function DashboardClientWrapper({
 
   const completedRoundsCount = rounds.filter((r) => r.status === "COMPLETED").length;
   const allRoundsCompleted = rounds.length > 0 && completedRoundsCount === rounds.length;
+  const router = useRouter();
+
+  // Keep local state in sync with server props when router.refresh() fetches new data
+  useEffect(() => {
+    setGameState(initialGameState);
+    setRounds(initialRounds);
+    setReceivedReferrals(initialReceivedReferrals);
+    setLocalSentReferralUserIds(initialSentReferralUserIds);
+    setRoundProgresses(initialRoundProgress);
+  }, [initialGameState, initialRounds, initialReceivedReferrals, initialSentReferralUserIds, initialRoundProgress]);
+
+  // Handle missed broadcasts when device sleeps or screen turns off
+  useEffect(() => {
+    let hiddenAt: number | null = null;
+    let lastRefresh = Date.now();
+
+    const doRefresh = async (reason: string) => {
+      const now = Date.now();
+      // Debounce refreshes to max 1 per 5 seconds to be 100% fail-proof against spam
+      if (now - lastRefresh > 5000) {
+        console.log(`Triggering lightweight sync due to: ${reason}. Fetching latest state...`);
+        lastRefresh = now;
+        try {
+          const res = await fetch("/api/sync");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.gameState) setGameState(data.gameState);
+            if (data.rounds) setRounds(data.rounds);
+          } else {
+            console.warn("Failed to sync state. Falling back to full refresh.");
+            router.refresh();
+          }
+        } catch (err) {
+          console.error("Network error during sync", err);
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (document.visibilityState === "visible") {
+        if (hiddenAt && (Date.now() - hiddenAt > 10000)) {
+          doRefresh("Tab became visible after 10s sleep");
+        }
+        hiddenAt = null;
+      }
+    };
+    
+    const handleOnline = () => doRefresh("Network reconnected");
+
+    // Fail-proof OS sleep detection (catches aggressive iOS/macOS suspension where events might drop)
+    let lastTick = Date.now();
+    const sleepDetector = setInterval(() => {
+      const now = Date.now();
+      if (now - lastTick > 10000) {
+        doRefresh("CPU woke up from deep suspension (>10s)");
+      }
+      lastTick = now;
+    }, 2000);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      clearInterval(sleepDetector);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [router]);
 
   useEffect(() => {
     const channel = supabase
@@ -58,6 +130,11 @@ export function DashboardClientWrapper({
         if (payload?.action === "reset") {
           console.log(`[SET STATE EXECUTED] reset rounds and gamestate`);
           setRounds((prev) => prev.map((r) => ({ ...r, status: "PENDING" })));
+          setGameState((prev: any) => ({ ...prev, currentRoundId: null }));
+        }
+        if (payload?.action === "end_conclave") {
+          console.log(`[SET STATE EXECUTED] end_conclave`);
+          setRounds((prev) => prev.map((r) => ({ ...r, status: "COMPLETED" })));
           setGameState((prev: any) => ({ ...prev, currentRoundId: null }));
         }
       })
@@ -220,7 +297,7 @@ export function DashboardClientWrapper({
   const myAssignment = initialMyAssignments.find((a) => a.table.roundId === gameState.currentRoundId);
   const nextRound = rounds.find((r) => r.status === "PENDING" && r.roundNumber > (currentRound?.roundNumber || 0));
   const nextAssignment = nextRound ? initialMyAssignments.find((a) => a.table.roundId === nextRound.id) : null;
-  const currentRoundProgress = roundProgresses.find((rp: any) => rp.roundId === gameState.currentRoundId && rp.tableId === myAssignment?.tableId);
+  const currentRoundProgress = roundProgresses.find((rp: any) => rp.tableId === myAssignment?.tableId);
 
   console.log(`[REACT RENDER] currentRoundId=${gameState?.currentRoundId}, currentRoundStatus=${currentRound?.status}, myAssignmentFound=${!!myAssignment}`);
 
@@ -274,8 +351,8 @@ export function DashboardClientWrapper({
             </div>
           </div>
           <div className="flex-shrink-0">
-            <LiveControls 
-              updatedAtTime={currentRound?.startTime ? new Date(currentRound.startTime).getTime() : 0} 
+            <LiveControls
+              updatedAtTime={currentRound?.startTime ? new Date(currentRound.startTime).getTime() : 0}
               durationMinutes={currentRound?.durationMinutes}
               status={currentRound?.status}
             />
@@ -283,7 +360,7 @@ export function DashboardClientWrapper({
         </header>
 
         {isCaptain && currentRound && (
-          <CaptainActiveRound 
+          <CaptainActiveRound
             key={currentRound.id}
             round={{
               id: currentRound.id,
@@ -317,35 +394,51 @@ export function DashboardClientWrapper({
         )}
 
         {!isCaptain && (
-          <SelfSpeakerTimer 
+          <SelfSpeakerTimer
             key={currentRound?.id}
-            roundId={currentRound?.id as string} 
-            tableNumber={myAssignment.table.tableNumber} 
-            userId={sessionUser.id as string} 
+            roundId={currentRound?.id as string}
+            tableNumber={myAssignment.table.tableNumber}
+            userId={sessionUser.id as string}
             roundStatus={currentRound?.status}
           />
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-          {tableUsers.map((tu: any) => (
-            <UserCard 
-              key={tu.user.id} 
-              tu={{ ...tu, table: myAssignment.table }} 
-              alreadyReferred={sentReferralUserIds.has(tu.userId)} 
-              onReferralSent={() => handleReferralSent(tu.userId)}
-              roundStatus={currentRound?.status}
-            />
-          ))}
-          {tableUsers.length === 0 && (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-white space-y-4">
-              <div className="w-16 h-16 bg-[#FAF8F4] border border-[#0D2421]/35 rounded-full flex items-center justify-center mx-auto">
-                <UsersIcon className="w-8 h-8 text-[#0D2421]/40" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-black text-sm uppercase text-[#0D2421]/70">No other members assigned to this table yet</p>
-              </div>
+        <div className="bg-white border-3 border-[#0D2421] p-6 rounded-[2.5rem] shadow-[8px_8px_0px_#0D2421] space-y-6">
+          <div className="flex justify-between items-center border-b-2 border-dashed border-[#0D2421]/15 pb-4">
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-black tracking-widest text-[#0D2421]/50 uppercase block">
+                {isCaptain ? "03" : "02"} / YOUR REFERRALS
+              </span>
+              <h3 className="font-black text-lg uppercase text-[#0D2421]">Send Referrals to Members</h3>
             </div>
-          )}
+            {isCaptain && (
+              <span className="text-xs font-black uppercase bg-[#BEF03C] text-[#0D2421] px-3.5 py-1.5 rounded-xl border-2 border-[#0D2421] shadow-[2.5px_2.5px_0px_#0D2421]">
+                Captain Active
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+            {tableUsers.map((tu: any) => (
+              <UserCard
+                key={tu.user.id}
+                tu={{ ...tu, table: myAssignment.table }}
+                alreadyReferred={sentReferralUserIds.has(tu.userId)}
+                onReferralSent={() => handleReferralSent(tu.userId)}
+                roundStatus={currentRound?.status}
+              />
+            ))}
+            {tableUsers.length === 0 && (
+              <div className="col-span-full py-20 text-center border-2 border-dashed border-[#0D2421]/30 rounded-[2rem] bg-[#FAF8F4] space-y-4">
+                <div className="w-16 h-16 bg-white border border-[#0D2421]/35 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                  <UsersIcon className="w-8 h-8 text-[#0D2421]/40" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-black text-sm uppercase text-[#0D2421]/70">No other members assigned to this table</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

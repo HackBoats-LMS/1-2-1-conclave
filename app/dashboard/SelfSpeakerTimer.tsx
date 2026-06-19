@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export function SelfSpeakerTimer({
@@ -8,27 +8,34 @@ export function SelfSpeakerTimer({
   tableNumber,
   userId,
   roundStatus,
+  initialProgress,
 }: {
   roundId: string;
   tableNumber: number;
   userId: string;
   roundStatus?: string;
+  initialProgress?: any;
 }) {
   const [activeTimer, setActiveTimer] = useState<{ type: string; timeLeft: number } | null>(null);
+  
+  const targetEndTimeRef = useRef<number | null>(null);
+  const roundStatusRef = useRef(roundStatus);
+  useEffect(() => {
+    roundStatusRef.current = roundStatus;
+  }, [roundStatus]);
 
   useEffect(() => {
     if (!roundId || !tableNumber) return;
 
     let localInterval: NodeJS.Timeout | null = null;
-    let targetEndTime: number | null = null;
 
     // Shared function to initialize or adopt a timer
     const activateTimer = (payloadUserId: string, payloadType: string, payloadTargetEndTime: number) => {
       if (payloadUserId === userId) {
-        if (targetEndTime === payloadTargetEndTime) return;
+        if (targetEndTimeRef.current === payloadTargetEndTime) return;
 
-        targetEndTime = payloadTargetEndTime;
-        const remaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+        targetEndTimeRef.current = payloadTargetEndTime;
+        const remaining = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
 
         if (remaining > 0) {
           console.log(`[SelfSpeakerTimer] Activating timer for me! Type: ${payloadType}, remaining: ${remaining}`);
@@ -37,21 +44,21 @@ export function SelfSpeakerTimer({
 
           let lastTick = Date.now();
           localInterval = setInterval(() => {
-            if (!targetEndTime) return;
+            if (!targetEndTimeRef.current) return;
             const now = Date.now();
             const delta = now - lastTick;
             lastTick = now;
 
-            if (roundStatus?.startsWith("PAUSED_")) {
-              targetEndTime += delta;
+            if (roundStatusRef.current?.startsWith("PAUSED_")) {
+              targetEndTimeRef.current += delta;
             }
 
-            const currentRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+            const currentRemaining = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
             if (currentRemaining <= 0) {
               console.log(`[SelfSpeakerTimer] Timer finished!`);
               setActiveTimer(null);
               if (localInterval) clearInterval(localInterval);
-              targetEndTime = null;
+              targetEndTimeRef.current = null;
             } else {
               setActiveTimer(prev => prev ? { ...prev, timeLeft: currentRemaining } : null);
             }
@@ -60,15 +67,21 @@ export function SelfSpeakerTimer({
           console.log(`[SelfSpeakerTimer] Remaining <= 0, clearing timer.`);
           setActiveTimer(null);
           if (localInterval) clearInterval(localInterval);
-          targetEndTime = null;
+          targetEndTimeRef.current = null;
         }
       } else {
         console.log(`[SelfSpeakerTimer] Not for me. payloadUserId=${payloadUserId}, my userId=${userId}`);
         setActiveTimer(null);
         if (localInterval) clearInterval(localInterval);
-        targetEndTime = null;
+        targetEndTimeRef.current = null;
       }
     };
+
+    // Immediately restore from DB state if it's my turn
+    if (initialProgress?.activeSpeakerId === userId && initialProgress?.speakerEndTime) {
+      const targetTime = new Date(initialProgress.speakerEndTime).getTime();
+      activateTimer(userId, initialProgress.speakerTimerType, targetTime);
+    }
 
     const handleTimerStart = (e: any) => {
       const payload = e.detail;
@@ -86,7 +99,7 @@ export function SelfSpeakerTimer({
       if (!payload.userId || payload.userId === userId) {
         setActiveTimer(null);
         if (localInterval) clearInterval(localInterval);
-        targetEndTime = null;
+        targetEndTimeRef.current = null;
       }
     };
 
@@ -100,7 +113,9 @@ export function SelfSpeakerTimer({
       window.removeEventListener("conclave_timer_sync", handleTimerSync);
       window.removeEventListener("conclave_timer_stop", handleTimerStop);
     };
-  }, [roundId, tableNumber, userId, roundStatus]);
+    // Exclude roundStatus and initialProgress from dependencies so we don't destroy running intervals
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundId, tableNumber, userId]);
 
   if (!activeTimer) return null;
 

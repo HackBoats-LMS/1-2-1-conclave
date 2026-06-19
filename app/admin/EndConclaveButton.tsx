@@ -1,11 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { SubmitButton } from "../components/SubmitButton";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { AdminPinModal } from "./AdminPinModal";
 
 export function EndConclaveButton({ action }: { action: string | ((formData: FormData) => void) }) {
   const [open, setOpen] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const handleConfirmAction = () => {
+    setOpen(false);
+    setPinModalOpen(true);
+  };
+
+  const handlePinConfirm = (password: string) => {
+    setPinModalOpen(false);
+    const formData = new FormData();
+    formData.append("password", password);
+    startTransition(() => {
+      if (typeof action === "function") {
+        action(formData);
+      }
+    });
+  };
 
   return (
     <>
@@ -44,18 +63,24 @@ export function EndConclaveButton({ action }: { action: string | ((formData: For
               >
                 Cancel
               </button>
-              <form action={action} onSubmit={() => setOpen(false)} className="flex-1">
-                <SubmitButton
-                  loadingText="Ending..."
-                  className="w-full py-4 bg-red-500 hover:bg-red-600 text-white border-2 border-[#0D2421] rounded-2xl font-black uppercase text-sm shadow-[4px_4px_0px_#dc2626] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#dc2626] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[2px_2px_0px_#dc2626] transition-all cursor-pointer"
-                >
-                  End Conclave
-                </SubmitButton>
-              </form>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white border-2 border-[#0D2421] rounded-2xl font-black uppercase text-sm shadow-[4px_4px_0px_#dc2626] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_#dc2626] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[2px_2px_0px_#dc2626] transition-all cursor-pointer"
+              >
+                End Conclave
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <AdminPinModal
+        isOpen={pinModalOpen}
+        onClose={() => setPinModalOpen(false)}
+        onConfirm={handlePinConfirm}
+        promptText="Enter Admin Pin to permanently end conclave:"
+      />
     </>
   );
 }

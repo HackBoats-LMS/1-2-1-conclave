@@ -7,17 +7,19 @@ interface SubmitButtonProps {
   className?: string;
   loadingText?: string;
   title?: string;
+  disabled?: boolean;
 }
 
-export function SubmitButton({ children, className = "", loadingText = "Processing...", title }: SubmitButtonProps) {
+export function SubmitButton({ children, className = "", loadingText = "Processing...", title, disabled = false }: SubmitButtonProps) {
   const { pending } = useFormStatus();
+  const isDisabled = pending || disabled;
 
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={isDisabled}
       title={title}
-      className={`${className} ${pending ? "opacity-70 cursor-not-allowed" : ""} flex items-center justify-center gap-2 transition-all`}
+      className={`${className} ${isDisabled ? "opacity-70 cursor-not-allowed pointer-events-none" : ""} flex items-center justify-center gap-2 transition-all`}
     >
       {pending ? (
         <>

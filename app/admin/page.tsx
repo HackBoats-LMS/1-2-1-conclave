@@ -702,6 +702,7 @@ export default async function AdminDashboard() {
                                   <input type="hidden" name="roundId" value={round.id} />
                                   <SubmitButton
                                     loadingText="Launching..."
+                                    disabled={round.status === 'COMPLETED'}
                                     className={`w-full py-2.5 text-xs rounded-xl font-black uppercase border-2 border-[#0D2421] transition-all ${round.status === 'COMPLETED'
                                       ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
                                       : 'bg-[#BEF03C] text-[#0D2421] hover:bg-[#A6DF2B] shadow-[3px_3px_0px_#0D2421] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer'
