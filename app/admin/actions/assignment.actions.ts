@@ -193,14 +193,15 @@ export async function seatLatecomers() {
         for (const t of round.tables) {
           let score = 0;
           
-          // Penalize for size to keep tables somewhat balanced
-          score -= (t.assignments.length * 10);
+          // PRIMARY: penalize heavily for size to keep tables balanced
+          // This ensures the smallest table is always preferred
+          score -= (t.assignments.length * 1000);
 
-          // Penalize for category collision
+          // SECONDARY: light penalty for category collision (tiebreaker only)
           for (const existingAssignment of t.assignments) {
             const existingCat = existingAssignment.user.businessCategory;
             if (existingCat && u.businessCategory && existingCat === u.businessCategory && existingCat !== "N/A") {
-              score -= 500;
+              score -= 50;
             }
           }
 
