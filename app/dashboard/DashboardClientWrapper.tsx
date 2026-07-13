@@ -320,7 +320,11 @@ export function DashboardClientWrapper({
     );
   }
 
-  const tableUsers = initialTableUsers.filter((tu) => tu.tableId === myAssignment.tableId && tu.userId !== sessionUser.id);
+  const tableUsers = initialTableUsers.filter((tu) => 
+    tu.tableId === myAssignment.tableId && 
+    tu.userId !== sessionUser.id &&
+    (tu.user.onboardingCompleted || tu.isCaptain)
+  );
   const sentReferralUserIds = new Set(localSentReferralUserIds);
 
   const handleReferralSent = (toUserId: string) => {
@@ -374,6 +378,7 @@ export function DashboardClientWrapper({
             tableUsers={tableUsers}
             sessionUser={sessionUser}
             initialProgress={currentRoundProgress}
+            gameState={gameState}
           />
         )}
 

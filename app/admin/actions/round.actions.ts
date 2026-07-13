@@ -207,6 +207,47 @@ export async function updateShiftDuration(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function updateRoundTimers(formData: FormData) {
+  await requireAdmin();
+  const briefingDuration = parseInt(formData.get("briefingDuration") as string, 10);
+  const pitchDuration = parseInt(formData.get("pitchDuration") as string, 10);
+  const referralDuration = parseInt(formData.get("referralDuration") as string, 10);
+
+  if (isNaN(briefingDuration) || isNaN(pitchDuration) || isNaN(referralDuration)) {
+    await setError("Invalid durations provided");
+    revalidatePath("/admin");
+    return;
+  }
+
+  try {
+    const state = await prisma.gameState.findFirst();
+    let updatedState;
+    if (state) {
+      updatedState = await prisma.gameState.update({
+        where: { id: state.id },
+        data: { briefingDuration, pitchDuration, referralDuration }
+      });
+    } else {
+      updatedState = await prisma.gameState.create({
+        data: { briefingDuration, pitchDuration, referralDuration }
+      });
+    }
+
+    // Broadcast instantly so open dashboards can snap to the new config
+    const { broadcast } = await import("@/lib/broadcaster");
+    await broadcast('round_state_change', { action: 'update_timers', gameState: updatedState });
+
+  } catch (e: any) {
+    console.error(e);
+    await setError(e.message || "Failed to update round timers");
+    revalidatePath("/admin");
+    return;
+  }
+  await setSuccess("updated_timers");
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+}
+
 export async function toggleAutoMode() {
   await requireAdmin();
   try {

@@ -115,6 +115,9 @@ export function AutoGenerateClient({ captainCount, memberCount, visitorCount = 0
   const [savingProgress, setSavingProgress] = useState<{ current: number, total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [maxRounds, setMaxRounds] = useState<number | string>(10);
+  const [enableLimits, setEnableLimits] = useState(false);
+  const [targetMembers, setTargetMembers] = useState<number | string>(6);
+  const [targetVisitors, setTargetVisitors] = useState<number | string>(2);
 
   useEffect(() => {
     const savedMax = localStorage.getItem("conclave_max_rounds");
@@ -145,6 +148,21 @@ export function AutoGenerateClient({ captainCount, memberCount, visitorCount = 0
       const C = captains.length;
       if (C === 0) throw new Error("No captains found. Upload captain emails first.");
       if (members.length === 0 && visitors.length === 0) throw new Error("No members or visitors found. Upload attendees first.");
+
+      if (enableLimits) {
+        const expectedMembers = Math.ceil(members.length / C);
+        const expectedVisitors = visitors.length > 0 ? Math.ceil(visitors.length / C) : 0;
+        
+        const maxM = typeof targetMembers === "number" ? targetMembers : 6;
+        const maxV = typeof targetVisitors === "number" ? targetVisitors : 2;
+
+        if (expectedMembers > maxM + 1) {
+          throw new Error(`Limit Exceeded: Fitting ${members.length} members into ${C} tables means ~${expectedMembers} per table. You set a limit of ${maxM}. Upload more captains.`);
+        }
+        if (expectedVisitors > maxV + 1) {
+          throw new Error(`Limit Exceeded: Fitting ${visitors.length} visitors into ${C} tables means ~${expectedVisitors} per table. You set a limit of ${maxV}. Upload more captains.`);
+        }
+      }
 
       const memberIds = members.map(m => m.id);
       const visitorIds = visitors.map(v => v.id);
@@ -388,6 +406,42 @@ export function AutoGenerateClient({ captainCount, memberCount, visitorCount = 0
               />
             </div>
           </div>
+          
+          <div className="flex flex-col gap-3 p-4 bg-white border-2 border-[#0D2421]/20 rounded-xl">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={enableLimits} 
+                onChange={(e) => setEnableLimits(e.target.checked)} 
+                className="w-4 h-4 accent-[#BEF03C]"
+              />
+              <span className="text-[10px] font-black text-[#0D2421] uppercase tracking-wider">Enable Client Specific Table Limits</span>
+            </label>
+            
+            {enableLimits && (
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-[#0D2421]/70 uppercase tracking-wider">Target Members/Table</label>
+                  <input 
+                    type="number" 
+                    value={targetMembers}
+                    onChange={handleNumericChange(setTargetMembers, "conclave_target_members")}
+                    className="p-2 border-2 border-[#0D2421] bg-[#FAF8F4] rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 text-xs"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-[#0D2421]/70 uppercase tracking-wider">Target Visitors/Table</label>
+                  <input 
+                    type="number" 
+                    value={targetVisitors}
+                    onChange={handleNumericChange(setTargetVisitors, "conclave_target_visitors")}
+                    className="p-2 border-2 border-[#0D2421] bg-[#FAF8F4] rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <p className="text-[10px] text-[#0D2421]/60 font-semibold uppercase tracking-wide leading-relaxed">
             The engine forces table rotation and evenly spreads members and visitors. It strictly penalizes placing people from the same <span className="font-bold">Business Category</span> at the same table.
           </p>
