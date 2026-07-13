@@ -30,9 +30,10 @@ interface CaptainActiveRoundProps {
     name?: string | null;
   };
   initialProgress?: any;
+  gameState?: any;
 }
 
-export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, sessionUser, initialProgress }: CaptainActiveRoundProps) {
+export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, sessionUser, initialProgress, gameState }: CaptainActiveRoundProps) {
   const [elapsedTime, setElapsedTime] = useState(0);
 
   // Initialize from DB if exists
@@ -193,7 +194,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
     referredUsersRef.current = referredUsers;
   }, [allParticipants, pitchedUsers, referredUsers]);
 
-  const pitchDurationSec = 60; // 60s for all pitches
+  const pitchDurationSec = gameState?.pitchDuration || 60;
 
   // Keep muted ref in sync
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
@@ -329,7 +330,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
 
   const memberCount = allParticipants.filter(p => !p.isCaptain).length || 8;
 
-  const stage2Start = 60;
+  const stage2Start = gameState?.briefingDuration || 60;
   const stage3Start = stage2Start + (memberCount * pitchDurationSec);
 
   let computedPhase = 1;
@@ -351,7 +352,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
     if (!round.startTime || round.status?.startsWith("PAUSED_")) return;
     if (currentPhase === 1 && !briefingStarted) {
       setBriefingStarted(true);
-      const briefingDuration = 60;
+      const briefingDuration = gameState?.briefingDuration || 60;
       const alreadyElapsed = elapsedTime;
       const remaining = Math.max(0, briefingDuration - alreadyElapsed);
       briefingEndTimeRef.current = Date.now() + remaining * 1000;
@@ -403,7 +404,7 @@ export function CaptainActiveRound({ round, tableNumber, tableId, tableUsers, se
       if (nextSpeaker) {
         const nextId = nextSpeaker.id;
         const timer = setTimeout(() => {
-          startSpeakerTimerRef.current(nextId, 30, "REFERRAL");
+          startSpeakerTimerRef.current(nextId, gameState?.referralDuration || 30, "REFERRAL");
         }, 800); // 800ms brief transition pause
         return () => clearTimeout(timer);
       } else {

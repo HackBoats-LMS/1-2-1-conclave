@@ -124,11 +124,14 @@ model Referral {
 }
 
 model GameState {
-  id             String  @id @default(cuid())
-  currentRoundId String?
-  shiftDuration  Int     @default(3)
-  isAutoMode     Boolean @default(false)
-  isOpenLogins   Boolean @default(false)
+  id               String  @id @default(cuid())
+  currentRoundId   String?
+  shiftDuration    Int     @default(3)
+  briefingDuration Int     @default(60)
+  pitchDuration    Int     @default(60)
+  referralDuration Int     @default(30)
+  isAutoMode       Boolean @default(false)
+  isOpenLogins     Boolean @default(false)
 }
 
 model ArchivedEvent {

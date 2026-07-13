@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
-import { startRound, stopRound, pauseRound, resetAllRounds, updateAllRoundsDuration, updateShiftDuration, toggleAutoMode, toggleOpenLogin, endConclave } from "./actions/round.actions";
+import { startRound, stopRound, pauseRound, resetAllRounds, updateAllRoundsDuration, updateShiftDuration, updateRoundTimers, toggleAutoMode, toggleOpenLogin, endConclave } from "./actions/round.actions";
 import { addManualUser, removeAllUsers, deleteUserAccount } from "./actions/user.actions";
 import { clearAssignments, clearReferrals, seatLatecomers } from "./actions/assignment.actions";
 import { AdminAutoShiftingManager } from "./AdminAutoShiftingManager";
@@ -584,6 +584,54 @@ export default async function AdminDashboard() {
                           <SubmitButton loadingText="Apply" className="flex-1 h-10 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center">
                             Set Shift
                           </SubmitButton>
+                        </div>
+                      </form>
+                      
+                      {/* Round Phase Timers Form */}
+                      <form action={updateRoundTimers} className="space-y-2 col-span-2 pt-2 border-t-2 border-[#0D2421]/10">
+                        <label className="block text-[9px] font-black uppercase tracking-wider text-[#0D2421]/50">Round Phase Timers (Seconds)</label>
+                        <div className="flex gap-2">
+                          <div className="flex flex-col flex-1 gap-1">
+                            <span className="text-[8px] font-black uppercase text-[#0D2421]/40 text-center">Briefing</span>
+                            <input
+                              type="number"
+                              name="briefingDuration"
+                              min={0}
+                              max={300}
+                              defaultValue={gameState?.briefingDuration || 60}
+                              required
+                              className="w-full h-10 border-2 border-[#0D2421] bg-white rounded-xl font-bold text-center text-xs focus:outline-none shadow-[2px_2px_0px_#0D2421]"
+                            />
+                          </div>
+                          <div className="flex flex-col flex-1 gap-1">
+                            <span className="text-[8px] font-black uppercase text-[#0D2421]/40 text-center">Pitch</span>
+                            <input
+                              type="number"
+                              name="pitchDuration"
+                              min={10}
+                              max={300}
+                              defaultValue={gameState?.pitchDuration || 60}
+                              required
+                              className="w-full h-10 border-2 border-[#0D2421] bg-white rounded-xl font-bold text-center text-xs focus:outline-none shadow-[2px_2px_0px_#0D2421]"
+                            />
+                          </div>
+                          <div className="flex flex-col flex-1 gap-1">
+                            <span className="text-[8px] font-black uppercase text-[#0D2421]/40 text-center">Referral</span>
+                            <input
+                              type="number"
+                              name="referralDuration"
+                              min={10}
+                              max={300}
+                              defaultValue={gameState?.referralDuration || 30}
+                              required
+                              className="w-full h-10 border-2 border-[#0D2421] bg-white rounded-xl font-bold text-center text-xs focus:outline-none shadow-[2px_2px_0px_#0D2421]"
+                            />
+                          </div>
+                          <div className="flex flex-col justify-end">
+                            <SubmitButton loadingText=".." className="w-16 h-10 bg-[#BEF03C] hover:bg-[#A6DF2B] text-[#0D2421] border-2 border-[#0D2421] rounded-xl text-xs font-black uppercase shadow-[2px_2px_0px_#0D2421] transition-all cursor-pointer flex items-center justify-center">
+                              Save
+                            </SubmitButton>
+                          </div>
                         </div>
                       </form>
                     </div>
