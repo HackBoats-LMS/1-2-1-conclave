@@ -242,9 +242,16 @@ export function UserCard({ tu, alreadyReferred = false, onReferralSent, roundSta
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-black text-lg uppercase truncate">{user.name || user.businessName || user.email}</h3>
-              <p className="text-xs font-bold text-[#BEF03C] bg-[#0D2421] border border-[#0D2421] px-2 py-0.5 rounded inline-block uppercase truncate tracking-wide max-w-full">
-                {user.businessCategory || "Participant"}
-              </p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                <span className="text-xs font-bold text-[#BEF03C] bg-[#0D2421] border border-[#0D2421] px-2 py-0.5 rounded inline-block uppercase truncate tracking-wide max-w-full">
+                  {user.businessCategory || "Participant"}
+                </span>
+                {(user.chapterName || user.regionName) && (
+                  <span className="text-[10px] font-bold text-[#0D2421]/60 border border-[#0D2421]/20 bg-black/5 px-2 py-0.5 rounded inline-block uppercase truncate tracking-wide max-w-full">
+                    📍 {user.chapterName || "N/A"} {user.regionName ? `· ${user.regionName}` : ""}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           

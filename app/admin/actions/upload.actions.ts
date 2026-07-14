@@ -17,13 +17,19 @@ export async function uploadWhitelistExcel(formData: FormData) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet);
 
-    const usersData: { email: string; group: string | null }[] = [];
+    const usersData: { email: string; group: string | null; chapterName: string | null; regionName: string | null }[] = [];
     for (const row of data) {
       const emailKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
       );
       const groupKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("group") || key.toLowerCase().includes("college") || key.toLowerCase().includes("company") || key.toLowerCase().includes("org")
+      );
+      const chapterKey = Object.keys(row).find(key =>
+        key.toLowerCase().includes("chapter")
+      );
+      const regionKey = Object.keys(row).find(key =>
+        key.toLowerCase().includes("region")
       );
 
       const rawEmail = emailKey ? row[emailKey] : null;
@@ -32,7 +38,9 @@ export async function uploadWhitelistExcel(formData: FormData) {
         if (email) {
           usersData.push({
             email,
-            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null
+            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null,
+            chapterName: chapterKey && row[chapterKey] ? String(row[chapterKey]).trim() : null,
+            regionName: regionKey && row[regionKey] ? String(row[regionKey]).trim() : null
           });
         }
       }
@@ -54,7 +62,9 @@ export async function uploadWhitelistExcel(formData: FormData) {
           email: u.email,
           isApproved: true,
           role: "USER",
-          group: u.group
+          group: u.group,
+          chapterName: u.chapterName,
+          regionName: u.regionName
         })),
         skipDuplicates: true
       });
@@ -67,7 +77,7 @@ export async function uploadWhitelistExcel(formData: FormData) {
         await prisma.$transaction(
           batch.map(u => prisma.user.update({
             where: { email: u.email },
-            data: { isApproved: true, group: u.group }
+            data: { isApproved: true, group: u.group, chapterName: u.chapterName, regionName: u.regionName }
           }))
         );
       }
@@ -94,7 +104,7 @@ export async function uploadVisitorExcel(formData: FormData) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet);
 
-    const usersData: { email: string; businessCategory: string | null }[] = [];
+    const usersData: { email: string; businessCategory: string | null; chapterName: string | null; regionName: string | null }[] = [];
     for (const row of data) {
       const emailKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
@@ -103,6 +113,12 @@ export async function uploadVisitorExcel(formData: FormData) {
       const catKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("category") || key.toLowerCase().includes("group") || key.toLowerCase().includes("business")
       );
+      const chapterKey = Object.keys(row).find(key =>
+        key.toLowerCase().includes("chapter")
+      );
+      const regionKey = Object.keys(row).find(key =>
+        key.toLowerCase().includes("region")
+      );
 
       const rawEmail = emailKey ? row[emailKey] : null;
       if (typeof rawEmail === "string") {
@@ -110,7 +126,9 @@ export async function uploadVisitorExcel(formData: FormData) {
         if (email) {
           usersData.push({
             email,
-            businessCategory: catKey && row[catKey] ? String(row[catKey]).trim() : null
+            businessCategory: catKey && row[catKey] ? String(row[catKey]).trim() : null,
+            chapterName: chapterKey && row[chapterKey] ? String(row[chapterKey]).trim() : null,
+            regionName: regionKey && row[regionKey] ? String(row[regionKey]).trim() : null
           });
         }
       }
@@ -132,7 +150,9 @@ export async function uploadVisitorExcel(formData: FormData) {
           email: u.email,
           isApproved: true,
           role: "VISITOR",
-          businessCategory: u.businessCategory
+          businessCategory: u.businessCategory,
+          chapterName: u.chapterName,
+          regionName: u.regionName
         })),
         skipDuplicates: true
       });
@@ -145,7 +165,7 @@ export async function uploadVisitorExcel(formData: FormData) {
         await prisma.$transaction(
           batch.map(u => prisma.user.update({
             where: { email: u.email },
-            data: { isApproved: true, role: "VISITOR", businessCategory: u.businessCategory }
+            data: { isApproved: true, role: "VISITOR", businessCategory: u.businessCategory, chapterName: u.chapterName, regionName: u.regionName }
           }))
         );
       }
@@ -172,13 +192,19 @@ export async function uploadCaptainExcel(formData: FormData) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet);
 
-    const usersData: { email: string; group: string | null }[] = [];
+    const usersData: { email: string; group: string | null; chapterName: string | null; regionName: string | null }[] = [];
     for (const row of data) {
       const emailKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("email") || key.toLowerCase() === "mail" || key.toLowerCase() === "user"
       );
       const groupKey = Object.keys(row).find(key =>
         key.toLowerCase().includes("group") || key.toLowerCase().includes("college") || key.toLowerCase().includes("company") || key.toLowerCase().includes("org")
+      );
+      const chapterKey = Object.keys(row).find(key =>
+        key.toLowerCase().includes("chapter")
+      );
+      const regionKey = Object.keys(row).find(key =>
+        key.toLowerCase().includes("region")
       );
 
       const rawEmail = emailKey ? row[emailKey] : null;
@@ -187,7 +213,9 @@ export async function uploadCaptainExcel(formData: FormData) {
         if (email) {
           usersData.push({
             email,
-            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null
+            group: groupKey && row[groupKey] ? String(row[groupKey]).trim() : null,
+            chapterName: chapterKey && row[chapterKey] ? String(row[chapterKey]).trim() : null,
+            regionName: regionKey && row[regionKey] ? String(row[regionKey]).trim() : null
           });
         }
       }
@@ -209,7 +237,9 @@ export async function uploadCaptainExcel(formData: FormData) {
           email: u.email,
           isApproved: true,
           role: "CAPTAIN",
-          group: u.group
+          group: u.group,
+          chapterName: u.chapterName,
+          regionName: u.regionName
         })),
         skipDuplicates: true
       });
@@ -222,7 +252,7 @@ export async function uploadCaptainExcel(formData: FormData) {
         await prisma.$transaction(
           batch.map(u => prisma.user.update({
             where: { email: u.email },
-            data: { isApproved: true, role: "CAPTAIN", group: u.group }
+            data: { isApproved: true, role: "CAPTAIN", group: u.group, chapterName: u.chapterName, regionName: u.regionName }
           }))
         );
       }

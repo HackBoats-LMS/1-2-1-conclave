@@ -22,6 +22,8 @@ model User {
   isApproved          Boolean           @default(false)
   onboardingCompleted Boolean           @default(false)
   group               String?
+  chapterName         String?
+  regionName          String?
   sentReferralsCount  Int               @default(0)
   receivedReferralsCount Int            @default(0)
   accounts            Account[]

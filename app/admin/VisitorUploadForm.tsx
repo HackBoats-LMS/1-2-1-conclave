@@ -93,6 +93,9 @@ export function VisitorUploadForm() {
                 <span className="text-xs font-black uppercase text-[#0D2421]/70">
                   Choose Visitor Email Spreadsheet
                 </span>
+                <span className="text-[9px] font-bold text-[#0D2421]/40 uppercase tracking-wider mt-1 text-center max-w-[250px]">
+                  Supports: Email, Category, Chapter, Region<br/>(Compatible with Google Forms Export)
+                </span>
               </>
             )}
           </div>
