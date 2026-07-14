@@ -169,9 +169,19 @@ export function AutoGenerateClient({ captainCount, memberCount, visitorCount = 0
       const captainIds = captains.map(c => c.id);
       
       const userCategory = new Map<string, string>();
-      members.forEach(m => userCategory.set(m.id, normalizeCategory(m.businessCategory)));
-      visitors.forEach(v => userCategory.set(v.id, normalizeCategory(v.businessCategory)));
-      captains.forEach(c => userCategory.set(c.id, normalizeCategory(c.businessCategory)));
+      const userChapter = new Map<string, string>();
+      members.forEach(m => {
+        userCategory.set(m.id, normalizeCategory(m.businessCategory));
+        userChapter.set(m.id, (m.chapterName || "").trim().toLowerCase());
+      });
+      visitors.forEach(v => {
+        userCategory.set(v.id, normalizeCategory(v.businessCategory));
+        userChapter.set(v.id, (v.chapterName || "").trim().toLowerCase());
+      });
+      captains.forEach(c => {
+        userCategory.set(c.id, normalizeCategory(c.businessCategory));
+        userChapter.set(c.id, (c.chapterName || "").trim().toLowerCase());
+      });
 
       await yieldToMain();
 
@@ -211,9 +221,18 @@ export function AutoGenerateClient({ captainCount, memberCount, visitorCount = 0
         const evalTableLocal = (tableMembers: string[], tableVisitors: string[], tableIdx: number) => {
             let score = 0;
             const allIds = [...tableMembers, ...tableVisitors, captainIds[tableIdx]];
+            
+            // Track chapters to penalize if too many from the same chapter are at one table
+            const chapterCounts = new Map<string, number>();
+
             for (let i = 0; i < allIds.length; i++) {
                 const u = allIds[i];
                 const isCap = captainIdsSet.has(u);
+
+                const chapU = userChapter.get(u);
+                if (chapU && chapU !== "") {
+                  chapterCounts.set(chapU, (chapterCounts.get(chapU) || 0) + 1);
+                }
 
                 if (!isCap) {
                     if (lastRoundTable.get(u) === tableIdx) score -= 1000;
@@ -231,6 +250,16 @@ export function AutoGenerateClient({ captainCount, memberCount, visitorCount = 0
                     if (!currentMet.get(u)?.has(v)) score += 1;
                 }
             }
+            
+            // For a table of ~8 people, if more than 3 are from the exact same chapter, heavily penalize.
+            // This ensures they are mixed. 
+            chapterCounts.forEach(count => {
+              if (count > 3) {
+                // progressive penalty: 4 people = -100, 5 people = -200...
+                score -= ((count - 3) * 100);
+              }
+            });
+
             return score;
         };
 

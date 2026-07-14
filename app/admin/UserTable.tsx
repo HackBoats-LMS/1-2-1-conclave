@@ -10,6 +10,8 @@ interface UserRow {
   email: string | null;
   businessName: string | null;
   businessCategory: string | null;
+  chapterName: string | null;
+  regionName: string | null;
   isApproved: boolean;
   role: string;
 }
@@ -105,6 +107,7 @@ export function UserTable({ users }: { users: UserRow[] }) {
             <tr className="bg-[#FAF8F4] border-b-2 border-[#0D2421]">
               <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider">Name / Email</th>
               <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider">Business Details</th>
+              <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider">Chapter / Region</th>
               <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-center">Login Whitelist</th>
               <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-center">Auth Level</th>
               <th className="py-4 px-6 font-black uppercase text-xs text-[#0D2421]/60 tracking-wider text-right">
@@ -122,6 +125,10 @@ export function UserTable({ users }: { users: UserRow[] }) {
                 <td className="py-4 px-6">
                   <div className="font-black text-sm text-[#0D2421]">{user.businessName || "-"}</div>
                   <div className="text-slate-400 font-bold uppercase text-[10px] tracking-wide">{user.businessCategory || "-"}</div>
+                </td>
+                <td className="py-4 px-6">
+                  <div className="font-black text-sm text-[#0D2421]">{user.chapterName || "-"}</div>
+                  <div className="text-slate-400 font-bold uppercase text-[10px] tracking-wide">{user.regionName || "-"}</div>
                 </td>
                 <td className="py-4 px-6 text-center">
                   <span className={`inline-flex items-center px-3 py-1 rounded-xl border border-[#0D2421] font-black text-[9px] uppercase shadow-[1.5px_1.5px_0px_#0D2421] ${
@@ -152,7 +159,7 @@ export function UserTable({ users }: { users: UserRow[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-[#0D2421]/40 font-bold uppercase tracking-wider">
+                <td colSpan={6} className="py-12 text-center text-[#0D2421]/40 font-bold uppercase tracking-wider">
                   {users.length === 0 ? "No registered users in database" : "No users match your search"}
                 </td>
               </tr>

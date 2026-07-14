@@ -10,6 +10,8 @@ export async function completeOnboarding(formData: FormData) {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   const name = formData.get("name") as string;
+  const chapterName = formData.get("chapterName") as string;
+  const regionName = formData.get("regionName") as string | null;
   const businessName = formData.get("businessName") as string;
   const businessCategory = formData.get("businessCategory") as string;
   const contactNumber = formData.get("contactNumber") as string;
@@ -25,6 +27,8 @@ export async function completeOnboarding(formData: FormData) {
     where: { id: user.id },
     data: {
       name,
+      chapterName,
+      regionName: regionName || null,
       businessName,
       businessCategory,
       contactNumber,

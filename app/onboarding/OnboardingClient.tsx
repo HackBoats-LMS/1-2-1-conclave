@@ -65,6 +65,31 @@ export function OnboardingClient({ userRole }: { userRole?: string }) {
 
       <div className="space-y-1">
         <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+          Chapter Name
+        </label>
+        <input 
+          required 
+          name="chapterName" 
+          type="text" 
+          className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30" 
+          placeholder="e.g. Chanakya" 
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
+          Region Name <span className="text-[#0D2421]/40 normal-case font-bold">(optional)</span>
+        </label>
+        <input 
+          name="regionName" 
+          type="text" 
+          className="w-full bg-[#FAF8F4] border-2 border-[#0D2421] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BEF03C]/50 transition-all font-bold placeholder:text-[#0D2421]/30" 
+          placeholder="e.g. North, South" 
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-xs font-black uppercase tracking-wider text-[#0D2421]">
           Contact Number
         </label>
         <input 

@@ -40,17 +40,17 @@ export async function fetchUsersForGeneration() {
     const captains = await prisma.user.findMany({
       where: { role: "CAPTAIN", isApproved: true },
       orderBy: { email: 'asc' },
-      select: { id: true, email: true, group: true, businessCategory: true }
+      select: { id: true, email: true, group: true, businessCategory: true, chapterName: true }
     });
     const members = await prisma.user.findMany({
       where: { role: "USER", isApproved: true },
       orderBy: { email: 'asc' },
-      select: { id: true, email: true, group: true, businessCategory: true }
+      select: { id: true, email: true, group: true, businessCategory: true, chapterName: true }
     });
     const visitors = await prisma.user.findMany({
       where: { role: "VISITOR", isApproved: true },
       orderBy: { email: 'asc' },
-      select: { id: true, email: true, group: true, businessCategory: true }
+      select: { id: true, email: true, group: true, businessCategory: true, chapterName: true }
     });
     return { captains, members, visitors, error: null };
   } catch (error: any) {
